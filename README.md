@@ -105,6 +105,8 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 
 > **Wichtig:** E3DC Maestro liest Sensoren aus `e3dc_rscp` und ruft dessen Services auf (`set_power_limits`, `set_power_mode`, `manual_charge`). Ohne eine funktionsfähige und korrekt konfigurierte `e3dc_rscp`-Integration kann Maestro den Speicher **nicht steuern**.
 
+> **⚠️ AI360 muss deaktiviert sein:** Die E3DC-eigene **AI360**-Funktion muss in den E3DC-Geräteeinstellungen deaktiviert werden. AI360 übersteuert externe Ladevorgaben und ignoriert die Regelungen von Maestro — beide Systeme sind nicht gleichzeitig betreibbar. Die Einstellung findet sich im E3DC-Webinterface oder der E3DC-App unter *Einstellungen → Energiemanagement → AI360*.
+
 ---
 
 ## Abhängigkeit: e3dc_rscp konfigurieren

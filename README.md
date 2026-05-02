@@ -4,6 +4,8 @@ Eine Home Assistant Custom Integration für die **intelligente, vollautomatische
 
 E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänzt die `e3dc_rscp`-Integration um eine regelbasierte Steuerung mit 17 priorisierten Phasen, vorausschauendem Laden, Abregelschutz, PV-Prognose, Tarifspreizung, Wallbox- und Wärmepumpenregelung sowie einem Auto-Optimierungsmodus.
 
+[![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/tommigraf)
+
 ---
 
 ## Inhaltsverzeichnis

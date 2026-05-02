@@ -9,11 +9,12 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 ## Inhaltsverzeichnis
 
 1. [Funktionsübersicht](#funktionsübersicht)
-2. [Voraussetzungen](#voraussetzungen)
-3. [Abhängigkeit: e3dc_rscp konfigurieren](#abhängigkeit-e3dc_rscp-konfigurieren)
-4. [Installation via HACS](#installation-via-hacs)
-5. [Einrichtung (Config Flow)](#einrichtung-config-flow)
-6. [Bereitgestellte Entitäten](#bereitgestellte-entitäten)
+2. [Screenshots](#screenshots)
+3. [Voraussetzungen](#voraussetzungen)
+4. [Abhängigkeit: e3dc_rscp konfigurieren](#abhängigkeit-e3dc_rscp-konfigurieren)
+5. [Installation via HACS](#installation-via-hacs)
+6. [Einrichtung (Config Flow)](#einrichtung-config-flow)
+7. [Bereitgestellte Entitäten](#bereitgestellte-entitäten)
    - [Sensoren – Standard (aktiviert)](#sensoren--standard-aktiviert)
    - [Sensoren – Diagnose (manuell aktivieren)](#sensoren--diagnose-manuell-aktivieren)
    - [Wie aktiviere ich deaktivierte Entitäten?](#wie-aktiviere-ich-deaktivierte-entitäten)
@@ -56,6 +57,37 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 | **Wärmepumpen-Regelung** | Ein/Aus nach PV-Überschuss mit Mindestlaufzeit und Mindestpause |
 | **Erzwungene Entladung** | Dashboard-Schalter für manuelle Entladung, z. B. um vor einem Tibber-Niedrigpreisfenster Kapazität zu schaffen |
 | **173 automatisierte Tests** | Control-Engine, Forecast-Simulator und Optimizer vollständig abgedeckt |
+
+---
+
+## Screenshots
+
+### Tab 1 – Dashboard & Echtzeit-Übersicht
+![Dashboard Übersicht](Screenshots/01_dashboard_uebersicht.png)
+
+### Tab 2 – Laden & Ladestrategie
+![Laden & Ladestrategie](Screenshots/02_laden_ladestrategie.png)
+
+### Tab 3 – Zeitplanung & Astro-Modus
+![Zeitplanung & Astro-Modus](Screenshots/03_zeitplanung_astro.png)
+
+### Tab 4 – Netz & Tarif
+![Netz & Tarif](Screenshots/04_netz_tarif.png)
+
+### Tab 5 – Flexibilität (Wallbox, Wärmepumpe, Vorentladung)
+![Flexibilität Wallbox Wärmepumpe](Screenshots/05_flexibilitaet_wallbox.png)
+
+### Tab 6 – Einstellungen & Systemparameter
+![Einstellungen Systemparameter](Screenshots/06_einstellungen_system.png)
+
+### Tab 7 – Diagnose & Debug
+![Diagnose & Debug](Screenshots/07_diagnose.png)
+
+### Tab 8 – Hilfe & Glossar
+![Hilfe & Glossar](Screenshots/08_hilfe_glossar.png)
+
+### Tab 9 – Auto-Optimierung
+![Auto-Optimierung](Screenshots/09_auto_optimierung.png)
 
 ---
 

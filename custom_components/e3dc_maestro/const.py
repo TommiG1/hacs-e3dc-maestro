@@ -2,7 +2,7 @@
 
 DOMAIN = "e3dc_maestro"
 NAME = "E3DC Maestro"
-VERSION = "0.1.6"
+VERSION = "0.1.5"
 
 # Integration expects e3dc_rscp to be configured
 E3DC_RSCP_DOMAIN = "e3dc_rscp"

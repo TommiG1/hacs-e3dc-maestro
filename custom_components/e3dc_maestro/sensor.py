@@ -477,5 +477,5 @@ def _device_info(coordinator: E3DCMaestroCoordinator) -> dict:
         "name": "E3DC Maestro",
         "manufacturer": "E3DC Maestro",
         "model": "Charge Orchestrator",
-        "sw_version": "0.1.4",
+        "sw_version": "0.1.5",
     }

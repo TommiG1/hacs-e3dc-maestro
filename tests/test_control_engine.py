@@ -1691,12 +1691,12 @@ class TestMorningCap:
         assert result.phase != PHASE_MORNING_CAP
 
     def test_soc_at_cap_before_threshold_returns_morning_cap(self):
-        """SoC at cap before until_h → idle with phase MORNING_CAP."""
+        """SoC at cap before until_h → idle with phase MORNING_CAP and active 0 W charge limit."""
         state = MaestroState(soc=30.0, pv_power=0, house_power=300, grid_power=0, battery_power=0)
         now = _now(6, 1, 7, 0)  # 07:00 < 09:00
         result = decide(state, _F0_BASE, now, regelung_aktiv=True)
         assert result.phase == PHASE_MORNING_CAP
-        assert result.charge_power_limit is None
+        assert result.charge_power_limit == 0
 
     def test_soc_above_cap_before_threshold_returns_morning_cap(self):
         """SoC above cap → same blocking."""

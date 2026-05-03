@@ -1025,6 +1025,25 @@ def decide(
     if _md_decision is not None:
         return _md_decision
 
+    # ── 6.7 Morning-Cap: block charging until cap_until_h (must run BEFORE astro_wait) ─
+    # Morning-Cap is a hard SoC ceiling — it overrides astro_wait, otherwise astro_wait
+    # would hand control back to E3DC (POWER_MODE_NORMAL) and the device would charge
+    # to 100% on its own, ignoring the cap.
+    if params.morning_cap_enabled and not curtailment_guard_active:
+        hour_now = now.hour + now.minute / 60
+        if hour_now < params.morning_cap_until_h and state.soc >= params.morning_cap_soc:
+            return MaestroDecision(
+                phase=PHASE_MORNING_CAP,
+                reason=(
+                    f"Morning-Cap: SoC {state.soc:.0f}% ≥ Cap {params.morning_cap_soc:.0f}% "
+                    f"(aktiv bis {params.morning_cap_until_h:.1f} Uhr lokal, "
+                    f"jetzt {hour_now:.1f} Uhr)"
+                ),
+                power_mode=POWER_MODE_IDLE,
+                charge_power_limit=0,
+                target_soc=target,
+            )
+
     # ── 6.75 Astro-Wait: Ladestart-Sperre bis Sonnenaufgang + Offset ────────────────
     if params.astro_enabled and state.soc < params.charge_target:
         sunrise_h, _ = astro_sunrise_sunset(now, params)
@@ -1038,24 +1057,8 @@ def decide(
                     f"(Sonnenaufgang {sunrise_h:.1f} Uhr + {params.charge_start_sunrise_offset_h:.1f} h), "
                     f"SoC {state.soc:.0f}%"
                 ),
-                power_mode=POWER_MODE_NORMAL,
-                charge_power_limit=None,
-                target_soc=target,
-            )
-
-    # ── 6.8 Morning-Cap: block corridor charging until cap_until_h ──────────────────────
-    if params.morning_cap_enabled and not curtailment_guard_active:
-        hour_now = now.hour + now.minute / 60
-        if hour_now < params.morning_cap_until_h and state.soc >= params.morning_cap_soc:
-            return MaestroDecision(
-                phase=PHASE_MORNING_CAP,
-                reason=(
-                    f"Morning-Cap: SoC {state.soc:.0f}% ≥ Cap {params.morning_cap_soc:.0f}% "
-                    f"(aktiv bis {params.morning_cap_until_h:.1f} Uhr lokal, "
-                    f"jetzt {hour_now:.1f} Uhr)"
-                ),
-                power_mode=POWER_MODE_NORMAL,
-                charge_power_limit=None,
+                power_mode=POWER_MODE_IDLE,
+                charge_power_limit=0,
                 target_soc=target,
             )
 

@@ -276,6 +276,32 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
             else None
         ),
     ),
+    MaestroSensorDescription(
+        key="charge_power_limit",
+        name="Aktives Lade-Limit",
+        icon="mdi:battery-lock",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            int(coord.last_decision.charge_power_limit)
+            if coord.last_decision and coord.last_decision.charge_power_limit is not None
+            else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="discharge_power_limit",
+        name="Aktives Entlade-Limit",
+        icon="mdi:battery-off-outline",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            int(coord.last_decision.discharge_power_limit)
+            if coord.last_decision and coord.last_decision.discharge_power_limit is not None
+            else None
+        ),
+    ),
 )
 
 

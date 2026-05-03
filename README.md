@@ -393,6 +393,8 @@ Diese Sensoren sind nach der Installation direkt sichtbar und nutzbar.
 | `sensor.e3dc_maestro_forecast_datenqualitat` | Forecast: Datenqualität | – | Zeigt ob Verbrauchs- und PV-Profil ausreichend Daten haben |
 | `sensor.e3dc_maestro_auto_aktive_strategie` | Auto: Aktive Strategie | – | Zeigt ob Auto-Optimierung aktiv und welches Ziel gewählt wurde |
 | `sensor.e3dc_maestro_auto_geschatzte_einsparung` | Auto: Geschätzte Einsparung | % | Simulierte Verbesserung gegenüber Baseline |
+| `sensor.e3dc_maestro_aktives_lade_limit` | Aktives Lade-Limit | W | Aktuell von Maestro gesetztes Ladelimit (z. B. 0 W bei Ladesperre, 3000 W bei Curtailment Guard); `unknown` wenn kein Limit aktiv |
+| `sensor.e3dc_maestro_aktives_entlade_limit` | Aktives Entlade-Limit | W | Aktuell von Maestro gesetztes Entladelimit (z. B. 0 W bei EVCC-Pause); `unknown` wenn kein Limit aktiv |
 
 ---
 
@@ -432,6 +434,8 @@ Alternativ über *Einstellungen → Entitäten* suchen: Filter auf „E3DC Maest
 | `binary_sensor.e3dc_maestro_ht_schutz_aktiv` | HT-Schutz aktiv | Phase `ht_protection` aktiv |
 | `binary_sensor.e3dc_maestro_notfallladung_aktiv` | Notfallladung aktiv | Phase `emergency` aktiv |
 | `binary_sensor.e3dc_maestro_abregelschutz_aktiv` | Abregelschutz aktiv | Phase `curtailment_guard` aktiv |
+| `binary_sensor.e3dc_maestro_ladesperre_aktiv` | Ladesperre aktiv | `on` wenn Maestro ein Ladelimit ≤ 0 W gesetzt hat (Akku wird nicht geladen) |
+| `binary_sensor.e3dc_maestro_entladesperre_aktiv` | Entladesperre aktiv | `on` wenn Maestro ein Entladelimit ≤ 0 W gesetzt hat (z. B. bei EVCC-Pause) |
 
 ---
 

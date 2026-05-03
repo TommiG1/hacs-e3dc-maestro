@@ -67,6 +67,32 @@ views:
             entity: binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv
             tap_action:
               action: more-info
+          - type: template
+            content: >-
+              {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %}
+              {%- if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') and v not in ('unknown','unavailable') -%}
+                Ladesperre {{ v }} W
+              {%- else -%}
+                Ladesperre
+              {%- endif %}
+            icon: mdi:battery-lock
+            icon_color: "{{ 'red' if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') else 'grey' }}"
+            entity: binary_sensor.e3dc_maestro_ladesperre_aktiv
+            tap_action:
+              action: more-info
+          - type: template
+            content: >-
+              {% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+              {%- if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') and v not in ('unknown','unavailable') -%}
+                Entladesperre {{ v }} W
+              {%- else -%}
+                Entladesperre
+              {%- endif %}
+            icon: mdi:battery-off-outline
+            icon_color: "{{ 'red' if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') else 'grey' }}"
+            entity: binary_sensor.e3dc_maestro_entladesperre_aktiv
+            tap_action:
+              action: more-info
 
       - type: custom:mushroom-template-card
         primary: "{{ states('sensor.e3dc_maestro_regelphase') }}"

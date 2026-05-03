@@ -244,14 +244,18 @@
       "forecast_trajectory": { "name": "Forecast: SoC-Trajektorie 24h" },
       "forecast_data_quality": { "name": "Forecast: Datenqualit\u00e4t" },
       "auto_active_strategy": { "name": "Auto: Aktive Strategie" },
-      "auto_estimated_savings": { "name": "Auto: Gesch\u00e4tzte Einsparung" }
+      "auto_estimated_savings": { "name": "Auto: Geschätzte Einsparung" },
+      "charge_power_limit": { "name": "Aktives Lade-Limit" },
+      "discharge_power_limit": { "name": "Aktives Entlade-Limit" }
     },
     "binary_sensor": {
       "e3dc_reachable": { "name": "E3DC erreichbar" },
       "feed_in_limit_active": { "name": "Einspeisedrosselung aktiv" },
       "ht_protection_active": { "name": "HT-Schutz aktiv" },
       "emergency_charge_active": { "name": "Notfallladung aktiv" },
-      "curtailment_guard_active": { "name": "Abregelschutz aktiv" }
+      "curtailment_guard_active": { "name": "Abregelschutz aktiv" },
+      "charge_block_active": { "name": "Ladesperre aktiv" },
+      "discharge_block_active": { "name": "Entladesperre aktiv" }
     },
     "switch": {
       "regelung_aktiv": { "name": "Regelung aktiv" },

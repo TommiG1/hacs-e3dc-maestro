@@ -61,6 +61,26 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[MaestroBinarySensorDescription, ...] = (
         device_class=BinarySensorDeviceClass.RUNNING,
         value_fn=lambda coord: coord._curtailment_guard_active,
     ),
+    MaestroBinarySensorDescription(
+        key="charge_block_active",
+        name="Ladesperre aktiv",
+        icon="mdi:battery-lock",
+        value_fn=lambda coord: bool(
+            coord.last_decision
+            and coord.last_decision.charge_power_limit is not None
+            and coord.last_decision.charge_power_limit <= 0
+        ),
+    ),
+    MaestroBinarySensorDescription(
+        key="discharge_block_active",
+        name="Entladesperre aktiv",
+        icon="mdi:battery-off",
+        value_fn=lambda coord: bool(
+            coord.last_decision
+            and coord.last_decision.discharge_power_limit is not None
+            and coord.last_decision.discharge_power_limit <= 0
+        ),
+    ),
 )
 
 

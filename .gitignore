@@ -22,10 +22,13 @@ wheels/
 *.egg
 
 # Virtual environments
-.env
 .venv
 env/
 venv/
+
+# Secrets / local environment
+.env
+.env.*
 
 # IDE
 .idea/
@@ -33,13 +36,28 @@ venv/
 *.swp
 *.swo
 .DS_Store
+Thumbs.db
+
+# Editor backups
+*.bak
+*.orig
+*~
 
 # Home Assistant test config
 config/
 .storage/
 
-# pytest
+# pytest / linter caches
 .pytest_cache/
 .coverage
+coverage.xml
+coverage.json
 htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+
+# Internal docs (nicht ins Repo)
 ROADMAP.md

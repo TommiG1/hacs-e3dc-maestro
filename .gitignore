@@ -42,3 +42,4 @@ config/
 .pytest_cache/
 .coverage
 htmlcov/
+ROADMAP.md

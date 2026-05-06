@@ -471,12 +471,12 @@ TAB_COCKPIT = """\
         alignment: justify
         chips:
           - type: entity
-            entity: sensor.e3dc_maestro_zielladeleistung
+            entity: sensor.e3dc_maestro_aktives_lade_limit
             name: Lade-Limit
             icon: mdi:battery-charging
             content_info: state
           - type: entity
-            entity: sensor.e3dc_maestro_zielladeleistungslimit_entladung
+            entity: sensor.e3dc_maestro_aktives_entlade_limit
             name: Entlade-Limit
             icon: mdi:battery-arrow-down
             content_info: state
@@ -495,22 +495,22 @@ TAB_COCKPIT = """\
           - type: custom:mushroom-template-card
             primary: Notfall-Reserve
             secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_emergency_charge_active', 'on') %}greift JETZT
+              {% if is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on') %}greift JETZT
               {% else %}inaktiv{% endif %}
             icon: mdi:alert-octagon
             icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_emergency_charge_active', 'on') %}red{% else %}disabled{% endif %}
-            entity: binary_sensor.e3dc_maestro_emergency_charge_active
+              {% if is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on') %}red{% else %}disabled{% endif %}
+            entity: binary_sensor.e3dc_maestro_notfallladung_aktiv
             tap_action: { action: more-info }
           - type: custom:mushroom-template-card
             primary: Curtailment-Guard
             secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_curtailment_guard_active', 'on') %}greift JETZT
+              {% if is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on') %}greift JETZT
               {% else %}wachsam{% endif %}
             icon: mdi:weather-sunny-alert
             icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_curtailment_guard_active', 'on') %}deep-orange{% else %}disabled{% endif %}
-            entity: binary_sensor.e3dc_maestro_curtailment_guard_active
+              {% if is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on') %}deep-orange{% else %}disabled{% endif %}
+            entity: binary_sensor.e3dc_maestro_abregelschutz_aktiv
             tap_action: { action: more-info }
           - type: custom:mushroom-template-card
             primary: PV-Verzögerung
@@ -526,14 +526,14 @@ TAB_COCKPIT = """\
             primary: Astro-Wartezeit
             secondary: >-
               {% if is_state('sensor.e3dc_maestro_regelphase', 'astro_wait') %}aktiv – Start {{ states('sensor.e3dc_maestro_astro_ladestart_uhrzeit') }}
-              {% elif is_state('switch.e3dc_maestro_astro_modus', 'on') %}wartet auf Sonnenaufgang
+              {% elif is_state('switch.e3dc_maestro_astro_modus_sonnenuberwachung', 'on') %}wartet auf Sonnenaufgang
               {% else %}deaktiviert{% endif %}
             icon: mdi:weather-sunset-up
             icon_color: >-
               {% if is_state('sensor.e3dc_maestro_regelphase', 'astro_wait') %}amber
-              {% elif is_state('switch.e3dc_maestro_astro_modus', 'on') %}grey
+              {% elif is_state('switch.e3dc_maestro_astro_modus_sonnenuberwachung', 'on') %}grey
               {% else %}disabled{% endif %}
-            entity: switch.e3dc_maestro_astro_modus
+            entity: switch.e3dc_maestro_astro_modus_sonnenuberwachung
             tap_action: { action: more-info }
           - type: custom:mushroom-template-card
             primary: Morning-Cap
@@ -562,14 +562,14 @@ TAB_COCKPIT = """\
             primary: Spreading
             secondary: >-
               {% if is_state('sensor.e3dc_maestro_regelphase', 'spreading') %}greift JETZT
-              {% elif is_state('switch.e3dc_maestro_winter_spreading', 'on') %}im Standby
+              {% elif is_state('switch.e3dc_maestro_ladeverteilung_spreading', 'on') %}im Standby
               {% else %}deaktiviert{% endif %}
             icon: mdi:chart-bell-curve
             icon_color: >-
               {% if is_state('sensor.e3dc_maestro_regelphase', 'spreading') %}purple
-              {% elif is_state('switch.e3dc_maestro_winter_spreading', 'on') %}grey
+              {% elif is_state('switch.e3dc_maestro_ladeverteilung_spreading', 'on') %}grey
               {% else %}disabled{% endif %}
-            entity: switch.e3dc_maestro_winter_spreading
+            entity: switch.e3dc_maestro_ladeverteilung_spreading
             tap_action: { action: more-info }
           - type: custom:mushroom-template-card
             primary: Vorentladung
@@ -584,7 +584,7 @@ TAB_COCKPIT = """\
           - type: custom:mushroom-template-card
             primary: Forward-Looking
             secondary: >-
-              {% if is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}aktiv – Ziel {{ states('sensor.e3dc_maestro_forward_looking_ziel_soc') }}%
+              {% if is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}aktiv – Ziel {{ states('sensor.e3dc_maestro_vorausschauendes_ladeziel') }}%
               {% else %}deaktiviert{% endif %}
             icon: mdi:radar
             icon_color: >-
@@ -594,12 +594,12 @@ TAB_COCKPIT = """\
           - type: custom:mushroom-template-card
             primary: HT/NT-Schutz
             secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_ht_protection_active', 'on') %}greift JETZT
+              {% if is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on') %}greift JETZT
               {% elif is_state('switch.e3dc_maestro_ht_nt_schutz', 'on') %}im Standby
               {% else %}deaktiviert{% endif %}
             icon: mdi:transmission-tower
             icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_ht_protection_active', 'on') %}deep-purple
+              {% if is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on') %}deep-purple
               {% elif is_state('switch.e3dc_maestro_ht_nt_schutz', 'on') %}grey
               {% else %}disabled{% endif %}
             entity: switch.e3dc_maestro_ht_nt_schutz
@@ -607,12 +607,12 @@ TAB_COCKPIT = """\
           - type: custom:mushroom-template-card
             primary: Einspeise-Limit
             secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_feed_in_limit_active', 'on') %}greift JETZT
+              {% if is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on') %}greift JETZT
               {% else %}—{% endif %}
             icon: mdi:transmission-tower-off
             icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_feed_in_limit_active', 'on') %}red{% else %}disabled{% endif %}
-            entity: binary_sensor.e3dc_maestro_feed_in_limit_active
+              {% if is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on') %}red{% else %}disabled{% endif %}
+            entity: binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv
             tap_action: { action: more-info }
 
       # ── Live-Tuning: Stellschrauben für Verzögerung & Cap ──────────────
@@ -634,7 +634,7 @@ TAB_COCKPIT = """\
           - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_gmt
             name: "Morning-Cap bis Uhr (lokal)"
           - type: divider
-          - entity: switch.e3dc_maestro_astro_modus
+          - entity: switch.e3dc_maestro_astro_modus_sonnenuberwachung
             name: "Astro-Modus aktiv"
           - entity: number.e3dc_maestro_ladestart_offset_nach_sonnenaufgang
             name: "Ladestart Offset nach Sonnenaufgang (h)"

@@ -70,6 +70,7 @@
           "pv_forecast_threshold_kwh": "Mindest-Prognose (kWh)",
           "battery_capacity_kwh": "Nutzbare Batteriekapazität (kWh)",
           "pv_forecast_safety_factor": "Sicherheitsfaktor (Prognose ≥ Bedarf × Faktor)",
+          "delay_min_soc": "Mindest-SoC vor Verzögerung (%)",
           "spreading_enabled": "Ladeverteilung aktivieren",
           "spreading_target_soc": "Ziel-SoC für Ladeverteilung (%)"
         }
@@ -295,6 +296,7 @@
       "charge_end_sunset_offset_h": { "name": "Ladeende Offset zu Sonnenuntergang" },
       "charge_start_sunrise_offset_h": { "name": "Ladestart Offset nach Sonnenaufgang" },
       "morning_cap_soc": { "name": "Morning-Cap SoC-Grenze" },
+      "delay_min_soc": { "name": "Mindest-SoC vor Verzögerung" },
       "morning_cap_until_h": { "name": "Morning-Cap aktiv bis (Uhr, lokal)" },
       "gentle_charge_factor": { "name": "Schonladung Faktor" }
     },

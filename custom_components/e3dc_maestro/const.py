@@ -99,6 +99,7 @@ CONF_PV_FORECAST_SENSOR = "pv_forecast_sensor"        # entity_id, value = remai
 CONF_PV_FORECAST_THRESHOLD_KWH = "pv_forecast_threshold_kwh"  # min remaining kWh to delay
 CONF_BATTERY_CAPACITY_KWH = "battery_capacity_kwh"    # usable capacity for sizing
 CONF_PV_FORECAST_SAFETY_FACTOR = "pv_forecast_safety_factor"  # forecast_remaining >= required * factor
+CONF_DELAY_MIN_SOC = "delay_min_soc"                  # % SoC; below this floor pv_delay/astro_wait must not block charging
 
 # Config entry keys – F1+: Vorausschauende Ladung (Forward-Looking)
 # Hebt das Ladeziel intelligent an, wenn morgen wenig PV erwartet wird,
@@ -248,6 +249,7 @@ DEFAULT_UPPER_CORRIDOR = 1500
 DEFAULT_PV_FORECAST_THRESHOLD_KWH = 5.0
 DEFAULT_BATTERY_CAPACITY_KWH = 10.0
 DEFAULT_PV_FORECAST_SAFETY_FACTOR = 1.2
+DEFAULT_DELAY_MIN_SOC = 0.0  # 0 = Floor deaktiviert (altes Verhalten)
 DEFAULT_SOC_HYSTERESIS_PERCENT = 2.0
 DEFAULT_CHARGE_RAMP_W_PER_CYCLE = 200
 DEFAULT_RESERVE_WINTER_PERCENT = 30

@@ -268,6 +268,9 @@ class MaestroParams:
     morning_cap_enabled: bool = False
     morning_cap_soc: float = 30.0       # % SoC ceiling until morning_cap_until_h
     morning_cap_until_h: float = 9.0    # h local time: cap is active before this hour
+    # Mindest-SoC, der vor pv_delay/astro_wait erreicht werden muss
+    # (0 = Floor deaktiviert, Standardverhalten).
+    delay_min_soc: float = 0.0
     gentle_charge_enabled: bool = False
     gentle_charge_factor: float = 0.35  # scale charge power (not during guard/emergency)
     # G0: Hard SoC Limit (Akku-Schonung) – aktiver Lade-Stop oberhalb des Deckels.
@@ -1052,7 +1055,8 @@ def decide(
         sunrise_h, _ = astro_sunrise_sunset(now, params)
         charge_start_gate_h = sunrise_h + params.charge_start_sunrise_offset_h
         hour_now = now.hour + now.minute / 60
-        if hour_now < charge_start_gate_h:
+        # delay_min_soc: Floor unterhalb dem astro_wait nicht blockieren darf.
+        if hour_now < charge_start_gate_h and state.soc >= params.delay_min_soc:
             return MaestroDecision(
                 phase=PHASE_ASTRO_WAIT,
                 reason=(
@@ -1107,16 +1111,24 @@ def decide(
             charge_end_h = seasonal_charge_end_hour(now, params)
             hour_now = now.hour + now.minute / 60
             # only delay before charge-end time → otherwise we'd never fill
+            # delay_min_soc: SoC-Floor – darunter darf pv_delay nicht blockieren,
+            # damit der Korridor erst die Mindestreserve auflädt.
             if (
                 state.pv_forecast_remaining_kwh >= min_required
                 and hour_now < charge_end_h
+                and state.soc >= params.delay_min_soc
             ):
+                floor_note = (
+                    f", Floor {params.delay_min_soc:.0f}%"
+                    if params.delay_min_soc > 0
+                    else ""
+                )
                 return MaestroDecision(
                     phase=PHASE_PV_DELAY,
                     reason=(
                         f"PV-Prognose {state.pv_forecast_remaining_kwh:.1f} kWh "
                         f"≥ benötigt {min_required:.1f} kWh → Ladung verzögert "
-                        f"(SoC {state.soc:.0f}% → Ziel {target:.0f}%)"
+                        f"(SoC {state.soc:.0f}% → Ziel {target:.0f}%{floor_note})"
                     ),
                     power_mode=POWER_MODE_NORMAL,
                     charge_power_limit=None,

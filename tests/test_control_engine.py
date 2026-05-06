@@ -324,6 +324,31 @@ class TestPvForecastDelay:
         from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
         assert decision.phase != PHASE_PV_DELAY
 
+    def test_pv_delay_bypassed_below_delay_min_soc(self):
+        """SoC under delay_min_soc floor → pv_delay must NOT block charging."""
+        params = _params_with_forecast(threshold=5.0, capacity=10.0, factor=1.2)
+        params.delay_min_soc = 40.0  # Floor: erst ab 40% darf verzögert werden
+        state = MaestroState(
+            soc=25, pv_power=0, house_power=500, grid_power=0, battery_power=0,
+            pv_forecast_remaining_kwh=20.0,
+        )
+        decision = decide(state, params, _now(6, 15, 9))
+        from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
+        assert decision.phase != PHASE_PV_DELAY
+        assert decision.phase == PHASE_CORRIDOR
+
+    def test_pv_delay_active_above_delay_min_soc(self):
+        """SoC at/above floor → pv_delay applies as before."""
+        params = _params_with_forecast(threshold=5.0, capacity=10.0, factor=1.2)
+        params.delay_min_soc = 25.0  # Floor < SoC=30
+        state = MaestroState(
+            soc=30, pv_power=0, house_power=500, grid_power=0, battery_power=0,
+            pv_forecast_remaining_kwh=8.0,
+        )
+        decision = decide(state, params, _now(6, 15, 9))
+        from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
+        assert decision.phase == PHASE_PV_DELAY
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Phase B: Time-to-Target-Korridor

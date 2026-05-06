@@ -53,6 +53,7 @@ from .const import (
     CONF_PV_FORECAST_SAFETY_FACTOR,
     CONF_PV_FORECAST_SENSOR,
     CONF_PV_FORECAST_THRESHOLD_KWH,
+    CONF_DELAY_MIN_SOC,
     CONF_PV_POWER_SENSOR,
     CONF_SOC_SENSOR,
     CONF_SUMMER_CHARGE_END,
@@ -90,6 +91,7 @@ from .const import (
     DEFAULT_MIN_CHARGE_POWER,
     DEFAULT_PV_FORECAST_SAFETY_FACTOR,
     DEFAULT_PV_FORECAST_THRESHOLD_KWH,
+    DEFAULT_DELAY_MIN_SOC,
     DEFAULT_SUMMER_CHARGE_END,
     DEFAULT_SUMMER_MAXIMUM_HOUR,
     DEFAULT_UPDATE_INTERVAL,
@@ -318,6 +320,9 @@ STEP_PV_FORECAST_SCHEMA = vol.Schema(
         vol.Optional(
             CONF_PV_FORECAST_SAFETY_FACTOR, default=DEFAULT_PV_FORECAST_SAFETY_FACTOR
         ): _number_selector(1.0, 3.0, 0.05),
+        vol.Optional(
+            CONF_DELAY_MIN_SOC, default=DEFAULT_DELAY_MIN_SOC
+        ): _number_selector(0, 80, 5, "%"),
         vol.Optional(CONF_SPREADING_ENABLED, default=False): selector.BooleanSelector(),
         vol.Optional(
             CONF_SPREADING_TARGET_SOC, default=DEFAULT_SPREADING_TARGET_SOC

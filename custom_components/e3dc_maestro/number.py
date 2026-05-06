@@ -64,6 +64,7 @@ from .const import (
     CONF_MORNING_CAP_SOC,
     CONF_MORNING_CAP_UNTIL_H,
     CONF_GENTLE_CHARGE_FACTOR,
+    CONF_DELAY_MIN_SOC,
     CONF_HARD_SOC_LIMIT,
     CONF_FORWARD_LOOKING_MAX_SOC,
     CONF_EVCC_DISCHARGE_LIMIT_W,
@@ -472,6 +473,15 @@ NUMBER_DESCRIPTIONS: tuple[MaestroNumberDescription, ...] = (
         device_class=NumberDeviceClass.BATTERY,
         param_key=CONF_MORNING_CAP_SOC,
         min_value=10, max_value=80, step_value=5,
+    ),
+    MaestroNumberDescription(
+        key=CONF_DELAY_MIN_SOC,
+        name="Mindest-SoC vor Verzögerung",
+        icon="mdi:battery-arrow-up-outline",
+        native_unit_of_measurement="%",
+        device_class=NumberDeviceClass.BATTERY,
+        param_key=CONF_DELAY_MIN_SOC,
+        min_value=0, max_value=80, step_value=5,
     ),
     MaestroNumberDescription(
         key=CONF_MORNING_CAP_UNTIL_H,

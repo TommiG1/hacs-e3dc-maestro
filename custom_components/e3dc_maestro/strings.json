@@ -227,6 +227,7 @@
       "target_charge_power": { "name": "Ziel-Ladeleistung" },
       "target_soc": { "name": "Ziel-SoC" },
       "last_action": { "name": "Letzte Aktion" },
+      "decision_explanation": { "name": "Entscheidungserklärung" },
       "charged_today": { "name": "Geladen heute" },
       "discharged_today": { "name": "Entladen heute" },
       "feed_in_interventions": { "name": "Einspeise-Eingriffe heute" },

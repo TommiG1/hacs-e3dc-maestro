@@ -19,6 +19,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import ALL_PHASES, DOMAIN
 from .coordinator import E3DCMaestroCoordinator
+from .explanation import decision_explanation as _decision_explanation
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -57,6 +58,12 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         name="Letzte Aktion",
         icon="mdi:history",
         value_fn=lambda coord: coord.last_action_info.get("phase"),
+    ),
+    MaestroSensorDescription(
+        key="decision_explanation",
+        name="Entscheidungserklärung",
+        icon="mdi:comment-question-outline",
+        value_fn=lambda coord: _decision_explanation(coord),
     ),
     MaestroSensorDescription(
         key="charged_today",
@@ -371,6 +378,21 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
         key = self.entity_description.key
         if key == "last_action":
             return self.coordinator.last_action_info
+        if key == "decision_explanation":
+            coord = self.coordinator
+            dec = coord.last_decision
+            if dec is None:
+                return None
+            return {
+                "phase": dec.phase,
+                "reason": dec.reason,
+                "target_soc": dec.target_soc,
+                "target_charge_power": dec.target_charge_power,
+                "charge_power_limit": dec.charge_power_limit,
+                "discharge_power_limit": dec.discharge_power_limit,
+                "feed_in_excess_w": dec.feed_in_excess_w,
+                "timestamp": coord.last_action_info.get("timestamp"),
+            }
         if key == "autonomy_time":
             coord = self.coordinator
             window = coord._house_power_window

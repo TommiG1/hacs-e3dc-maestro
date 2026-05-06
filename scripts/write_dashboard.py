@@ -407,237 +407,446 @@ TAB_1 = """\
 
 """
 
-# ─── Tab 1b: Cockpit (was greift gerade?) ────────────────────────────────────
+# ─── Tab 1b: Cockpit (Live Command Center) ───────────────────────────────────
 
+# Option A "Live Command Center" cockpit.
 TAB_COCKPIT = """\
   - title: Cockpit
     icon: mdi:gauge
     path: cockpit
     cards:
 
-      - type: custom:mushroom-title-card
-        title: Regelungs-Cockpit
-        subtitle: Was passiert gerade – und warum?
-
-      # ── Hero-Status: aktuelle Phase + Reason ────────────────────────────
+      - type: vertical-stack
+        cards:
+          - type: custom:mushroom-title-card
+            title: Regelungs-Cockpit
+            subtitle: Live Command Center
+    
+          # ── Topline: schnelle Betriebszustände ─────────────────────────────
+          - type: custom:mushroom-chips-card
+            alignment: center
+            chips:
+              - type: template
+                content: >-
+                  {{ 'Regelung aktiv' if is_state('switch.e3dc_maestro_regelung_aktiv', 'on') else 'Regelung aus' }}
+                icon: mdi:power
+                icon_color: "{{ 'green' if is_state('switch.e3dc_maestro_regelung_aktiv', 'on') else 'red' }}"
+                entity: switch.e3dc_maestro_regelung_aktiv
+                tap_action: { action: toggle }
+                hold_action: { action: more-info }
+              - type: template
+                content: >-
+                  {{ 'E3DC online' if is_state('binary_sensor.e3dc_maestro_e3dc_erreichbar', 'on') else 'E3DC offline' }}
+                icon: mdi:check-network
+                icon_color: "{{ 'green' if is_state('binary_sensor.e3dc_maestro_e3dc_erreichbar', 'on') else 'red' }}"
+                entity: binary_sensor.e3dc_maestro_e3dc_erreichbar
+                tap_action: { action: more-info }
+              - type: entity
+                entity: sensor.e3dc_maestro_autonomiezeit
+                icon: mdi:timer-sand
+                icon_color: cyan
+                content_info: state
+              - type: entity
+                entity: sensor.e3dc_maestro_morgen_pv_prognose
+                icon: mdi:weather-sunny
+                icon_color: amber
+                content_info: state
+    
+          # ── Hero: aktueller Regelzustand ───────────────────────────────────
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set p = states('sensor.e3dc_maestro_regelphase') %}
+              {% set names = {
+                'emergency': 'Notfall-Reserve',
+                'curtailment': 'Curtailment-Schutz',
+                'pv_delay': 'PV-Verzögerung',
+                'astro_wait': 'Astro-Wartezeit',
+                'morning_cap': 'Morning-Cap',
+                'corridor': 'Lade-Korridor',
+                'spreading': 'Spreading',
+                'predischarge': 'Vorentladung',
+                'hold': 'Halten',
+                'idle': 'Leerlauf',
+                'normal': 'Normalbetrieb'
+              } %}
+              {{ names.get(p, p) | default('—') }}
+            secondary: >-
+              {% set action = states('sensor.e3dc_maestro_letzte_aktion') %}
+              {{ action if action not in ['unknown', 'unavailable', 'none', ''] else 'Noch keine Regelentscheidung verfügbar' }}
+            icon: >-
+              {% set p = states('sensor.e3dc_maestro_regelphase') %}
+              {% if p == 'emergency' %} mdi:alert-octagon
+              {% elif p == 'curtailment' %} mdi:weather-sunny-alert
+              {% elif p == 'pv_delay' %} mdi:clock-alert-outline
+              {% elif p == 'astro_wait' %} mdi:weather-sunset-up
+              {% elif p == 'morning_cap' %} mdi:battery-clock-outline
+              {% elif p == 'corridor' %} mdi:battery-charging
+              {% elif p == 'spreading' %} mdi:chart-bell-curve
+              {% elif p == 'predischarge' %} mdi:battery-arrow-down
+              {% else %} mdi:auto-mode {% endif %}
+            icon_color: >-
+              {% set p = states('sensor.e3dc_maestro_regelphase') %}
+              {% if p == 'emergency' %} red
+              {% elif p == 'curtailment' %} deep-orange
+              {% elif p == 'pv_delay' %} light-green
+              {% elif p in ['astro_wait', 'morning_cap'] %} amber
+              {% elif p == 'corridor' %} blue
+              {% elif p == 'spreading' %} purple
+              {% elif p == 'predischarge' %} orange
+              {% else %} green {% endif %}
+            badge_icon: >-
+              {{ 'mdi:shield-check' if is_state('switch.e3dc_maestro_regelung_aktiv', 'on') else 'mdi:pause-circle' }}
+            badge_color: >-
+              {{ 'green' if is_state('switch.e3dc_maestro_regelung_aktiv', 'on') else 'grey' }}
+            multiline_secondary: true
+            fill_container: true
+            tap_action:
+              action: more-info
+              entity: sensor.e3dc_maestro_letzte_aktion
+            entity: sensor.e3dc_maestro_regelphase
+    
+          # ── KPI-Kacheln: klare Werte ohne technische Balken ────────────────
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              - type: custom:mushroom-template-card
+                primary: >-
+                  {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %}
+                  {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}
+                secondary: Lade-Limit
+                icon: mdi:battery-charging
+                icon_color: >-
+                  {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %}
+                  {% if v <= 0 %} disabled
+                  {% elif v < 3000 %} blue
+                  {% elif v < 7000 %} green
+                  {% else %} amber {% endif %}
+                fill_container: true
+                entity: sensor.e3dc_maestro_aktives_lade_limit
+                tap_action: { action: more-info }
+              - type: custom:mushroom-template-card
+                primary: >-
+                  {% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+                  {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}
+                secondary: Entlade-Limit
+                icon: mdi:battery-arrow-down
+                icon_color: >-
+                  {% set raw = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+                  {% set v = raw | float(0) %}
+                  {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled
+                  {% elif v <= 0 %} grey
+                  {% elif v < 3000 %} green
+                  {% elif v < 7000 %} amber
+                  {% else %} red {% endif %}
+                fill_container: true
+                entity: sensor.e3dc_maestro_aktives_entlade_limit
+                tap_action: { action: more-info }
+              - type: custom:mushroom-template-card
+                primary: >-
+                  {% set v = states('sensor.e3dc_maestro_ziel_soc') %}
+                  {{ v ~ ' %' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}
+                secondary: Ziel-SoC
+                icon: mdi:battery-heart-variant
+                icon_color: >-
+                  {% set v = states('sensor.e3dc_maestro_ziel_soc') | float(0) %}
+                  {% if v < 30 %} red
+                  {% elif v < 60 %} amber
+                  {% else %} green {% endif %}
+                fill_container: true
+                entity: sensor.e3dc_maestro_ziel_soc
+                tap_action: { action: more-info }
+    
+          # ── Aktiv jetzt: nur relevante Eingriffe sichtbar ──────────────────
+          - type: custom:mushroom-title-card
+            subtitle: Aktiv jetzt
+    
+          - type: custom:mushroom-chips-card
+            alignment: center
+            chips:
+              - type: template
+                content: >-
+                  {% set p = states('sensor.e3dc_maestro_regelphase') %}
+                  {% set active = [
+                    is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on'),
+                    is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on'),
+                    is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on'),
+                    is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on'),
+                    p in ['pv_delay', 'astro_wait', 'morning_cap', 'corridor', 'spreading', 'predischarge']
+                  ] | select('equalto', true) | list | count %}
+                  {{ active ~ ' Eingriff' ~ ('e' if active != 1 else '') if active else 'keine Eingriffe' }}
+                icon: >-
+                  {% set p = states('sensor.e3dc_maestro_regelphase') %}
+                  {% if is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on') %}mdi:alert-octagon
+                  {% elif is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on') %}mdi:weather-sunny-alert
+                  {% elif p in ['pv_delay', 'astro_wait', 'morning_cap'] %}mdi:calendar-clock
+                  {% elif p in ['corridor', 'spreading', 'predischarge'] %}mdi:tune-variant
+                  {% else %}mdi:check-circle-outline{% endif %}
+                icon_color: >-
+                  {% set p = states('sensor.e3dc_maestro_regelphase') %}
+                  {% if is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on') %}red
+                  {% elif is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on') %}deep-orange
+                  {% elif is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on') %}red
+                  {% elif is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on') %}deep-purple
+                  {% elif p in ['pv_delay', 'astro_wait', 'morning_cap'] %}amber
+                  {% elif p in ['corridor', 'spreading', 'predischarge'] %}blue
+                  {% else %}green{% endif %}
+                entity: sensor.e3dc_maestro_regelphase
+                tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: binary_sensor.e3dc_maestro_notfallladung_aktiv
+                    state: "on"
+                chip:
+                  type: template
+                  content: Notfall
+                  icon: mdi:alert-octagon
+                  icon_color: red
+                  entity: binary_sensor.e3dc_maestro_notfallladung_aktiv
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: binary_sensor.e3dc_maestro_abregelschutz_aktiv
+                    state: "on"
+                chip:
+                  type: template
+                  content: Curtailment
+                  icon: mdi:weather-sunny-alert
+                  icon_color: deep-orange
+                  entity: binary_sensor.e3dc_maestro_abregelschutz_aktiv
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv
+                    state: "on"
+                chip:
+                  type: template
+                  content: Einspeise-Limit
+                  icon: mdi:transmission-tower-off
+                  icon_color: red
+                  entity: binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: binary_sensor.e3dc_maestro_ht_schutz_aktiv
+                    state: "on"
+                chip:
+                  type: template
+                  content: HT/NT
+                  icon: mdi:transmission-tower
+                  icon_color: deep-purple
+                  entity: binary_sensor.e3dc_maestro_ht_schutz_aktiv
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: sensor.e3dc_maestro_regelphase
+                    state: "pv_delay"
+                chip:
+                  type: template
+                  content: PV-Verzögerung
+                  icon: mdi:clock-alert-outline
+                  icon_color: light-green
+                  entity: sensor.e3dc_maestro_regelphase
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: sensor.e3dc_maestro_regelphase
+                    state: "astro_wait"
+                chip:
+                  type: template
+                  content: Astro
+                  icon: mdi:weather-sunset-up
+                  icon_color: amber
+                  entity: sensor.e3dc_maestro_regelphase
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: sensor.e3dc_maestro_regelphase
+                    state: "morning_cap"
+                chip:
+                  type: template
+                  content: Morning-Cap
+                  icon: mdi:battery-clock-outline
+                  icon_color: amber
+                  entity: sensor.e3dc_maestro_regelphase
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: sensor.e3dc_maestro_regelphase
+                    state: "corridor"
+                chip:
+                  type: template
+                  content: Korridor
+                  icon: mdi:battery-charging
+                  icon_color: blue
+                  entity: sensor.e3dc_maestro_regelphase
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: sensor.e3dc_maestro_regelphase
+                    state: "spreading"
+                chip:
+                  type: template
+                  content: Spreading
+                  icon: mdi:chart-bell-curve
+                  icon_color: purple
+                  entity: sensor.e3dc_maestro_regelphase
+                  tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: sensor.e3dc_maestro_regelphase
+                    state: "predischarge"
+                chip:
+                  type: template
+                  content: Vorentladung
+                  icon: mdi:battery-arrow-down
+                  icon_color: orange
+                  entity: sensor.e3dc_maestro_regelphase
+                  tap_action: { action: more-info }
+    
+          # ── Statusgruppen: kompakt statt Kartenmatrix ──────────────────────
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              - type: custom:mushroom-template-card
+                primary: Schutz
+                secondary: >-
+                  {% set active = [
+                    is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on'),
+                    is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on'),
+                    is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on'),
+                    is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on')
+                  ] | select('equalto', true) | list | count %}
+                  {{ active ~ ' aktiv' if active else 'bereit' }}
+                icon: mdi:shield-check
+                icon_color: >-
+                  {% if is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on') %}red
+                  {% elif is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on') %}deep-orange
+                  {% elif is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on') %}red
+                  {% elif is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on') %}deep-purple
+                  {% else %}green{% endif %}
+                fill_container: true
+                tap_action: { action: more-info }
+                entity: binary_sensor.e3dc_maestro_abregelschutz_aktiv
+              - type: custom:mushroom-template-card
+                primary: Strategie
+                secondary: >-
+                  {% set p = states('sensor.e3dc_maestro_regelphase') %}
+                  {% if p in ['corridor', 'spreading', 'predischarge'] %}{{ p }} aktiv
+                  {% elif is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}vorausschauend
+                  {% else %}normal{% endif %}
+                icon: mdi:radar
+                icon_color: >-
+                  {% set p = states('sensor.e3dc_maestro_regelphase') %}
+                  {% if p == 'corridor' %}blue
+                  {% elif p == 'spreading' %}purple
+                  {% elif p == 'predischarge' %}orange
+                  {% elif is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}teal
+                  {% else %}green{% endif %}
+                fill_container: true
+                tap_action: { action: more-info }
+                entity: switch.e3dc_maestro_vorausschauende_ladung
+              - type: custom:mushroom-template-card
+                primary: Zeitfenster
+                secondary: >-
+                  {% set p = states('sensor.e3dc_maestro_regelphase') %}
+                  {% if p == 'pv_delay' %}PV-Verzögerung
+                  {% elif p == 'astro_wait' %}Astro-Wartezeit
+                  {% elif p == 'morning_cap' %}Morning-Cap
+                  {% else %}keine Wartephase{% endif %}
+                icon: mdi:calendar-clock
+                icon_color: >-
+                  {% set p = states('sensor.e3dc_maestro_regelphase') %}
+                  {% if p == 'pv_delay' %}light-green
+                  {% elif p in ['astro_wait', 'morning_cap'] %}amber
+                  {% else %}green{% endif %}
+                fill_container: true
+                tap_action: { action: more-info }
+                entity: sensor.e3dc_maestro_regelphase
+    
+      # ── Warum diese Entscheidung? ──────────────────────────────────────
       - type: custom:mushroom-template-card
-        primary: >-
-          {% set p = states('sensor.e3dc_maestro_regelphase') %}
-          {% set names = {
-            'emergency': 'Notfall-Reserve',
-            'curtailment': 'Curtailment-Schutz',
-            'pv_delay': 'PV-Verzögerung',
-            'astro_wait': 'Astro-Wartezeit',
-            'morning_cap': 'Morning-Cap',
-            'corridor': 'Lade-Korridor',
-            'spreading': 'Spreading',
-            'predischarge': 'Vorentladung',
-            'hold': 'Halten',
-            'idle': 'Leerlauf',
-            'normal': 'Normal'
-          } %}
-          {{ names.get(p, p) | default('—') }}
-        secondary: "{{ states('sensor.e3dc_maestro_letzte_aktion') }}"
-        icon: >-
-          {% set p = states('sensor.e3dc_maestro_regelphase') %}
-          {% if p == 'emergency' %} mdi:alert-octagon
-          {% elif p == 'curtailment' %} mdi:weather-sunny-alert
-          {% elif p == 'pv_delay' %} mdi:clock-alert-outline
-          {% elif p == 'astro_wait' %} mdi:weather-sunset-up
-          {% elif p == 'morning_cap' %} mdi:battery-clock-outline
-          {% elif p == 'corridor' %} mdi:battery-charging
-          {% elif p == 'spreading' %} mdi:chart-bell-curve
-          {% elif p == 'predischarge' %} mdi:battery-arrow-down
-          {% else %} mdi:auto-mode {% endif %}
-        icon_color: >-
-          {% set p = states('sensor.e3dc_maestro_regelphase') %}
-          {% if p == 'emergency' %} red
-          {% elif p == 'curtailment' %} deep-orange
-          {% elif p == 'pv_delay' %} light-green
-          {% elif p == 'astro_wait' %} amber
-          {% elif p == 'morning_cap' %} amber
-          {% elif p == 'corridor' %} blue
-          {% elif p == 'spreading' %} purple
-          {% elif p == 'predischarge' %} orange
-          {% else %} grey {% endif %}
+        primary: Warum diese Entscheidung?
+        secondary: "{{ states('sensor.e3dc_maestro_entscheidungserklarung') }}"
+        icon: mdi:comment-question-outline
+        icon_color: blue
         multiline_secondary: true
+        fill_container: true
         tap_action:
           action: more-info
-          entity: sensor.e3dc_maestro_letzte_aktion
-        entity: sensor.e3dc_maestro_regelphase
+          entity: sensor.e3dc_maestro_entscheidungserklarung
 
-      # ── Aktuelle Limits ─────────────────────────────────────────────────
-      - type: custom:mushroom-chips-card
-        alignment: justify
-        chips:
-          - type: entity
-            entity: sensor.e3dc_maestro_aktives_lade_limit
-            name: Lade-Limit
-            icon: mdi:battery-charging
-            content_info: state
-          - type: entity
-            entity: sensor.e3dc_maestro_aktives_entlade_limit
-            name: Entlade-Limit
-            icon: mdi:battery-arrow-down
-            content_info: state
-          - type: entity
-            entity: sensor.e3dc_maestro_ziel_soc
-            name: Ziel-SoC
-            icon: mdi:battery-heart-variant
-            content_info: state
+      # ── Phasenverlauf 24 h als ApexCharts-Stepline ─────────────────────
+      # ── Phasenverlauf 24 h: native history-graph (Enum-Sensor) ─────────
+      - type: history-graph
+        title: Regelphasen (24 h)
+        hours_to_show: 24
+        refresh_interval: 60
+        entities:
+          - entity: sensor.e3dc_maestro_regelphase
+            name: Phase
+          - entity: sensor.e3dc_maestro_letzte_aktion
+            name: Aktion
 
-      # ── Modul-Matrix: Aktiv? × Greift gerade? ──────────────────────────
+      # ── Kontext-Werte zur Entscheidung ─────────────────────────────────
       - type: entities
-        title: Schutz- & Sondermodi (greift jetzt?)
+        title: Kontext
         show_header_toggle: false
         state_color: true
         entities:
-          - type: custom:mushroom-template-card
-            primary: Notfall-Reserve
-            secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on') %}greift JETZT
-              {% else %}inaktiv{% endif %}
-            icon: mdi:alert-octagon
-            icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_notfallladung_aktiv', 'on') %}red{% else %}disabled{% endif %}
-            entity: binary_sensor.e3dc_maestro_notfallladung_aktiv
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Curtailment-Guard
-            secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on') %}greift JETZT
-              {% else %}wachsam{% endif %}
-            icon: mdi:weather-sunny-alert
-            icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on') %}deep-orange{% else %}disabled{% endif %}
-            entity: binary_sensor.e3dc_maestro_abregelschutz_aktiv
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: PV-Verzögerung
-            secondary: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'pv_delay') %}aktiv – bis {{ states('sensor.e3dc_maestro_verzogerter_ladestart_heute') }}
-              {% else %}im Standby{% endif %}
-            icon: mdi:clock-alert-outline
-            icon_color: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'pv_delay') %}light-green{% else %}disabled{% endif %}
-            entity: sensor.e3dc_maestro_regelphase
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Astro-Wartezeit
-            secondary: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'astro_wait') %}aktiv – Start {{ states('sensor.e3dc_maestro_astro_ladestart_uhrzeit') }}
-              {% elif is_state('switch.e3dc_maestro_astro_modus_sonnenuberwachung', 'on') %}wartet auf Sonnenaufgang
-              {% else %}deaktiviert{% endif %}
-            icon: mdi:weather-sunset-up
-            icon_color: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'astro_wait') %}amber
-              {% elif is_state('switch.e3dc_maestro_astro_modus_sonnenuberwachung', 'on') %}grey
-              {% else %}disabled{% endif %}
-            entity: switch.e3dc_maestro_astro_modus_sonnenuberwachung
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Morning-Cap
-            secondary: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'morning_cap') %}aktiv – Cap {{ states('number.e3dc_maestro_morning_cap_soc_grenze') }}%
-              {% elif is_state('switch.e3dc_maestro_morning_cap_soc_deckel_morgens', 'on') %}wartet (Deckel scharfgeschaltet)
-              {% else %}deaktiviert{% endif %}
-            icon: mdi:battery-clock-outline
-            icon_color: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'morning_cap') %}amber
-              {% elif is_state('switch.e3dc_maestro_morning_cap_soc_deckel_morgens', 'on') %}grey
-              {% else %}disabled{% endif %}
-            entity: switch.e3dc_maestro_morning_cap_soc_deckel_morgens
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Lade-Korridor
-            secondary: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'corridor') %}greift JETZT
-              {% else %}—{% endif %}
-            icon: mdi:battery-charging
-            icon_color: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'corridor') %}blue{% else %}disabled{% endif %}
-            entity: sensor.e3dc_maestro_regelphase
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Spreading
-            secondary: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'spreading') %}greift JETZT
-              {% elif is_state('switch.e3dc_maestro_ladeverteilung_spreading', 'on') %}im Standby
-              {% else %}deaktiviert{% endif %}
-            icon: mdi:chart-bell-curve
-            icon_color: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'spreading') %}purple
-              {% elif is_state('switch.e3dc_maestro_ladeverteilung_spreading', 'on') %}grey
-              {% else %}disabled{% endif %}
-            entity: switch.e3dc_maestro_ladeverteilung_spreading
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Vorentladung
-            secondary: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'predischarge') %}greift JETZT
-              {% else %}—{% endif %}
-            icon: mdi:battery-arrow-down
-            icon_color: >-
-              {% if is_state('sensor.e3dc_maestro_regelphase', 'predischarge') %}orange{% else %}disabled{% endif %}
-            entity: sensor.e3dc_maestro_regelphase
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Forward-Looking
-            secondary: >-
-              {% if is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}aktiv – Ziel {{ states('sensor.e3dc_maestro_vorausschauendes_ladeziel') }}%
-              {% else %}deaktiviert{% endif %}
-            icon: mdi:radar
-            icon_color: >-
-              {% if is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}teal{% else %}disabled{% endif %}
-            entity: switch.e3dc_maestro_vorausschauende_ladung
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: HT/NT-Schutz
-            secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on') %}greift JETZT
-              {% elif is_state('switch.e3dc_maestro_ht_nt_schutz', 'on') %}im Standby
-              {% else %}deaktiviert{% endif %}
-            icon: mdi:transmission-tower
-            icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on') %}deep-purple
-              {% elif is_state('switch.e3dc_maestro_ht_nt_schutz', 'on') %}grey
-              {% else %}disabled{% endif %}
-            entity: switch.e3dc_maestro_ht_nt_schutz
-            tap_action: { action: more-info }
-          - type: custom:mushroom-template-card
-            primary: Einspeise-Limit
-            secondary: >-
-              {% if is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on') %}greift JETZT
-              {% else %}—{% endif %}
-            icon: mdi:transmission-tower-off
-            icon_color: >-
-              {% if is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on') %}red{% else %}disabled{% endif %}
-            entity: binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv
-            tap_action: { action: more-info }
+          - entity: sensor.e3dc_maestro_regelphase
+            name: Regelphase
+          - entity: sensor.e3dc_maestro_letzte_aktion
+            name: Letzte Aktion
+          - entity: sensor.e3dc_maestro_morgen_pv_prognose
+            name: Morgen PV-Prognose
+          - entity: sensor.e3dc_maestro_morgen_energiedefizit
+            name: Morgen Energiedefizit
+          - entity: sensor.e3dc_maestro_verzogerter_ladestart_heute
+            name: Verzögerter Ladestart heute
+          - entity: sensor.e3dc_maestro_astro_ladestart_uhrzeit
+            name: Astro-Ladestart
 
-      # ── Live-Tuning: Stellschrauben für Verzögerung & Cap ──────────────
-      - type: entities
-        title: Live-Tuning – PV-Verzögerung & Morning-Cap
-        show_header_toggle: false
-        entities:
-          - entity: number.e3dc_maestro_mindest_soc_vor_verzogerung
-            name: "Mindest-SoC vor Verzögerung (Floor)"
-          - entity: number.e3dc_maestro_pv_forecast_schwelle
-            name: "PV-Forecast Schwelle (kWh)"
-          - entity: number.e3dc_maestro_pv_forecast_sicherheitsfaktor
-            name: "PV-Forecast Sicherheitsfaktor"
-          - type: divider
-          - entity: switch.e3dc_maestro_morning_cap_soc_deckel_morgens
-            name: "Morning-Cap aktiv"
-          - entity: number.e3dc_maestro_morning_cap_soc_grenze
-            name: "Morning-Cap SoC-Grenze"
-          - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_gmt
-            name: "Morning-Cap bis Uhr (lokal)"
-          - type: divider
-          - entity: switch.e3dc_maestro_astro_modus_sonnenuberwachung
-            name: "Astro-Modus aktiv"
-          - entity: number.e3dc_maestro_ladestart_offset_nach_sonnenaufgang
-            name: "Ladestart Offset nach Sonnenaufgang (h)"
+      # ── Live-Tuning (eine vertical-stack-Karte = eine Masonry-Spalte,
+      #    sodass Mobile/Desktop dieselbe Reihenfolge zeigen) ──
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Live-Tuning · PV-Verzögerung
+            show_header_toggle: false
+            entities:
+              - entity: switch.e3dc_maestro_vorausschauende_ladung
+                name: "Vorausschauende Ladung aktiv"
+              - entity: number.e3dc_maestro_mindest_soc_vor_verzogerung
+                name: "Mindest-SoC vor Verzögerung"
+              - entity: number.e3dc_maestro_pv_forecast_schwelle
+                name: "PV-Forecast Schwelle"
+              - entity: number.e3dc_maestro_pv_forecast_sicherheitsfaktor
+                name: "PV-Forecast Sicherheitsfaktor"
+""" + _ind(help_btn("help-pv-delay"), 4) + """\
+
+          - type: entities
+            title: Live-Tuning · Astro-Modus
+            show_header_toggle: false
+            entities:
+              - entity: switch.e3dc_maestro_astro_modus_sonnenuberwachung
+                name: "Astro-Modus aktiv"
+              - entity: number.e3dc_maestro_ladestart_offset_nach_sonnenaufgang
+                name: "Ladestart Offset nach Sonnenaufgang"
+""" + _ind(help_btn("help-astro"), 4) + """\
+
+          - type: entities
+            title: Live-Tuning · Morning-Cap
+            show_header_toggle: false
+            entities:
+              - entity: switch.e3dc_maestro_morning_cap_soc_deckel_morgens
+                name: "Morning-Cap aktiv"
+              - entity: number.e3dc_maestro_morning_cap_soc_grenze
+                name: "Morning-Cap SoC-Grenze"
+              - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_gmt
+                name: "Morning-Cap bis Uhr"
+""" + _ind(help_btn("help-flat-curve"), 4) + """\
 
 """
 
@@ -1545,6 +1754,69 @@ nicht erreicht wurde.
 """,
 )
 
+SUBVIEW_PV_DELAY = help_subview(
+    path="help-pv-delay",
+    title="Hilfe: PV-Verzögerung & Vorausschauende Ladung",
+    content="""\
+## PV-Verzögerung & Vorausschauende Ladung
+
+Maestro verschiebt die Akku-Ladung in Stunden mit guter PV-Prognose so weit
+nach hinten, dass die Batterie möglichst aus eigener PV statt aus dem Netz
+gefüllt wird. Das spart Netzbezug und maximiert den Eigenverbrauch.
+
+Die Phase heißt im Cockpit **„PV-Verzögerung"** (`pv_delay`).
+
+---
+
+### Vorausschauende Ladung aktiv
+
+**Wirkung:** Master-Schalter für die Verzögerung. Aus = Maestro lädt nach
+Standard-Korridor; an = Ladung darf bei guter Prognose verschoben werden.
+
+**Empfehlung:** Im Sommer/Frühling/Herbst aktiv lassen, im tiefen Winter
+optional deaktivieren, falls die Prognose unzuverlässig ist.
+
+---
+
+### Mindest-SoC vor Verzögerung (%)
+
+**Wirkung:** Untergrenze. Solange der SoC unter diesem Wert liegt, wird die
+Ladung **nicht** verzögert – egal wie gut die PV-Prognose ist. Schützt vor
+unerwarteten Verbrauchsspitzen am Vormittag.
+
+**Empfehlung:** 20–40 %. Bei großem Verbrauch oder unzuverlässiger Prognose
+höher.
+
+**Standard:** 0 % (Floor deaktiviert – altes Verhalten)
+
+---
+
+### PV-Forecast Schwelle (kWh)
+
+**Wirkung:** Mindest-Restprognose des PV-Tagesertrags, ab der Maestro die
+Ladung überhaupt verzögern darf. Liegt die Resterzeugung darunter, wird
+sofort geladen, weil zu wenig PV erwartet wird.
+
+**Empfehlung:** Etwa 50–80 % des typischen Tagesbedarfs. Standardwert
+funktioniert für die meisten Haushalte.
+
+**Standard:** 5,0 kWh
+
+---
+
+### PV-Forecast Sicherheitsfaktor
+
+**Wirkung:** Multiplikator auf die benötigte Energie. Maestro verzögert nur,
+wenn die Prognose mindestens **(benötigte kWh × Faktor)** liefert. Höhere
+Werte = vorsichtiger (mehr Netzladung, weniger Risiko, dass die Batterie
+bei plötzlich schlechter werdender Sonne nicht voll wird).
+
+**Empfehlung:** 1,1–1,3. Bei sehr volatiler Wetterlage 1,3–1,5.
+
+**Standard:** 1,2
+""",
+)
+
 SUBVIEW_ASTRO = help_subview(
     path="help-astro",
     title="Hilfe: Astro-Modus",
@@ -2394,7 +2666,7 @@ Attribute des Sensors: `objective`, `last_run`, `fallback_reason`,
 
 YAML = (
     "# E3DC Maestro – Dashboard\n"
-    "# Voraussetzungen: mushroom-cards (HACS → Frontend)\n"
+  "# Voraussetzungen (HACS → Frontend): mushroom-cards, apexcharts-card\n"
     "# Generiert von scripts/write_dashboard.py\n\n"
     "title: E3DC Maestro\n"
     "views:\n\n"
@@ -2413,6 +2685,7 @@ YAML = (
     + SUBVIEW_SPREADING
     + SUBVIEW_CURTAILMENT
     + SUBVIEW_TWO_TIER
+    + SUBVIEW_PV_DELAY
     + SUBVIEW_ASTRO
     + SUBVIEW_HT
     + SUBVIEW_TARIF

@@ -822,6 +822,8 @@ def decide(
     hp_running: bool = False,
     hp_last_change_minutes: float = 999,
     force_discharge: bool = False,
+    previous_phase: str | None = None,
+    previous_phase_since: datetime | None = None,
 ) -> MaestroDecision:
     """Determine the desired action for this control cycle.
 
@@ -840,6 +842,9 @@ def decide(
     Wallbox and heat pump decisions are appended independently.
     """
     from .const import (
+        FEED_IN_PV_DELAY_COOLDOWN_S,
+        FEED_IN_RELEASE_EXCESS_W,
+        FEED_IN_TRIGGER_EXCESS_W,
         PHASE_CORRIDOR,
         PHASE_CURTAILMENT_GUARD,
         PHASE_EMERGENCY,
@@ -924,7 +929,18 @@ def decide(
         )
 
     # ── 3. Feed-in limit ────────────────────────────────────────────────────
-    if state.grid_power > feed_in_limit:
+    # Hysterese: Neuaktivierung erst ab FEED_IN_TRIGGER_EXCESS_W über dem Limit.
+    # Phase wird gehalten solange excess > FEED_IN_RELEASE_EXCESS_W (verhindert
+    # sofortigen Abbruch durch Messrauschen, z.B. 4–150 W Schwankungen).
+    _feed_in_excess = state.grid_power - feed_in_limit
+    _feed_in_active = (
+        _feed_in_excess >= FEED_IN_TRIGGER_EXCESS_W
+        or (
+            previous_phase == PHASE_FEED_IN_LIMIT
+            and _feed_in_excess > FEED_IN_RELEASE_EXCESS_W
+        )
+    )
+    if _feed_in_active:
         # Akku-voll-Schutz: bei (nahezu) vollem Akku kann eine zusätzliche
         # Ladeanforderung den Überschuss nicht aufnehmen → Wechselrichter
         # regelt PV von selbst ab. Statt einen wirkungslosen Ladebefehl zu
@@ -941,7 +957,7 @@ def decide(
                 charge_power_limit=None,
                 target_soc=target,
             )
-        excess = state.grid_power - feed_in_limit
+        excess = _feed_in_excess
         boost = min(state.battery_power + excess, params.max_charge_power)
         return MaestroDecision(
             phase=PHASE_FEED_IN_LIMIT,
@@ -1113,10 +1129,18 @@ def decide(
             # only delay before charge-end time → otherwise we'd never fill
             # delay_min_soc: SoC-Floor – darunter darf pv_delay nicht blockieren,
             # damit der Korridor erst die Mindestreserve auflädt.
+            # Anti-Pendel-Cooldown: pv_delay direkt nach feed_in_limit unterdrücken,
+            # damit das feed_in_limit → pv_delay → feed_in_limit-Dreieck endet.
+            _pv_delay_cooldown_ok = not (
+                previous_phase == PHASE_FEED_IN_LIMIT
+                and previous_phase_since is not None
+                and (now - previous_phase_since).total_seconds() < FEED_IN_PV_DELAY_COOLDOWN_S
+            )
             if (
                 state.pv_forecast_remaining_kwh >= min_required
                 and hour_now < charge_end_h
                 and state.soc >= params.delay_min_soc
+                and _pv_delay_cooldown_ok
             ):
                 floor_note = (
                     f", Floor {params.delay_min_soc:.0f}%"

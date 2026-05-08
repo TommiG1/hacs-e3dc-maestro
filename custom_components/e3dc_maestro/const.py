@@ -197,6 +197,21 @@ PHASE_HARD_SOC_LIMIT = "hard_soc_limit"          # G0: Fester Max-SoC-Deckel (Ak
 PHASE_FORCE_DISCHARGE = "force_discharge"        # manueller Schalter im Dashboard
 PHASE_IDLE = "idle"                              # kein Bedarf
 
+# ── Anti-flapping: feed-in-limit hysteresis ───────────────────────────────────
+# Neue Aktivierung erst ab diesem Überschuss (W) oberhalb des Limits.
+# Verhindert, dass reines Messrauschen (z.B. 4–150 W) die Phase triggert.
+FEED_IN_TRIGGER_EXCESS_W: float = 150.0
+# Phase wird gehalten solange excess > dieser Schwelle (0 = sofortiger Abbruch).
+FEED_IN_RELEASE_EXCESS_W: float = 0.0
+# Sekunden, in denen pv_delay nach feed_in_limit unterdrückt wird (Anti-Pendeln).
+FEED_IN_PV_DELAY_COOLDOWN_S: float = 60.0
+
+# ── Anti-flapping: EWMA-Glättung der Leistungswerte ──────────────────────────
+# Zeitkonstante τ [s] für Exponential-Weighted-Moving-Average auf PV/Last.
+EWMA_TAU_S: float = 60.0
+# Sprünge > dieser Schwelle [W] setzen den EWMA sofort zurück (z.B. Wallbox-Start).
+EWMA_JUMP_THRESHOLD_W: float = 2000.0
+
 ALL_PHASES = [
     PHASE_OFF,
     PHASE_MANUAL,

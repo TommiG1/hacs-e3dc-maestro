@@ -1,5 +1,5 @@
 """Tests for the E3DC Maestro rule engine."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -119,6 +119,43 @@ class TestFeedInLimit:
         decision = decide(state, params, _now(7, 15, 10, 36))
         assert decision.phase == PHASE_IDLE
         assert decision.charge_power_limit is None
+
+    # ── Anti-flapping: hysteresis tests ──────────────────────────────────────
+
+    def test_no_trigger_below_hysteresis_threshold(self):
+        """Excess < 150 W (FEED_IN_TRIGGER_EXCESS_W) must not activate feed_in_limit."""
+        # feed_in_limit = 7000 W; grid_power = 7100 W → excess = 100 W < 150 W
+        state = MaestroState(soc=50, pv_power=9000, house_power=1000, grid_power=7100, battery_power=0)
+        params = MaestroParams(**{**DEFAULT_PARAMS.__dict__, "ht_enabled": False})
+        decision = decide(state, params, _now(7, 15, 13))
+        assert decision.phase != PHASE_FEED_IN_LIMIT
+
+    def test_triggers_exactly_at_hysteresis_threshold(self):
+        """Excess == 150 W (boundary) must activate feed_in_limit."""
+        # feed_in_limit = 7000 W; grid_power = 7150 W → excess = 150 W
+        state = MaestroState(soc=50, pv_power=9000, house_power=1000, grid_power=7150, battery_power=0)
+        params = MaestroParams(**{**DEFAULT_PARAMS.__dict__, "ht_enabled": False})
+        decision = decide(state, params, _now(7, 15, 13))
+        assert decision.phase == PHASE_FEED_IN_LIMIT
+
+    def test_holds_phase_when_excess_below_trigger_but_above_release(self):
+        """With previous_phase=feed_in_limit and 0 < excess < trigger, phase is held."""
+        # excess = 50 W (< 150 W trigger, > 0 W release) → should hold
+        state = MaestroState(soc=50, pv_power=9000, house_power=1000, grid_power=7050, battery_power=0)
+        params = MaestroParams(**{**DEFAULT_PARAMS.__dict__, "ht_enabled": False})
+        decision = decide(
+            state, params, _now(7, 15, 13),
+            previous_phase=PHASE_FEED_IN_LIMIT,
+        )
+        assert decision.phase == PHASE_FEED_IN_LIMIT
+
+    def test_no_hold_without_previous_feed_in_phase(self):
+        """Without previous feed_in_limit phase, small excess must not trigger."""
+        # excess = 50 W, no previous feed_in_limit → should not activate
+        state = MaestroState(soc=50, pv_power=9000, house_power=1000, grid_power=7050, battery_power=0)
+        params = MaestroParams(**{**DEFAULT_PARAMS.__dict__, "ht_enabled": False})
+        decision = decide(state, params, _now(7, 15, 13), previous_phase="corridor")
+        assert decision.phase != PHASE_FEED_IN_LIMIT
 
 
 class TestHTProtection:
@@ -348,6 +385,118 @@ class TestPvForecastDelay:
         decision = decide(state, params, _now(6, 15, 9))
         from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
         assert decision.phase == PHASE_PV_DELAY
+
+    def test_pv_delay_suppressed_within_cooldown_after_feed_in_limit(self):
+        """pv_delay must NOT fire within 60 s after previous feed_in_limit phase."""
+        params = _params_with_forecast(threshold=5.0, capacity=10.0, factor=1.2)
+        now = _now(6, 15, 9)
+        # Phase changed 30 s ago – still inside 60 s cooldown
+        phase_since = now - timedelta(seconds=30)
+        state = MaestroState(
+            soc=30, pv_power=0, house_power=500, grid_power=0, battery_power=0,
+            pv_forecast_remaining_kwh=8.0,
+        )
+        decision = decide(
+            state, params, now,
+            previous_phase=PHASE_FEED_IN_LIMIT,
+            previous_phase_since=phase_since,
+        )
+        from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
+        assert decision.phase != PHASE_PV_DELAY
+
+    def test_pv_delay_allowed_after_cooldown_expires(self):
+        """pv_delay must be allowed again once 60 s cooldown has elapsed."""
+        params = _params_with_forecast(threshold=5.0, capacity=10.0, factor=1.2)
+        now = _now(6, 15, 9)
+        # Phase changed 90 s ago – cooldown has expired
+        phase_since = now - timedelta(seconds=90)
+        state = MaestroState(
+            soc=30, pv_power=0, house_power=500, grid_power=0, battery_power=0,
+            pv_forecast_remaining_kwh=8.0,
+        )
+        decision = decide(
+            state, params, now,
+            previous_phase=PHASE_FEED_IN_LIMIT,
+            previous_phase_since=phase_since,
+        )
+        from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
+        assert decision.phase == PHASE_PV_DELAY
+
+    def test_pv_delay_not_suppressed_when_previous_phase_is_not_feed_in(self):
+        """Cooldown only applies after feed_in_limit, not other phases."""
+        params = _params_with_forecast(threshold=5.0, capacity=10.0, factor=1.2)
+        now = _now(6, 15, 9)
+        phase_since = now - timedelta(seconds=10)  # Only 10 s ago but wrong phase
+        state = MaestroState(
+            soc=30, pv_power=0, house_power=500, grid_power=0, battery_power=0,
+            pv_forecast_remaining_kwh=8.0,
+        )
+        decision = decide(
+            state, params, now,
+            previous_phase="corridor",
+            previous_phase_since=phase_since,
+        )
+        from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
+        assert decision.phase == PHASE_PV_DELAY
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# EWMA helper: pure-math smoke tests (independent of coordinator)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestEwmaLogic:
+    """Verify EWMA behaviour using the same formula used in coordinator._ewma_update."""
+
+    import math as _math
+
+    _GLITCH_FLOOR = 200.0
+
+    def _ewma(self, prev, new_val, tau_s=60.0, dt_s=30.0, jump=2000.0):
+        import math
+        if prev is None:
+            return new_val
+        if new_val == 0.0 and prev > self._GLITCH_FLOOR:
+            return prev
+        if abs(new_val - prev) > jump:
+            return new_val
+        alpha = 1.0 - math.exp(-dt_s / tau_s)
+        return prev + alpha * (new_val - prev)
+
+    def test_initialises_to_first_value(self):
+        assert self._ewma(None, 1500.0) == 1500.0
+
+    def test_converges_toward_new_value(self):
+        prev = 1000.0
+        result = self._ewma(prev, 2000.0, tau_s=60.0, dt_s=30.0)
+        assert prev < result < 2000.0
+
+    def test_jump_reset_above_threshold(self):
+        """Step > jump_threshold → EWMA snaps to new value immediately."""
+        result = self._ewma(500.0, 4000.0, jump=2000.0)  # delta = 3500 > 2000
+        assert result == 4000.0
+
+    def test_no_jump_reset_below_threshold(self):
+        """Step < jump_threshold → EWMA smooths."""
+        result = self._ewma(1000.0, 2500.0, jump=2000.0)  # delta = 1500 < 2000
+        assert 1000.0 < result < 2500.0
+
+    def test_full_convergence_after_many_ticks(self):
+        """After many ticks the EWMA converges to the stable target."""
+        val = 0.0
+        target = 3000.0
+        for _ in range(1000):
+            val = self._ewma(val, target, tau_s=60.0, dt_s=30.0, jump=999999)
+        assert abs(val - target) < 0.01
+
+    def test_zero_glitch_suppressed_when_prev_above_floor(self):
+        """E3DC RSCP zero-glitch: 0W with prev > 200W must be ignored."""
+        result = self._ewma(1500.0, 0.0)
+        assert result == 1500.0  # unchanged
+
+    def test_zero_value_accepted_when_prev_below_floor(self):
+        """Genuine 0W (e.g. night standby) is accepted when prev <= 200W."""
+        result = self._ewma(150.0, 0.0)
+        assert result < 150.0  # EWMA moves toward 0
 
 
 # ──────────────────────────────────────────────────────────────────────────────

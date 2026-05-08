@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import statistics
 from collections import deque
 from datetime import datetime, timedelta
@@ -65,6 +66,9 @@ from .const import (
     DEFAULT_CURTAILMENT_ACTIVATION_W,
     DEFAULT_CURTAILMENT_RELEASE_W,
     DEFAULT_UPDATE_INTERVAL,
+    EWMA_JUMP_THRESHOLD_W,
+    EWMA_TAU_S,
+    FEED_IN_PV_DELAY_COOLDOWN_S,
     DEFAULT_WATCHDOG_TIMEOUT,
     DOMAIN,
     E3DC_RSCP_DOMAIN,
@@ -122,6 +126,38 @@ from .forecast import ForecastResult, simulate_next_24h
 from .optimizer import OptimizerResult, run_optimizer
 
 _LOGGER = logging.getLogger(__name__)
+
+
+_EWMA_GLITCH_ZERO_FLOOR_W: float = 200.0  # below this, 0-values are not glitches
+
+
+def _ewma_update(
+    prev: float | None,
+    new_val: float,
+    tau_s: float,
+    dt_s: float,
+    jump_threshold_w: float,
+) -> float:
+    """Exponential weighted moving average with jump-reset and zero-glitch guard.
+
+    Falls der neue Wert mehr als *jump_threshold_w* vom Vorgänger abweicht
+    (z.B. Wallbox-Start), wird der EWMA sofort auf den neuen Wert gesetzt
+    statt träge nachzuführen.
+
+    Zero-Glitch-Guard: Liefert der Sensor exakt 0 W, obwohl der bisherige
+    EWMA deutlich über _EWMA_GLITCH_ZERO_FLOOR_W liegt, wird der Wert als
+    E3DC-RSCP-Glitch verworfen und der vorherige EWMA-Wert beibehalten.
+    """
+    if prev is None:
+        return new_val
+    # Zero-Glitch-Guard: exakter 0-Wert bei laufendem Verbrauch = Sensor-Aussetzer
+    if new_val == 0.0 and prev > _EWMA_GLITCH_ZERO_FLOOR_W:
+        return prev
+    if abs(new_val - prev) > jump_threshold_w:
+        return new_val
+    alpha = 1.0 - math.exp(-dt_s / max(tau_s, 1e-6))
+    return prev + alpha * (new_val - prev)
+
 
 # How much a power limit must change to trigger a new service call (W)
 POWER_DEBOUNCE_W = 50
@@ -266,6 +302,13 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # A2: Charge-power ramp – last value sent to inverter
         self._last_applied_charge_power: int = 0
 
+        # A3: EWMA-geglättete Leistungswerte (anti-flapping)
+        self._ewma_pv: float | None = None
+        self._ewma_house: float | None = None
+
+        # Anti-Pendel-Cooldown: Zeitpunkt des letzten Phasenwechsels
+        self._last_phase_changed_at: datetime | None = None
+
         # E3/Phase 1: Curtailment Guard hysteresis state
         self._curtailment_guard_active: bool = False
 
@@ -312,9 +355,13 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Transition to OFF: release all limits immediately
             self.hass.async_create_task(self._async_release_limits("Master-Switch deaktiviert"))
         elif not was_active and active:
-            # Transition to ON: force a fresh decide+act cycle so any new
-            # phase (e.g. CURTAILMENT_GUARD) is applied without waiting
-            # for the next poll.
+            # Transition to ON: reset smoothing state so stale values don't
+            # persist from when the rule was off.
+            self._ewma_pv = None
+            self._ewma_house = None
+            self._last_phase_changed_at = None
+            # Force a fresh decide+act cycle so any new phase
+            # (e.g. CURTAILMENT_GUARD) is applied without waiting for the next poll.
             self.last_decision = None
             self.hass.async_create_task(self.async_request_refresh())
 
@@ -419,6 +466,24 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         import dataclasses as _dc
         state_data = _dc.replace(state_data, soc=self._stable_soc)
 
+        # A3: EWMA-Glättung von PV und Hausverbrauch (anti-flapping)
+        # grid_power und battery_power bleiben roh – feed_in_limit braucht
+        # schnelle Reaktion und wird separat durch Schwellen-Hysterese entstört.
+        _dt_s = self.update_interval.total_seconds()
+        self._ewma_pv = _ewma_update(
+            self._ewma_pv, state_data.pv_power or 0.0,
+            EWMA_TAU_S, _dt_s, EWMA_JUMP_THRESHOLD_W,
+        )
+        self._ewma_house = _ewma_update(
+            self._ewma_house, state_data.house_power or 0.0,
+            EWMA_TAU_S, _dt_s, EWMA_JUMP_THRESHOLD_W,
+        )
+        state_data = _dc.replace(
+            state_data,
+            pv_power=self._ewma_pv,
+            house_power=self._ewma_house,
+        )
+
         # Current electricity price (optional)
         current_price: float | None = None
         if opts.get(CONF_DYNAMIC_TARIFF_ENABLED) and opts.get(CONF_PRICE_SENSOR):
@@ -507,6 +572,8 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hp_running=hp_running,
             hp_last_change_minutes=hp_last_change_min,
             force_discharge=self.force_discharge,
+            previous_phase=self.last_phase,
+            previous_phase_since=self._last_phase_changed_at,
         )
 
         # Act on decision (debounced)
@@ -552,6 +619,8 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         await self._async_act(decision, state_data, opts, current_price)
 
+        if decision.phase != self.last_phase:
+            self._last_phase_changed_at = now
         self.last_decision = decision
         self.last_phase = decision.phase
 

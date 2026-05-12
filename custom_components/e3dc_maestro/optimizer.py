@@ -103,16 +103,19 @@ def _score(result: ForecastResult, objective: str, params: MaestroParams | None 
 
 
 def _build_candidate(
-    base: MaestroParams, cap_soc: float, until_h: float, gentle_factor: float
+    base: MaestroParams, cap_soc: float, until_h: float
 ) -> MaestroParams:
-    """Return a copy of ``base`` with F0 params overridden."""
+    """Return a copy of ``base`` with morning-cap params overridden.
+
+    gentle_charge is intentionally NOT touched: it controls charge speed
+    (battery health / comfort), has no relationship to tariff cost or
+    self-consumption, and must remain under the user's control.
+    """
     return dataclasses.replace(
         base,
         morning_cap_enabled=True,
         morning_cap_soc=cap_soc,
         morning_cap_until_h=until_h,
-        gentle_charge_enabled=True,
-        gentle_charge_factor=gentle_factor,
     )
 
 
@@ -209,34 +212,33 @@ def run_optimizer(
         if cap_soc < reserve_floor:
             continue
         for until_h in _MORNING_CAP_UNTIL_H_GRID:
-            for gentle_factor in _GENTLE_FACTOR_GRID:
-                grid_size += 1
-                candidate = _build_candidate(base_params, cap_soc, until_h, gentle_factor)
-                try:
-                    fc = simulate_next_24h(
-                        soc=soc,
-                        consumption_h=consumption_h,
-                        pv_h=pv_h,
-                        params=candidate,
-                        now=now,
-                        battery_capacity_kwh=battery_capacity_kwh,
-                        regelung_aktiv=regelung_aktiv,
-                        max_discharge_power=max_discharge_power,
-                        pv_h_day2=_pv_day2,
-                        consumption_h_day2=_cons_day2,
-                        horizon_h=_horizon_h,
-                    )
-                except Exception as err:  # pragma: no cover - defensive
-                    _LOGGER.debug("Optimizer candidate failed: %s", err)
-                    continue
-                # Safety: never violate reserve
-                if fc.min_soc < reserve_floor:
-                    continue
-                score = _score(fc, objective, candidate)
-                if score > best_score:
-                    best_score = score
-                    best_params = candidate
-                    best_forecast = fc
+            grid_size += 1
+            candidate = _build_candidate(base_params, cap_soc, until_h)
+            try:
+                fc = simulate_next_24h(
+                    soc=soc,
+                    consumption_h=consumption_h,
+                    pv_h=pv_h,
+                    params=candidate,
+                    now=now,
+                    battery_capacity_kwh=battery_capacity_kwh,
+                    regelung_aktiv=regelung_aktiv,
+                    max_discharge_power=max_discharge_power,
+                    pv_h_day2=_pv_day2,
+                    consumption_h_day2=_cons_day2,
+                    horizon_h=_horizon_h,
+                )
+            except Exception as err:  # pragma: no cover - defensive
+                _LOGGER.debug("Optimizer candidate failed: %s", err)
+                continue
+            # Safety: never violate reserve
+            if fc.min_soc < reserve_floor:
+                continue
+            score = _score(fc, objective, candidate)
+            if score > best_score:
+                best_score = score
+                best_params = candidate
+                best_forecast = fc
 
     # Estimate savings vs. baseline (in % of baseline magnitude)
     if baseline_score == 0:
@@ -263,8 +265,7 @@ def run_optimizer(
 
     overrides: dict[str, Any] = {}
     if best_params is not base_params:
-        for fld in ("morning_cap_enabled", "morning_cap_soc", "morning_cap_until_h",
-                    "gentle_charge_enabled", "gentle_charge_factor"):
+        for fld in ("morning_cap_enabled", "morning_cap_soc", "morning_cap_until_h"):
             overrides[fld] = getattr(best_params, fld)
 
     return OptimizerResult(

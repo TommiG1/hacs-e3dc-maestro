@@ -370,6 +370,10 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Resolved device id for e3dc_rscp service calls
         self._e3dc_device_id: str | None = None
 
+        # PV-Forecast Auto-Detect: cached entity_id after first discovery (avoids
+        # repeated full sensor scan and log spam every cycle)
+        self._autodetected_pv_sensor: str | None = None
+
     # ──────────────────────────────────────────────────────────────────────────
     # Public helpers used by entities
     # ──────────────────────────────────────────────────────────────────────────
@@ -1225,25 +1229,6 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             if cons_h is None and pv_h is None:
                 return  # No historical data yet
-            # Solcast/Forecast.Solar bevorzugen — sonst zeigt die UI-Trajektorie
-            # einen 90-Tage-Mittel-Tag statt der echten Tagesprognose, was nachts
-            # zu einem fälschlich abfallenden SoC bis ~25 % führt, obwohl der
-            # Optimizer (der dieselbe Solcast-Quelle nutzt) korrekt rechnet.
-            #
-            # Auswahl des Solcast-Tags: ``_read_pv_forecast_profile(days_ahead=N)``
-            # liefert das Tagesprofil für ``(now + N).date()``. Die UI-Trajektorie
-            # deckt aber das 24h-Sliding-Window ab ``now`` ab. Wir wählen daher
-            # den Tag, der den Großteil dieser 24h abdeckt:
-            #   * vor 12:00 lokal → Großteil ist HEUTE (days_ahead=0)
-            #   * ab 12:00 lokal → Großteil ist MORGEN (days_ahead=1)
-            # Damit verschwindet der Fehler, dass nachts (z. B. 00:30 lokal)
-            # bisher das Profil von morgen geladen wurde, obwohl die nächsten
-            # 24 h fast vollständig im heutigen Kalendertag liegen.
-            now_local = dt_util.as_local(now)
-            target_days_ahead = 0 if now_local.hour < 12 else 1
-            pv_h_forecast = self._read_pv_forecast_profile(now, days_ahead=target_days_ahead)
-            if pv_h_forecast is not None:
-                pv_h = pv_h_forecast
             self.forecast = simulate_next_24h(
                 soc=state.soc,
                 consumption_h=cons_h if cons_h is not None else [state.house_power] * 24,
@@ -1739,15 +1724,26 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     return profile
 
         # 2. Auto-detect: scan all sensor.* states for one with detailedHourly/forecast/watt_hours
-        # Erlaubt für days_ahead 0 (heute) und 1 (morgen) — bei Solcast existiert
-        # ``prognose_heute`` als zweiter Sensor mit detailedHourly für den
-        # aktuellen Tag, der UI-Forecast braucht den, wenn ``CONF_PV_FORECAST_SENSOR``
-        # auf den Morgen-Sensor zeigt.
-        # Für day-2 bleibt der Auto-Detect deaktiviert: integrationen wie Solcast
-        # legen `prognose_tag_3..7` automatisch an, was sonst stillschweigend zu
-        # einem 48h-Horizont führen würde.
-        if days_ahead > 1:
+        # Only for days_ahead=1 — for day-2 we require the configured sensor to provide the data
+        # explicitly, otherwise integrations like Solcast (which auto-creates prognose_tag_3..7)
+        # would silently extend the horizon to 48 h without the user's awareness.
+        if days_ahead != 1:
             return None
+
+        # Use cached result from a previous scan to avoid rescanning every cycle.
+        if self._autodetected_pv_sensor is not None:
+            cached_state = self.hass.states.get(self._autodetected_pv_sensor)
+            if cached_state is not None and cached_state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                profile = _try_extract(cached_state.attributes)
+                if profile is not None:
+                    return profile
+            # Cached sensor is gone or no longer usable – clear cache and re-scan below.
+            _LOGGER.info(
+                "Auto-Optimizer: Gecachter PV-Sensor '%s' nicht mehr verfügbar – erneute Suche",
+                self._autodetected_pv_sensor,
+            )
+            self._autodetected_pv_sensor = None
+
         for state in self.hass.states.async_all("sensor"):
             attrs = state.attributes
             if not any(
@@ -1757,8 +1753,10 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
             profile = _try_extract(attrs)
             if profile is not None:
-                _LOGGER.warning(
-                    "Auto-Optimizer: PV-Tagesprognose aus '%s' erkannt",
+                self._autodetected_pv_sensor = state.entity_id
+                _LOGGER.info(
+                    "Auto-Optimizer: PV-Tagesprognose aus '%s' erkannt – wird für weitere Zyklen gecacht. "
+                    "Tipp: Sensor in der Integration konfigurieren, um Auto-Erkennung zu deaktivieren.",
                     state.entity_id,
                 )
                 return profile

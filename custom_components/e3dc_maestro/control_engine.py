@@ -1281,6 +1281,30 @@ def decide(
                             f"({_remaining_kwh:.1f}kWh/{_remaining_hours:.1f}h)"
                         )
                         charge_power = _smooth_rate_w
+        # 7d. Nach Erreichen von charge_end_h und solange Ziel-SoC nicht erreicht:
+        # Maestro entfernt das harte Power-Cap und gibt der E3DC-Hardware
+        # max_charge_power frei. Andernfalls cappt _apply_house_ceiling auf
+        # die EWMA-geglättete PV-Surplus-Differenz und bleibt deutlich unter
+        # dem realen Surplus → unnötige Einspeisung obwohl Akku noch Platz hat.
+        _charge_end_h_late = seasonal_charge_end_hour(now, params)
+        _hour_now_late = now.hour + now.minute / 60
+        if (
+            _hour_now_late >= _charge_end_h_late
+            and state.soc < target
+            and state.pv_power > 0
+        ):
+            return MaestroDecision(
+                phase=PHASE_CORRIDOR,
+                reason=(
+                    f"Ladekorridor (nach Ladeende-Stunde {_charge_end_h_late:.1f}h): "
+                    f"SoC {state.soc:.0f}% < Ziel {target:.0f}%, "
+                    f"Power-Cap entfernt → E3DC nutzt PV-Surplus selbst"
+                ),
+                power_mode=POWER_MODE_NORMAL,
+                charge_power_limit=params.max_charge_power,
+                target_soc=target,
+                target_charge_power=params.max_charge_power,
+            )
         effective_charge = _apply_house_ceiling(
             charge_power, state, params, PHASE_CORRIDOR, current_price,
             tariff_class=tariff_class,

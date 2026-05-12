@@ -27,6 +27,7 @@ from .const import (
     CONF_AUTO_MODE_ENABLED,
     CONF_HARD_SOC_LIMIT_ENABLED,
     CONF_FORWARD_LOOKING_ENABLED,
+    CONF_PV_FORECAST_ENABLED,
     CONF_SEASONAL_RESERVE_ENABLED,
     CONF_TWO_TIER_ENABLED,
     CONF_WALLBOX_ENABLED,
@@ -228,6 +229,15 @@ SWITCH_DESCRIPTIONS: tuple[MaestroSwitchDescription, ...] = (
         param_key=CONF_FORWARD_LOOKING_ENABLED,
         on_fn=lambda coord: coord.update_param(CONF_FORWARD_LOOKING_ENABLED, True),
         off_fn=lambda coord: coord.update_param(CONF_FORWARD_LOOKING_ENABLED, False),
+    ),
+    # PV-Prognose-Verzögerung
+    MaestroSwitchDescription(
+        key=CONF_PV_FORECAST_ENABLED,
+        name="PV-Prognose-Verzögerung",
+        icon="mdi:sun-clock",
+        param_key=CONF_PV_FORECAST_ENABLED,
+        on_fn=lambda coord: coord.update_param(CONF_PV_FORECAST_ENABLED, True),
+        off_fn=lambda coord: coord.update_param(CONF_PV_FORECAST_ENABLED, False),
     ),
 )
 

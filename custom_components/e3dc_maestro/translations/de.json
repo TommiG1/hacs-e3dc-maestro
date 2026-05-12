@@ -54,7 +54,7 @@
           "charge_threshold": "Ladeschwelle – Notfallladung unter x% SoC",
           "charge_target": "Ladeende SoC (%)",
           "winter_minimum_hour": "Ladeende Winterminimum (Stunde)",
-          "summer_maximum_hour": "Ladeende Sommermaximum (Stunde)",
+          "summer_maximum_hour": "Ladeende Sommermaximum (Stunde) — derzeit ungenutzt",
           "summer_charge_end": "Ziel-Ladeende im Sommer (Stunde)",
           "seasonal_reserve_enabled": "Saisonale Notstromreserve aktivieren",
           "reserve_winter_percent": "Reserve Winter (% SoC)",

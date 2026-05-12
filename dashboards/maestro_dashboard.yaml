@@ -800,6 +800,8 @@ views:
             entities:
               - entity: switch.e3dc_maestro_vorausschauende_ladung
                 name: "Vorausschauende Ladung aktiv"
+              - entity: switch.e3dc_maestro_pv_prognose_verzogerung
+                name: "PV-Prognose-Verzögerung aktiv"
               - entity: number.e3dc_maestro_mindest_soc_vor_verzogerung
                 name: "Mindest-SoC vor Verzögerung"
               - entity: number.e3dc_maestro_pv_forecast_schwelle
@@ -892,6 +894,10 @@ views:
         title: Ladekorridor
         subtitle: Saisonale SoC-Rampe bis zum Tagesziel
         entities:
+          - entity: switch.e3dc_maestro_hard_soc_limit_akku_deckel
+            name: "Hard-SoC-Limit (Akku-Deckel) aktiv"
+          - entity: number.e3dc_maestro_hard_soc_limit_akku_deckel
+            name: "Hard-SoC-Limit (%)"
           - entity: number.e3dc_maestro_ladeschwelle
             name: "Ladeschwelle / Notfall (%)"
           - entity: number.e3dc_maestro_ladeende_soc
@@ -1893,8 +1899,10 @@ views:
           angesetzt wird. Im Sommer lohnt es sich, die Ladung bis in den Nachmittag
           zu strecken.
           
-          **⚠ Wechselwirkung mit Astro-Modus:** wie bei „Ladeende Winter" – im
-          Astro-Modus ohne Wirkung.
+          **⚠ Status:** Dieser Wert (`summer_maximum_hour`) wird von der aktuellen
+          `decide()`-Engine **nicht ausgewertet**. Für das tatsächliche Sommer-Ladeende
+          ist „Ziel-Ladeende Sommer" (`summer_charge_end`) maßgeblich. Eintrag bleibt
+          aus Kompatibilität sichtbar.
           
           **Standard:** 18 (= 18:00 lokal)
           
@@ -1909,6 +1917,36 @@ views:
           Sonnenuntergang und ignoriert diesen Wert dann vollständig.
           
           **Standard:** 16
+          
+          ---
+          
+          ### Hard-SoC-Limit (Akku-Deckel)
+          
+          **Wirkung:** Ist der Schalter aktiv, wird das Laden ab dem eingestellten SoC-Wert
+          blockiert – unabhängig von Ladeende SoC, Korridor oder Spreading. Maestro setzt
+          die Ladeleistung auf 1 W (effektiv Null), lässt das Entladen aber weiter zu.
+          
+          **Priorität:** Greift in Phase 6.9, also **vor** dem normalen Ladekorridor.
+          
+          **Ausnahme – Abregelschutz:** Wenn der Curtailment Guard aktiv ist, wird das
+          Hard-SoC-Limit **ignoriert**, damit sonst abgeregelte PV-Energie noch im Akku
+          gepuffert wird.
+          
+          **Standard:** aus / 80 %
+          
+          ---
+          
+          ### Korridor-Bypass nach Ziel-Ladeende (Phase 7d)
+          
+          **Wirkung:** Ist die saisonale Ladeende-Stunde erreicht, der Ziel-SoC aber noch
+          nicht voll, und liefert die PV weiter Strom, hebt Maestro den Korridor-Power-Cap
+          auf (`charge_power_limit = Max. Ladeleistung`). Damit darf der E3DC den vollen
+          PV-Surplus selbst in den Akku ziehen, statt ihn ans Netz einzuspeisen.
+          
+          **Hintergrund:** Im normalen Korridor cappt Maestro die Ladeleistung an der
+          EWMA-geglätteten PV-Haus-Differenz. Diese Glättung läuft dem realen Surplus
+          hinterher → ohne Bypass würde bei volatiler PV unnötig eingespeist. Nach dem
+          Ziel-Ladeende zählt nur noch, möglichst viel PV in den Akku zu bekommen.
 
   - title: "Hilfe: Ladeverteilung (Spreading)"
     path: help-spreading

@@ -250,6 +250,8 @@ Definiert wann und auf welches SoC-Ziel der Akku täglich geladen wird.
 
 Maestro berechnet täglich **gleitend** (basierend auf dem aktuellen Datum) den optimalen Ladekorridor zwischen den Sommer- und Winterwerten.
 
+> **Korridor-Bypass nach Ziel-Ladeende (Phase 7d):** Ist die saisonale Ladeende-Stunde erreicht, der Ziel-SoC aber noch nicht voll, und liefert die PV weiter Strom, hebt Maestro den Korridor-Power-Cap auf (`charge_power_limit = Max. Ladeleistung`). Damit nutzt der E3DC den vollen PV-Surplus selbst, statt ihn aufgrund der EWMA-Glättung unnötig ans Netz einzuspeisen. Hinweis: Der Parameter **Sommermaximum Ladebeginn (h)** wird aktuell nicht mehr von der `decide()`-Engine ausgewertet und ist nur noch aus Kompatibilität sichtbar.
+
 ---
 
 ### Schritt 4: HT/NT-Schutz

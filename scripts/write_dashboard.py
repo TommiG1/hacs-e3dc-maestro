@@ -1,10 +1,51 @@
 #!/usr/bin/env python3
 """Generates dashboards/maestro_dashboard.yaml.
 
+================================================================================
+⚠️  WARNUNG — GENERATOR IST OUT OF SYNC (Stand: 2026-05-12)
+================================================================================
+Die **Source of Truth** ist `dashboards/maestro_dashboard.yaml` (manuell gepflegt).
+Dieser Generator hinkt mehrere produktiv genutzte Sektionen hinterher:
+
+  - Card „💶 Erträge & Kosten heute" (12+ Entities + help-kostenmodul Button)
+  - Markdown-Card „🔍 Was wurde optimiert?" (Auto-Strategie-Details)
+  - Hilfe-Subview `help-kostenmodul`
+  - `switch.e3dc_maestro_pv_prognose_verzogerung` im PV-Delay-Block
+  - `switch.e3dc_maestro_hard_soc_limit_akku_deckel` + Number im Korridor
+  - Help-Blöcke: Hard-SoC-Limit, Korridor-Bypass (Phase 7d),
+    Status-Hinweis für `summer_maximum_hour`
+  - Tabellenzeile „Kostenmodul" im Hilfe-Index
+  - Veraltete Referenz auf `gentle_charge_factor` im Auto-Strategie-Template
+
+Ausführen würde ca. 440 Zeilen produktiver Konfiguration **zerstören**.
+
+NICHT ohne vorherigen Sync mit dem YAML ausführen. Vor jedem Lauf:
+  1. `git diff dashboards/maestro_dashboard.yaml` nach erstem Probelauf prüfen
+  2. Generator entsprechend nachziehen
+  3. Erst dann committen
+
+Alternative: YAML weiterhin manuell pflegen, Generator nur als Skelett/Boilerplate
+behalten oder entfernen.
+================================================================================
+
 Usage (from project root):
     python3 scripts/write_dashboard.py
 """
 import pathlib
+import sys
+
+
+def _abort_unless_forced() -> None:
+    """Refuse to run unless --force is passed, to prevent data loss."""
+    if "--force" not in sys.argv:
+        print(
+            "\u26a0\ufe0f  Refusing to run: Generator is out of sync with "
+            "dashboards/maestro_dashboard.yaml.\n"
+            "    See the module docstring at the top of this file.\n"
+            "    If you really know what you are doing, re-run with --force.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
@@ -820,6 +861,8 @@ TAB_COCKPIT = """\
                 name: "Vorausschauende Ladung aktiv"
               - entity: number.e3dc_maestro_mindest_soc_vor_verzogerung
                 name: "Mindest-SoC vor Verzögerung"
+              - entity: switch.e3dc_maestro_pv_prognose_verzogerung
+                name: "PV-Prognose-Verzögerung aktiv"
               - entity: number.e3dc_maestro_pv_forecast_schwelle
                 name: "PV-Forecast Schwelle"
               - entity: number.e3dc_maestro_pv_forecast_sicherheitsfaktor
@@ -905,6 +948,8 @@ TAB_2 = (
         subtitle: Saisonale SoC-Rampe bis zum Tagesziel
         entities:
 """
+    + entity_row("switch.e3dc_maestro_hard_soc_limit_akku_deckel", "Hard-SoC-Limit (Akku-Deckel) aktiv")
+    + entity_row("number.e3dc_maestro_hard_soc_limit_akku_deckel", "Hard-SoC-Limit (%)")
     + entity_row("number.e3dc_maestro_ladeschwelle",        "Ladeschwelle / Notfall (%)")
     + entity_row("number.e3dc_maestro_ladeende_soc",        "Ladeende SoC (%)")
     + entity_row("number.e3dc_maestro_ladeende_winter",     "Ladeende Winter (Stunde, lokal) — nur ohne Astro")
@@ -1621,12 +1666,11 @@ werden.
 
 ### Ladeende Sommer (Stunde, lokal)
 
-**Wirkung:** Uhrzeit in HA-Lokalzeit, zu der das Ladeende im Sommer (Juni)
-angesetzt wird. Im Sommer lohnt es sich, die Ladung bis in den Nachmittag
-zu strecken.
-
-**⚠ Wechselwirkung mit Astro-Modus:** wie bei „Ladeende Winter" – im
-Astro-Modus ohne Wirkung.
+**Status:** ⚠ **Derzeit ungenutzt.** Dieser Wert (`summer_maximum_hour`) wird
+von der aktuellen `decide()`-Engine nicht ausgewertet. Für das tatsächliche
+Sommer-Ladeende ist **„Ziel-Ladeende Sommer"** (`summer_charge_end`)
+maßgeblich. Eintrag bleibt aus Kompatibilitätsgründen sichtbar und kann in
+einer späteren Version entfernt werden.
 
 **Standard:** 18 (= 18:00 lokal)
 
@@ -1641,6 +1685,53 @@ Interpolation. Wird durch den Astro-Modus überschrieben, wenn dieser aktiv ist.
 Sonnenuntergang und ignoriert diesen Wert dann vollständig.
 
 **Standard:** 16
+
+---
+
+### Hard-SoC-Limit (Akku-Deckel) aktiv / Hard-SoC-Limit (%)
+
+**Wirkung:** Ist der Schalter aktiv, wird das Laden ab dem eingestellten SoC-Wert
+blockiert – unabhängig von Ladeende SoC, Korridor oder Spreading. Maestro setzt
+die Ladeleistung auf 1 W (effektiv Null), lässt das Entladen aber weiter zu.
+
+**Priorität:** Greift in Phase 6.9, also **vor** dem normalen Ladekorridor (Phase 7).
+
+**Ausnahme – Abregelschutz:** Wenn der Curtailment Guard aktiv ist (drohende
+Einspeiseabregelung), wird das Hard-SoC-Limit **ignoriert**. So kann sonst
+abgeregelte PV-Energie weiterhin im Akku gepuffert werden, auch wenn der
+Deckel eigentlich überschritten wäre.
+
+**Wechselwirkung mit Ladeende SoC:** Ist Ladeende SoC > Hard-SoC-Limit,
+begrenzt der Deckel den tatsächlichen Ladestand. Die Korridor-Rampe
+rechnet intern auf den höheren Ladeende-SoC, was die Ladeleistung unterhalb
+des Deckels leicht erhöht – ohne praktische Nachteile.
+
+**Empfehlung:** Nur aktivieren, wenn du den Akku dauerhaft schonen oder
+einen festen Reservepuffer erhalten möchtest. Alternativ `Ladeende SoC`
+direkt auf den Zielwert setzen.
+
+**Standard:** aus / 80 %
+
+---
+
+### Korridor-Bypass nach Ziel-Ladeende (Phase 7d)
+
+**Wirkung:** Ist die saisonale Ladeende-Stunde (z. B. 19 Uhr im Sommer)
+erreicht, der Ziel-SoC aber noch **nicht**, und liefert die PV weiterhin
+Strom, dann hebt Maestro den Korridor-Power-Cap auf. Konkret wird
+`charge_power_limit = Max. Ladeleistung` (Hardware-Maximum) gesetzt – der
+E3DC darf den vollen PV-Surplus selbst in den Akku ziehen, statt ihn ans
+Netz einzuspeisen.
+
+**Hintergrund:** Im normalen Korridor (Phase 7) cappt Maestro die
+Ladeleistung an der geglätteten PV-Haus-Differenz, um unnötigen Netzbezug
+zu vermeiden. Diese EWMA-Glättung läuft jedoch dem realen Surplus hinterher
+und führt bei volatiler PV zum Einspeisen statt Laden. Nach dem
+Ziel-Ladeende ist Tarif-Schonung egal – jetzt zählt nur noch, möglichst
+viel PV in den Akku zu bekommen.
+
+**Wechselwirkung:** Greift unabhängig von Astro/Sommer/Winter; nutzt den
+gleichen `seasonal_charge_end_hour`-Wert wie der reguläre Korridor.
 """,
 )
 
@@ -1715,6 +1806,15 @@ deaktiviert wird (Hysterese). Verhindert Flackern bei leichten PV-Schwankungen.
 **Empfehlung:** 300–800 W. Deutlich kleiner als die Einschaltschwelle wählen.
 
 **Standard:** 500 W
+
+---
+
+### Wechselwirkung mit Hard-SoC-Limit
+
+Wenn der Curtailment Guard aktiv ist, **überschreibt er das Hard-SoC-Limit**.
+Das heißt: Der Akku kann in dieser Phase über den konfigurierten Deckel hinaus
+geladen werden, solange PV-Leistung droht abgeregelt zu werden. Sobald der
+Guard wieder deaktiviert wird (floor < Ausschaltschwelle), gilt das Limit erneut.
 """,
 )
 
@@ -2587,7 +2687,7 @@ TAB_9 = """\
         secondary: >-
           {% set r = state_attr('sensor.e3dc_maestro_auto_aktive_strategie','overrides') %}
           {% if r %}
-          Cap {{ r.morning_cap_soc }}% · bis {{ r.morning_cap_until_h }}h · Faktor {{ r.gentle_charge_factor }}
+          Cap {{ r.morning_cap_soc }}% · bis {{ r.morning_cap_until_h }}h
           {% else %}
           Keine Override-Empfehlung
           {% endif %}
@@ -2628,13 +2728,16 @@ Auto-Override sofort** – der Nutzer gewinnt immer.
 
 ### Suchraum (Grid-Search)
 
-| Parameter              | Werte                       |
-|------------------------|-----------------------------|
-| Morning-Cap SoC        | 20 / 30 / 40 / 50 %         |
-| Morning-Cap bis (lokal)| 9 / 10 / 11 / 12 h          |
-| Schonlade-Faktor       | 0.20 / 0.35 / 0.50 / 0.70   |
+| Parameter              | Werte                        |
+|------------------------|------------------------------|
+| Morning-Cap SoC        | 20 / 30 / 40 / 50 %          |
+| Morning-Cap bis (lokal)| 9 / 10 / 11 / 12 h           |
 
-→ 64 Kombinationen pro Tag.
+→ 16 Kombinationen pro Tag.
+
+**Nicht im Suchraum:** Der Schonlade-Faktor (gentle_charge) wird vom
+Auto-Optimizer nicht verändert. Bei Festpreistarifen hat die Ladegeschwindigkeit
+keinen Kosten-/Eigenverbrauchs-Einfluss; der Nutzer stellt ihn manuell ein.
 
 ---
 
@@ -2703,6 +2806,7 @@ YAML = (
 )
 
 out = pathlib.Path("dashboards/maestro_dashboard.yaml")
+_abort_unless_forced()
 out.write_text(YAML, encoding="utf-8")
 print(f"Written {len(YAML.splitlines())} lines to {out}")
 

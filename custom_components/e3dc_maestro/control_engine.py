@@ -238,7 +238,7 @@ class MaestroParams:
     adaptive_reserve_min_days: int = 7         # require ≥ N days of data, else fall back
     adaptive_reserve_safety_factor: float = 1.3  # multiplier on rolling average kWh need
     adaptive_reserve_min_soc: float = 5.0      # never recommend below this floor (%)
-    adaptive_reserve_max_soc: float = 90.0     # cap recommendation at this ceiling (%)
+    adaptive_reserve_max_soc: float = 35.0     # cap recommendation at this ceiling (%)
     # D1: EVCC integration
     evcc_enabled: bool = False
     evcc_now_value: str = "now"  # State-Wert der den 'Sofortladen'-Modus signalisiert
@@ -1338,6 +1338,32 @@ def decide(
             charge_power, state, params, PHASE_CORRIDOR, current_price,
             tariff_class=tariff_class,
         )
+        # 7e. Post-ceiling corridor pause: if the house-ceiling reduced effective
+        # charge below lower_corridor, don't send a tiny limit to the E3DC —
+        # send clear_power_limits (charge_power_limit=None) instead so the
+        # inverter self-manages the remaining surplus directly into the battery.
+        # A hard 0 W or sub-corridor limit causes exactly the wrong behaviour:
+        # the E3DC prefers grid export over the tiny charge command and keeps
+        # discharging via stale RSCP state. This check is intentionally placed
+        # AFTER _apply_house_ceiling so that it catches the case where
+        # charge_power itself was above lower_corridor (no pause in 7b) but the
+        # available surplus is too small to justify a cap at all.
+        if (
+            params.lower_corridor_pause_enabled
+            and effective_charge < params.lower_corridor
+            and not curtailment_guard_active
+        ):
+            return MaestroDecision(
+                phase=PHASE_IDLE,
+                reason=(
+                    f"Korridor-Pause (nach Surplus-Cap): nutzbarer Überschuss "
+                    f"{effective_charge:.0f} W < unterer Korridor "
+                    f"{params.lower_corridor:.0f} W → Limits freigegeben"
+                ),
+                power_mode=POWER_MODE_NORMAL,
+                charge_power_limit=None,
+                target_soc=target,
+            )
         return MaestroDecision(
             phase=PHASE_CORRIDOR,
             reason=(

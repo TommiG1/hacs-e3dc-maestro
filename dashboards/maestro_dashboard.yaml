@@ -185,7 +185,7 @@ views:
             tap_action:
               action: more-info
           - type: custom:mushroom-entity-card
-            entity: sensor.e3dc_maestro_saisonales_ladeende_stunde
+            entity: sensor.e3dc_maestro_saisonales_ladeende_uhrzeit
             name: Ladeende heute
             icon: mdi:clock-end
             icon_color: purple
@@ -836,7 +836,7 @@ views:
                 name: "Morning-Cap aktiv"
               - entity: number.e3dc_maestro_morning_cap_soc_grenze
                 name: "Morning-Cap SoC-Grenze"
-              - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_gmt
+              - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_lokal
                 name: "Morning-Cap bis Uhr"
               - type: button
                 name: "ℹ️  Hilfe zu diesem Abschnitt"
@@ -986,7 +986,7 @@ views:
         square: false
         cards:
           - type: custom:mushroom-entity-card
-            entity: sensor.e3dc_maestro_saisonales_ladeende_stunde
+            entity: sensor.e3dc_maestro_saisonales_ladeende_uhrzeit
             name: Ladeende heute
             icon: mdi:clock-end
             icon_color: purple
@@ -1342,7 +1342,7 @@ views:
             name: Morning-Cap aktivieren
           - entity: number.e3dc_maestro_morning_cap_soc_grenze
             name: "SoC-Deckel (%)"
-          - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_gmt
+          - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_lokal
             name: "Aktiv bis (Uhr, lokal)"
           - entity: switch.e3dc_maestro_schonladung_reduzierte_ladeleistung
             name: Schonladung aktivieren
@@ -1420,7 +1420,7 @@ views:
         entities:
           - entity: sensor.e3dc_maestro_notstromreserve_aktuell
             name: Notstromreserve (aktuell, %)
-          - entity: sensor.e3dc_maestro_saisonales_ladeende_stunde
+          - entity: sensor.e3dc_maestro_saisonales_ladeende_uhrzeit
             name: Saisonales Ladeende (Uhrzeit)
           - entity: sensor.e3dc_maestro_abregelung_verhindert_heute
             name: Einspeiselimit gesichert (kWh heute)
@@ -2787,6 +2787,24 @@ views:
           **Empfehlung:** 1.2–1.5. Zu hoch → Akku steht für Optimierung weniger zur Verfügung.
           
           **Standard:** 1.3
+          
+          ---
+          
+          ### Max. SoC-Deckel (%)
+          
+          **Wirkung:** Obergrenze für die berechnete adaptive Reserve. Verhindert,
+          dass die Formel bei hohem Durchschnittsverbrauch oder kleiner Batterie
+          die Reserve auf unrealistisch hohe Werte treibt und damit das normale
+          Entladen blockiert.
+          
+          Beispiel: 600 W × 24 h × 1.3 ÷ 10 kWh = 187 % → ohne Deckel würde die
+          Reserve den gesamten Akku reservieren. Mit Deckel 35 % bleiben mindestens
+          65 % nutzbar.
+          
+          **Empfehlung:** 25–40 %. Höhere Werte nur bei sehr großen Batterien
+          und/oder hohem Sicherheitsbedürfnis.
+          
+          **Standard:** 35 %
           
           ---
           

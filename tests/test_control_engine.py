@@ -1200,6 +1200,89 @@ class TestLowerCorridorPause:
         assert decision.phase != PHASE_IDLE or decision.charge_power_limit is None
 
 
+class TestPostCeilingCorridorPause:
+    """Fix #1: Korridor-Pause greift auch NACH _apply_house_ceiling.
+
+    Szenario: advanced_corridor=True, SoC-Delta groß → charge_power weit über
+    lower_corridor (Pause in 7b greift NICHT). Aber PV-Surplus ist kleiner als
+    lower_corridor → nach house-ceiling gilt effective_charge < lower_corridor.
+    Erwartet: IDLE mit charge_power_limit=None (clear_power_limits), NICHT ein
+    kontraproduktives kleines Ladelimit, das der E3DC ignoriert und stattdessen
+    einspeist.
+    """
+
+    def _params(self, **kwargs) -> MaestroParams:
+        base = {
+            **DEFAULT_PARAMS.__dict__,
+            "ht_enabled": False,
+            "spreading_enabled": False,
+            "lower_corridor_pause_enabled": True,
+            "lower_corridor": 1500,
+            "upper_corridor": 9000,
+            "advanced_corridor": True,
+            "battery_capacity_kwh": 15.0,
+            "charge_target": 98,
+            "min_charge_power": 50,
+            "max_charge_power": 9000,
+        }
+        base.update(kwargs)
+        return MaestroParams(**base)
+
+    def test_post_ceiling_pause_returns_idle_with_none_limit(self):
+        """Klassischer Live-Fall: SoC=86%, Ziel=96%, Überschuss ~300 W.
+
+        advanced_corridor: charge_power = 1500 + 8/100 * (9000-1500) ≈ 2100 W
+        → weit über lower_corridor=1500 W → Pause 7b greift nicht.
+        Surplus = pv(3500) - house(3250) = 250 W < lower_corridor(1500 W)
+        → effective_charge nach house-ceiling ≈ 250 W < 1500 W
+        → Post-ceiling-Pause muss IDLE + None zurückgeben.
+        Zeitpunkt 16:50 Uhr: ramp-target ≈ 93 % > soc=86 % → corridor-block aktiv.
+        """
+        p = self._params()
+        state = MaestroState(
+            soc=86, pv_power=3500, house_power=3250, grid_power=0, battery_power=0,
+        )
+        decision = decide(state, p, _now(5, 13, 16, 50))
+        assert decision.phase == PHASE_IDLE
+        # charge_power_limit muss None sein (clear_power_limits), nicht 0
+        assert decision.charge_power_limit is None, (
+            f"Erwartet None (clear_power_limits), bekam {decision.charge_power_limit}"
+        )
+
+    def test_post_ceiling_pause_disabled_sends_small_limit(self):
+        """Mit lower_corridor_pause_enabled=False: kleines Limit wird gesendet."""
+        p = self._params(lower_corridor_pause_enabled=False)
+        state = MaestroState(
+            soc=86, pv_power=3500, house_power=3250, grid_power=0, battery_power=0,
+        )
+        decision = decide(state, p, _now(5, 13, 16, 50))
+        # CORRIDOR mit niedrigem, aber gesetztem Limit
+        assert decision.phase == PHASE_CORRIDOR
+        assert decision.charge_power_limit is not None
+        assert decision.charge_power_limit < p.lower_corridor
+
+    def test_post_ceiling_pause_not_triggered_when_surplus_above_corridor(self):
+        """Wenn Surplus > lower_corridor: normaler CORRIDOR, kein IDLE."""
+        p = self._params()
+        state = MaestroState(
+            soc=86, pv_power=6000, house_power=2000, grid_power=0, battery_power=0,
+        )
+        # Surplus = 4000 W > lower_corridor 1500 W → CORRIDOR normal
+        decision = decide(state, p, _now(5, 13, 16, 50))
+        assert decision.phase == PHASE_CORRIDOR
+        assert decision.charge_power_limit is not None
+        assert decision.charge_power_limit >= p.lower_corridor
+
+    def test_post_ceiling_pause_overridden_by_curtailment_guard(self):
+        """Curtailment guard überschreibt die Post-Ceiling-Pause."""
+        p = self._params()
+        state = MaestroState(
+            soc=86, pv_power=3500, house_power=3250, grid_power=0, battery_power=0,
+        )
+        decision = decide(state, p, _now(5, 13, 16, 50), curtailment_guard_active=True)
+        assert decision.phase != PHASE_IDLE
+
+
 class TestHouseCeiling:
     """House-ceiling: spreading/corridor should not draw from grid."""
 
@@ -1782,6 +1865,15 @@ class TestAdaptiveEmergencyReserve:
                          consumption_data_days=14)
         assert adaptive_emergency_reserve_soc(s, p) == 5.0
 
+    def test_high_consumption_clamped_to_new_default_max(self):
+        # Regression: Default max_soc is now 35 % (was 90 %).
+        # 500 W * 24h * 1.3 / 10 kWh = 156 % → clamped to new max 35 %.
+        p = _adaptive_params(adaptive_reserve_max_soc=35.0)
+        s = MaestroState(soc=50, pv_power=0, house_power=500, grid_power=0,
+                         battery_power=0, consumption_avg_w_24h=500,
+                         consumption_data_days=14)
+        assert adaptive_emergency_reserve_soc(s, p) == 35.0
+
 
 class TestAdaptiveHtReserve:
     def _slot(self):
@@ -1835,6 +1927,17 @@ class TestAdaptiveOverridesInDecide:
                          consumption_data_days=14)
         # Pick July day to avoid HT/cold-related branches
         d = decide(s, p, _now(7, 15, 12))
+        assert d.phase != PHASE_RESERVE_PROTECTION
+
+    def test_bug_regression_high_load_soc89_not_blocked(self):
+        # Bug: max_soc=90 caused reserve_protection to trigger at SoC≤90 %
+        # for any average load that yields > 90 % reserve.
+        # With new default max_soc=35, SoC=89 % must NOT be blocked.
+        p = _adaptive_params(adaptive_reserve_max_soc=35.0)
+        s = MaestroState(soc=89, pv_power=0, house_power=500, grid_power=0,
+                         battery_power=0, consumption_avg_w_24h=500,
+                         consumption_data_days=14)
+        d = decide(s, p, _now(7, 15, 14))
         assert d.phase != PHASE_RESERVE_PROTECTION
 
     def test_emergency_reserve_falls_back_when_no_data(self):

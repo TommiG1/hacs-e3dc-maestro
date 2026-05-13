@@ -62,7 +62,8 @@
           "adaptive_reserve_enabled": "Verbrauchsadaptive Reserve aktivieren",
           "adaptive_reserve_lookback_days": "Adaptive Reserve – Lookback (Tage)",
           "adaptive_reserve_min_days": "Adaptive Reserve – Mindestdaten (Tage)",
-          "adaptive_reserve_safety_factor": "Adaptive Reserve – Sicherheitsfaktor"
+          "adaptive_reserve_safety_factor": "Adaptive Reserve – Sicherheitsfaktor",
+          "adaptive_reserve_max_soc": "Adaptive Reserve – Max. SoC-Deckel (%)"
         }
       },
       "ht": {

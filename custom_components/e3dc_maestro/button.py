@@ -22,6 +22,7 @@ async def async_setup_entry(
         MaestroClearLimitsButton(coordinator),
         MaestroManualChargeButton(coordinator),
         MaestroResetStatsButton(coordinator),
+        MaestroRunSizingButton(coordinator),
     ])
 
 
@@ -74,3 +75,19 @@ class MaestroResetStatsButton(CoordinatorEntity[E3DCMaestroCoordinator], ButtonE
             self.coordinator.stats[key] = 0.0
         self.coordinator._log("Statistik manuell zurückgesetzt")
         await self.coordinator._async_save_stats()
+
+
+class MaestroRunSizingButton(CoordinatorEntity[E3DCMaestroCoordinator], ButtonEntity):
+    """Trigger a new Battery & PV Sizing analysis run."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Sizing-Analyse starten"
+    _attr_icon = "mdi:chart-timeline-variant-shimmer"
+
+    def __init__(self, coordinator: E3DCMaestroCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_run_sizing"
+        self._attr_device_info = _device_info(coordinator)
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_run_sizing_analysis()

@@ -1,6 +1,7 @@
 """Sensor platform for E3DC Maestro."""
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from typing import Any
@@ -455,6 +456,125 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda coord: round(coord.stats.get("wallbox_energy_today_kwh", 0.0), 3),
     ),
+    # ── Battery & PV Sizing Advisor – read-only KPI sensors ─────────────────
+    # (Interpolated from the 2D matrix based on the two slider values)
+    MaestroSensorDescription(
+        key="sizing_status",
+        name="Advisor: Status",
+        icon="mdi:chart-timeline-variant-shimmer",
+        value_fn=lambda coord: (
+            "running" if coord.sizing_running
+            else ("ready" if coord.sizing_analysis else "not_run")
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_self_sufficiency",
+        name="Advisor: Autarkie (Szenario)",
+        icon="mdi:solar-panel",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            None
+            if _sizing_interpolate(coord) is None
+            or math.isnan(_sizing_interpolate(coord).self_sufficiency_pct)
+            else _sizing_interpolate(coord).self_sufficiency_pct
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_avoided_import_kwh",
+        name="Advisor: Vermiedener Netzbezug/Jahr",
+        icon="mdi:transmission-tower-off",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            _sizing_interpolate(coord).avoided_grid_import_kwh
+            if _sizing_interpolate(coord) is not None else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_savings_eur_per_year",
+        name="Advisor: Ersparnis/Jahr",
+        icon="mdi:piggy-bank-outline",
+        native_unit_of_measurement="EUR",
+        device_class=SensorDeviceClass.MONETARY,
+        value_fn=lambda coord: (
+            _sizing_interpolate(coord).savings_eur_per_year
+            if _sizing_interpolate(coord) is not None else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_investment_eur",
+        name="Advisor: Investition",
+        icon="mdi:cash-multiple",
+        native_unit_of_measurement="EUR",
+        device_class=SensorDeviceClass.MONETARY,
+        value_fn=lambda coord: _sizing_live_investment(coord),
+    ),
+    MaestroSensorDescription(
+        key="sizing_payback_years",
+        name="Advisor: Amortisationszeit",
+        icon="mdi:calendar-clock",
+        native_unit_of_measurement="a",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: _sizing_live_payback(coord),
+    ),
+    MaestroSensorDescription(
+        key="sizing_cycles_per_year",
+        name="Advisor: Zyklen/Jahr (virt. Akku)",
+        icon="mdi:battery-sync-outline",
+        native_unit_of_measurement="1/a",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            _sizing_interpolate(coord).cycles_per_year
+            if _sizing_interpolate(coord) is not None else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_baseline_grid_import_kwh",
+        name="Advisor: Netzbezug Baseline/Jahr",
+        icon="mdi:transmission-tower-import",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            round(sum(coord.sizing_analysis.baseline.monthly_baseline_grid_in), 1)
+            if coord.sizing_analysis else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_economic_payback",
+        name="Advisor: Wirtschaftl. Empfehlung Amortisation",
+        icon="mdi:cash-clock",
+        native_unit_of_measurement="a",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            coord.sizing_analysis.recommended_economic.payback_years
+            if coord.sizing_analysis and coord.sizing_analysis.recommended_economic
+            else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_technical_autarky",
+        name="Advisor: Techn. Empfehlung Autarkie",
+        icon="mdi:battery-high",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            coord.sizing_analysis.recommended_technical.self_sufficiency_pct
+            if coord.sizing_analysis and coord.sizing_analysis.recommended_technical
+            else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="sizing_anomaly_rate",
+        name="Advisor: Energiebilanz-Anomalierate",
+        icon="mdi:alert-outline",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            round(coord.sizing_analysis.anomaly_rate * 100, 1)
+            if coord.sizing_analysis else None
+        ),
+    ),
 )
 
 
@@ -494,9 +614,17 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: E3DCMaestroCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
+    entities: list = [
         MaestroSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
-    )
+    ]
+    # Sizing Advisor – dedicated subclasses:
+    #  • MaestroSizingSensor       → heavy, static analysis result (matrix, recommendations).
+    #    Only re-writes state when the analysis itself changes.
+    #  • MaestroSizingScenarioSensor → lightweight, slider-dependent scenario KPIs.
+    #    Re-writes on every slider change but stays well below the 16 KB attribute limit.
+    entities.append(MaestroSizingSensor(coordinator))
+    entities.append(MaestroSizingScenarioSensor(coordinator))
+    async_add_entities(entities)
 
 
 class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
@@ -679,6 +807,249 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
             }
             return attrs
         return None
+
+
+def _sizing_interpolate(coord: "E3DCMaestroCoordinator"):
+    """Return a bilinear-interpolated ScenarioResult for the current slider values."""
+    if coord.sizing_analysis is None:
+        return None
+    from .battery_sizing import interpolate_result
+    return interpolate_result(
+        coord.sizing_analysis,
+        coord.sizing_hypothetical_kwh,
+        coord.sizing_hypothetical_pv_kwp,
+    )
+
+
+def _sizing_live_investment(coord: "E3DCMaestroCoordinator") -> float | None:
+    """Compute investment € live from dashboard-editable price fields.
+
+    Decoupled from the baked-in sweep prices so the user can adjust costs
+    without re-running the full analysis.
+    """
+    interp = _sizing_interpolate(coord)
+    if interp is None:
+        return None
+    battery_kwh = float(coord.sizing_hypothetical_kwh or 0.0)
+    pv_kwp = float(coord.sizing_hypothetical_pv_kwp or 0.0)
+    wr_upgrade = bool(interp.inverter_upgrade_needed)
+    investment = (
+        battery_kwh * float(coord.sizing_price_battery_kwh)
+        + pv_kwp * float(coord.sizing_price_pv_kwp)
+        + (float(coord.sizing_price_inverter) if wr_upgrade else 0.0)
+        + float(coord.sizing_price_extra)
+    )
+    return round(investment, 0)
+
+
+def _sizing_live_payback(coord: "E3DCMaestroCoordinator") -> float | None:
+    """Compute payback years from live investment / interpolated savings."""
+    interp = _sizing_interpolate(coord)
+    if interp is None:
+        return None
+    inv = _sizing_live_investment(coord)
+    if inv is None:
+        return None
+    savings = interp.savings_eur_per_year or 0.0
+    if savings <= 1e-6:
+        return None
+    return round(inv / savings, 1)
+
+
+class MaestroSizingSensor(CoordinatorEntity["E3DCMaestroCoordinator"], SensorEntity):
+    """Heavy aggregating sensor exposing the static sizing analysis result.
+
+    Holds the full 2D matrix and the recommendation dicts. To keep WebSocket
+    chatter and recorder load low, state is only re-written when the underlying
+    analysis (``coordinator.sizing_analysis.computed_at``) actually changes or
+    the running flag toggles. Slider movements do **not** trigger updates here;
+    those flow through :class:`MaestroSizingScenarioSensor` instead.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Advisor: Sizing-Matrix"
+    _attr_icon = "mdi:grid"
+    _attr_unique_id_suffix = "sizing_matrix"
+
+    def __init__(self, coordinator: "E3DCMaestroCoordinator") -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_sizing_matrix"
+        self._attr_device_info = _device_info(coordinator)
+        self._last_computed_at: Any = None
+        self._last_running: bool | None = None
+
+    def _handle_coordinator_update(self) -> None:
+        """Suppress redundant writes when nothing relevant changed."""
+        coord = self.coordinator
+        sa = coord.sizing_analysis
+        computed_at = sa.computed_at if sa else None
+        running = bool(coord.sizing_running)
+        if computed_at == self._last_computed_at and running == self._last_running:
+            return
+        self._last_computed_at = computed_at
+        self._last_running = running
+        super()._handle_coordinator_update()
+
+    @property
+    def native_value(self) -> str | None:
+        if self.coordinator.sizing_analysis is None:
+            return "not_run"
+        sa = self.coordinator.sizing_analysis
+        return sa.computed_at.strftime("%Y-%m-%dT%H:%M:%S")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        coord = self.coordinator
+        sa = coord.sizing_analysis
+        if sa is None:
+            return {
+                "status": "running" if coord.sizing_running else "not_run",
+            }
+
+        import math
+
+        def _dump_rec(r) -> dict | None:
+            if r is None:
+                return None
+            return {
+                "battery_kwh": r.battery_kwh,
+                "pv_kwp": r.pv_kwp,
+                "strategy": r.strategy,
+                "payback_years": (
+                    None if r.payback_years is None or r.payback_years == math.inf
+                    else round(r.payback_years, 2)
+                ),
+                "self_sufficiency_pct": r.self_sufficiency_pct,
+                "savings_eur_per_year": r.savings_eur_per_year,
+                "investment_eur": r.investment_eur,
+                "reason": r.reason,
+            }
+
+        # Pre-aggregate the two slices the dashboard actually charts so the
+        # 16 KB attribute limit is never hit and the browser does not have to
+        # filter/sort 143 dicts on every state push.
+        autarky_by_battery_pv0: list[dict] = []
+        for bi, b_kwh in enumerate(sa.battery_sizes_kwh):
+            # Find the column with PV ≈ 0 kWp
+            for pi, p_kwp in enumerate(sa.pv_sizes_kwp):
+                if abs(p_kwp) < 1e-6:
+                    r = sa.matrix[bi][pi]
+                    autarky_by_battery_pv0.append({
+                        "b": b_kwh,
+                        "autarky": r.self_sufficiency_pct,
+                    })
+                    break
+
+        scenarios_flat: list[dict] = []
+        for bi, b_kwh in enumerate(sa.battery_sizes_kwh):
+            for pi, p_kwp in enumerate(sa.pv_sizes_kwp):
+                r = sa.matrix[bi][pi]
+                if r.savings_eur_per_year <= 0:
+                    continue
+                scenarios_flat.append({
+                    "b": b_kwh,
+                    "p": p_kwp,
+                    "savings": round(r.savings_eur_per_year, 1),
+                    "invest": round(r.investment_eur, 1),
+                })
+        top_savings_scenarios = sorted(
+            scenarios_flat, key=lambda x: -x["savings"]
+        )[:10]
+
+        return {
+            "status": "running" if coord.sizing_running else "ready",
+            "records_count": sa.records_count,
+            "analysis_days": sa.analysis_days,
+            "anomaly_rate_pct": round(sa.anomaly_rate * 100, 1),
+            "computed_at": sa.computed_at.isoformat(),
+            "autarky_by_battery_pv0": autarky_by_battery_pv0,
+            "top_savings_scenarios": top_savings_scenarios,
+            "recommended_economic": _dump_rec(sa.recommended_economic),
+            "recommended_technical": _dump_rec(sa.recommended_technical),
+            "recommended_balanced": _dump_rec(sa.recommended_balanced),
+            "baseline_grid_import_kwh": round(sum(sa.baseline.monthly_baseline_grid_in), 1),
+            "baseline_self_sufficiency_pct": sa.baseline.self_sufficiency_pct,
+        }
+
+
+class MaestroSizingScenarioSensor(CoordinatorEntity["E3DCMaestroCoordinator"], SensorEntity):
+    """Lightweight sensor for slider-dependent scenario KPIs.
+
+    Re-renders on every coordinator update (incl. slider changes) but only
+    carries a handful of small attributes – well below the recorder's 16 KB
+    attribute limit and cheap to serialize over the WebSocket.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Advisor: Szenario"
+    _attr_icon = "mdi:tune-variant"
+    _attr_native_unit_of_measurement = "EUR"
+
+    def __init__(self, coordinator: "E3DCMaestroCoordinator") -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_sizing_scenario"
+        self._attr_device_info = _device_info(coordinator)
+
+    @property
+    def native_value(self) -> float | None:
+        interp = _sizing_interpolate(self.coordinator)
+        if interp is None:
+            return None
+        import math
+        v = interp.savings_eur_per_year
+        if v is None or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
+            return None
+        return round(v, 2)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        coord = self.coordinator
+        if coord.sizing_analysis is None:
+            return {
+                "status": "running" if coord.sizing_running else "not_run",
+                "slider_battery_kwh": coord.sizing_hypothetical_kwh,
+                "slider_pv_kwp": coord.sizing_hypothetical_pv_kwp,
+            }
+        import math
+        interp = _sizing_interpolate(coord)
+        # Live-Investitionsberechnung: aus den (dashboard-editierbaren)
+        # Preis-Eingaben + dem WR-Upgrade-Flag der interpolierten Zelle.
+        battery_kwh = float(coord.sizing_hypothetical_kwh or 0.0)
+        pv_kwp = float(coord.sizing_hypothetical_pv_kwp or 0.0)
+        wr_upgrade = bool(interp.inverter_upgrade_needed) if interp else False
+        investment_live = (
+            battery_kwh * float(coord.sizing_price_battery_kwh)
+            + pv_kwp * float(coord.sizing_price_pv_kwp)
+            + (float(coord.sizing_price_inverter) if wr_upgrade else 0.0)
+            + float(coord.sizing_price_extra)
+        )
+        savings = interp.savings_eur_per_year if interp else 0.0
+        if savings and savings > 1e-6:
+            payback_live = investment_live / savings
+        else:
+            payback_live = math.inf
+        return {
+            "status": "running" if coord.sizing_running else "ready",
+            "slider_battery_kwh": battery_kwh,
+            "slider_pv_kwp": pv_kwp,
+            "scenario_self_sufficiency_pct": interp.self_sufficiency_pct if interp else None,
+            "scenario_avoided_kwh": interp.avoided_grid_import_kwh if interp else None,
+            "scenario_savings_eur": savings,
+            "scenario_investment_eur": round(investment_live, 0),
+            "scenario_investment_breakdown": {
+                "battery_eur": round(battery_kwh * float(coord.sizing_price_battery_kwh), 0),
+                "pv_eur": round(pv_kwp * float(coord.sizing_price_pv_kwp), 0),
+                "inverter_eur": round(float(coord.sizing_price_inverter), 0) if wr_upgrade else 0,
+                "extra_eur": round(float(coord.sizing_price_extra), 0),
+                "inverter_upgrade_needed": wr_upgrade,
+            },
+            "scenario_payback_years": (
+                None if payback_live == math.inf else round(payback_live, 1)
+            ),
+            "scenario_monthly_avoided_kwh": interp.monthly_avoided_kwh if interp else None,
+            "scenario_monthly_baseline_grid_in": interp.monthly_baseline_grid_in if interp else None,
+        }
+
 
 
 def _device_info(coordinator: E3DCMaestroCoordinator) -> dict:

@@ -169,6 +169,40 @@ from .const import (
     DEFAULT_AUTO_MODE_ENABLED,
     DEFAULT_AUTO_MODE_OBJECTIVE,
     AUTO_MODE_OBJECTIVES,
+    # Sizing Advisor
+    CONF_SIZING_PV_ENERGY_SENSOR,
+    CONF_SIZING_HOUSE_ENERGY_SENSOR,
+    CONF_SIZING_HOUSE_FROM_BALANCE,
+    DEFAULT_SIZING_HOUSE_FROM_BALANCE,
+    CONF_SIZING_IMPORT_FROM_ENERGY_DASHBOARD,
+    CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR,
+    CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR,
+    CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR,
+    CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR,
+    CONF_SIZING_WALLBOX_ENERGY_SENSOR,
+    CONF_SIZING_HEAT_PUMP_ENERGY_SENSOR,
+    CONF_SIZING_ANALYSIS_DAYS,
+    CONF_SIZING_ELECTRICITY_PRICE_EUR_KWH,
+    CONF_SIZING_FEED_IN_PRICE_EUR_KWH,
+    CONF_SIZING_BATTERY_PRICE_EUR_KWH,
+    CONF_SIZING_PV_PRICE_EUR_PER_KWP,
+    CONF_SIZING_INVERTER_UPGRADE_PRICE_EUR,
+    CONF_SIZING_ROUND_TRIP_EFFICIENCY,
+    CONF_SIZING_MAX_BATTERY_SWEEP_KWH,
+    CONF_SIZING_BATTERY_STEP_KWH,
+    CONF_SIZING_MAX_PV_EXPANSION_KWP,
+    CONF_SIZING_PV_STEP_KWP,
+    DEFAULT_SIZING_ANALYSIS_DAYS,
+    DEFAULT_SIZING_ELECTRICITY_PRICE,
+    DEFAULT_SIZING_FEED_IN_PRICE,
+    DEFAULT_SIZING_BATTERY_PRICE_EUR_KWH,
+    DEFAULT_SIZING_PV_PRICE_EUR_PER_KWP,
+    DEFAULT_SIZING_INVERTER_UPGRADE_PRICE_EUR,
+    DEFAULT_SIZING_ROUND_TRIP_EFFICIENCY,
+    DEFAULT_SIZING_MAX_BATTERY_SWEEP_KWH,
+    DEFAULT_SIZING_BATTERY_STEP_KWH,
+    DEFAULT_SIZING_MAX_PV_EXPANSION_KWP,
+    DEFAULT_SIZING_PV_STEP_KWP,
     DOMAIN,
     E3DC_RSCP_DOMAIN,
     WALLBOX_TYPE_E3DC,
@@ -181,6 +215,89 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# ── Sizing Advisor schema ─────────────────────────────────────────────────────
+
+STEP_SIZING_ADVISOR_SCHEMA = vol.Schema(
+    {
+        # Energy sensors (HA Energy Dashboard / total_increasing)
+        # PV accepts multiple sensors (multi-inverter setups)
+        vol.Optional(CONF_SIZING_PV_ENERGY_SENSOR, default=[]): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor", multiple=True)
+        ),
+        # Single-entity selectors: no default — EntitySelector rejects empty
+        # strings as invalid entity IDs.  Omitting the field is allowed.
+        vol.Optional(CONF_SIZING_HOUSE_ENERGY_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        # Wenn aktiv, wird der ggf. gesetzte Haus-Sensor ignoriert und die
+        # Hauslast aus der Energiebilanz abgeleitet (pv + grid_in + batt_d -
+        # grid_out - batt_c).
+        vol.Optional(
+            CONF_SIZING_HOUSE_FROM_BALANCE,
+            default=DEFAULT_SIZING_HOUSE_FROM_BALANCE,
+        ): selector.BooleanSelector(),
+        # Volatile: beim Speichern werden alle Sensor-Felder aus dem
+        # HA Energy Dashboard neu eingelesen (überschreibt bestehende Werte).
+        # Wird nicht persistiert – beim nächsten Aufruf immer deaktiviert.
+        vol.Optional(
+            CONF_SIZING_IMPORT_FROM_ENERGY_DASHBOARD,
+            default=False,
+        ): selector.BooleanSelector(),
+        vol.Optional(CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        vol.Optional(CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        vol.Optional(CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        vol.Optional(CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        vol.Optional(CONF_SIZING_WALLBOX_ENERGY_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        vol.Optional(CONF_SIZING_HEAT_PUMP_ENERGY_SENSOR): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        ),
+        # Analysis parameters
+        vol.Optional(CONF_SIZING_ANALYSIS_DAYS, default=DEFAULT_SIZING_ANALYSIS_DAYS): vol.All(
+            vol.Coerce(int), vol.Range(min=30, max=730)
+        ),
+        vol.Optional(CONF_SIZING_ELECTRICITY_PRICE_EUR_KWH, default=DEFAULT_SIZING_ELECTRICITY_PRICE): vol.All(
+            vol.Coerce(float), vol.Range(min=0.05, max=2.0)
+        ),
+        vol.Optional(CONF_SIZING_FEED_IN_PRICE_EUR_KWH, default=DEFAULT_SIZING_FEED_IN_PRICE): vol.All(
+            vol.Coerce(float), vol.Range(min=0.0, max=1.0)
+        ),
+        vol.Optional(CONF_SIZING_BATTERY_PRICE_EUR_KWH, default=DEFAULT_SIZING_BATTERY_PRICE_EUR_KWH): vol.All(
+            vol.Coerce(float), vol.Range(min=100.0, max=5000.0)
+        ),
+        vol.Optional(CONF_SIZING_PV_PRICE_EUR_PER_KWP, default=DEFAULT_SIZING_PV_PRICE_EUR_PER_KWP): vol.All(
+            vol.Coerce(float), vol.Range(min=200.0, max=5000.0)
+        ),
+        vol.Optional(CONF_SIZING_INVERTER_UPGRADE_PRICE_EUR, default=DEFAULT_SIZING_INVERTER_UPGRADE_PRICE_EUR): vol.All(
+            vol.Coerce(float), vol.Range(min=0.0, max=20000.0)
+        ),
+        vol.Optional(CONF_SIZING_ROUND_TRIP_EFFICIENCY, default=DEFAULT_SIZING_ROUND_TRIP_EFFICIENCY): vol.All(
+            vol.Coerce(float), vol.Range(min=0.5, max=1.0)
+        ),
+        vol.Optional(CONF_SIZING_MAX_BATTERY_SWEEP_KWH, default=DEFAULT_SIZING_MAX_BATTERY_SWEEP_KWH): vol.All(
+            vol.Coerce(float), vol.Range(min=5.0, max=200.0)
+        ),
+        vol.Optional(CONF_SIZING_BATTERY_STEP_KWH, default=DEFAULT_SIZING_BATTERY_STEP_KWH): vol.All(
+            vol.Coerce(float), vol.Range(min=0.5, max=10.0)
+        ),
+        vol.Optional(CONF_SIZING_MAX_PV_EXPANSION_KWP, default=DEFAULT_SIZING_MAX_PV_EXPANSION_KWP): vol.All(
+            vol.Coerce(float), vol.Range(min=0.0, max=200.0)
+        ),
+        vol.Optional(CONF_SIZING_PV_STEP_KWP, default=DEFAULT_SIZING_PV_STEP_KWP): vol.All(
+            vol.Coerce(float), vol.Range(min=0.5, max=10.0)
+        ),
+    }
+)
 
 
 def _entity_selector(domain: str = "sensor") -> selector.EntitySelector:
@@ -706,6 +823,90 @@ def _format_slots_for_display(slots: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+async def _autodetect_sizing_sensors(hass) -> dict[str, Any]:
+    """Auto-detect energy sensors for the sizing advisor.
+
+    Primary source: HA Energy Dashboard (``async_get_manager``).  All sensors
+    registered there have long-term statistics and are guaranteed to work with
+    ``statistics_during_period``.
+    Fallback: RSCP integration sensors matched by entity-id suffix.
+    """
+    out: dict[str, Any] = {}
+
+    # ── 1. Try HA Energy Dashboard ────────────────────────────────────────────
+    try:
+        from homeassistant.components.energy import data as _energy_data  # noqa: PLC0415
+
+        mgr = await _energy_data.async_get_manager(hass)
+        prefs = (mgr.data or {}) if mgr.data else {}
+        pv_sensors: list[str] = []
+        for source in prefs.get("energy_sources", []):
+            src_type = source.get("type")
+            if src_type == "solar":
+                stat = source.get("stat_energy_from")
+                if stat:
+                    pv_sensors.append(stat)
+            elif src_type == "grid":
+                for flow in source.get("flow_from", []):
+                    stat = flow.get("stat_energy_from")
+                    if stat and CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR not in out:
+                        out[CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR] = stat
+                for flow in source.get("flow_to", []):
+                    stat = flow.get("stat_energy_to")
+                    if stat and CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR not in out:
+                        out[CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR] = stat
+                # Also handle flat grid sources (stat_energy_from / stat_energy_to at top level)
+                if CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR not in out:
+                    stat = source.get("stat_energy_from")
+                    if stat:
+                        out[CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR] = stat
+                if CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR not in out:
+                    stat = source.get("stat_energy_to")
+                    if stat:
+                        out[CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR] = stat
+            elif src_type == "battery":
+                stat = source.get("stat_energy_to")
+                if stat:
+                    out[CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR] = stat
+                stat = source.get("stat_energy_from")
+                if stat:
+                    out[CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR] = stat
+
+        # Use all discovered PV sensors; user can deselect in the form
+        if pv_sensors:
+            out[CONF_SIZING_PV_ENERGY_SENSOR] = pv_sensors
+
+        if out:
+            # Energy Dashboard lookup succeeded – return immediately
+            return out
+    except Exception:  # noqa: BLE001
+        pass
+
+    # ── 2. Fallback: RSCP integration entity-id suffix matching ───────────────
+    _RSCP_ENERGY_SUFFIX_MAP: dict[str, str] = {
+        CONF_SIZING_PV_ENERGY_SENSOR:                "_solar_energy_produced",
+        CONF_SIZING_HOUSE_ENERGY_SENSOR:             "_house_energy_consumed",
+        CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR:       "_grid_in_energy",
+        CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR:       "_grid_out_energy",
+        CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR:    "_battery_energy_charged",
+        CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR: "_battery_energy_discharged",
+    }
+    rscp_entries = hass.config_entries.async_entries(E3DC_RSCP_DOMAIN)
+    if rscp_entries:
+        entry_ids = {e.entry_id for e in rscp_entries}
+        registry = er.async_get(hass)
+        sensor_ids = [
+            ent.entity_id
+            for ent in registry.entities.values()
+            if ent.config_entry_id in entry_ids and ent.entity_id.startswith("sensor.")
+        ]
+        for key, suffix in _RSCP_ENERGY_SUFFIX_MAP.items():
+            match = next((eid for eid in sensor_ids if eid.endswith(suffix)), None)
+            if match:
+                out[key] = match
+    return out
+
+
 class _TariffSlotsMixin:
     """Slot-list management shared by ConfigFlow and OptionsFlow.
 
@@ -979,8 +1180,54 @@ class E3DCMaestroConfigFlow(_TariffSlotsMixin, ConfigFlow, domain=DOMAIN):
         """Step 10: F3 Auto-Optimierungs-Modus."""
         if user_input is not None:
             self._data.update(user_input)
-            return self.async_create_entry(title="E3DC Maestro", data={}, options=self._data)
+            return await self.async_step_sizing_advisor()
         return self.async_show_form(step_id="auto_mode", data_schema=STEP_AUTO_MODE_SCHEMA)
+
+    async def async_step_sizing_advisor(
+        self, user_input: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Step 11: Battery & PV Sizing Advisor."""
+        if user_input is not None:
+            # Volatile toggle: re-import sensors from Energy Dashboard
+            if user_input.pop(CONF_SIZING_IMPORT_FROM_ENERGY_DASHBOARD, False):
+                detected = await _autodetect_sizing_sensors(self.hass)
+                for k in (
+                    CONF_SIZING_PV_ENERGY_SENSOR,
+                    CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR,
+                    CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR,
+                    CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR,
+                    CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR,
+                ):
+                    if k in detected:
+                        user_input[k] = detected[k]
+            # Strip empty entity selectors
+            for k in (
+                CONF_SIZING_PV_ENERGY_SENSOR,
+                CONF_SIZING_HOUSE_ENERGY_SENSOR,
+                CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR,
+                CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR,
+                CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR,
+                CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR,
+                CONF_SIZING_WALLBOX_ENERGY_SENSOR,
+                CONF_SIZING_HEAT_PUMP_ENERGY_SENSOR,
+            ):
+                if not user_input.get(k):
+                    user_input.pop(k, None)
+            self._data.update(user_input)
+            return self.async_create_entry(title="E3DC Maestro", data={}, options=self._data)
+        detected = await _autodetect_sizing_sensors(self.hass)
+        # Normalize legacy string PV value to list (schema now uses multiple=True)
+        cur = dict(self._data)
+        pv_cur = cur.get(CONF_SIZING_PV_ENERGY_SENSOR)
+        if isinstance(pv_cur, str):
+            cur[CONF_SIZING_PV_ENERGY_SENSOR] = [pv_cur] if pv_cur else []
+        # Detection wins only when the user has nothing saved yet for that key
+        suggested = {**cur}
+        for k, v in detected.items():
+            if not suggested.get(k):
+                suggested[k] = v
+        schema = self.add_suggested_values_to_schema(STEP_SIZING_ADVISOR_SCHEMA, suggested)
+        return self.async_show_form(step_id="sizing_advisor", data_schema=schema)
 
     @staticmethod
     @callback
@@ -1002,7 +1249,7 @@ class E3DCMaestroOptionsFlow(_TariffSlotsMixin, OptionsFlow):
         return self._options
 
     async def _after_slots_step(self):
-        return await self.async_step_tariff()
+        return await self.async_step_init()
 
     def _prefilled(self, schema: vol.Schema) -> vol.Schema:
         """Return schema with current option values as defaults."""
@@ -1012,13 +1259,39 @@ class E3DCMaestroOptionsFlow(_TariffSlotsMixin, OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         # Load current options on first call (self.config_entry available from HA 2023.9+)
-        self._options = dict(self.config_entry.options)
-        return await self.async_step_sources()
+        if not self._options:
+            self._options = dict(self.config_entry.options)
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=[
+                "sources",
+                "system",
+                "season",
+                "pv_forecast",
+                "ht",
+                "tariff_slots",
+                "tariff",
+                "wallbox",
+                "evcc",
+                "heatpump",
+                "failsafe",
+                "flat_curve",
+                "auto_mode",
+                "sizing_advisor",
+                "finish",
+            ],
+        )
+
+    async def async_step_finish(
+        self, user_input: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Save and close the options flow."""
+        return self.async_create_entry(title="", data=self._options)
 
     async def async_step_sources(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_system()
+            return await self.async_step_init()
         auto = _autodetect_rscp_sources(self.hass)
         # Für die Anzeige IMMER alle erkannten Werte zeigen, auch wenn nicht übernommen.
         detected_for_display = dict(auto)
@@ -1041,7 +1314,7 @@ class E3DCMaestroOptionsFlow(_TariffSlotsMixin, OptionsFlow):
     async def async_step_system(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_season()
+            return await self.async_step_init()
         # Bestehende Options haben Vorrang; Auto-Detect füllt nur fehlende Felder.
         auto = _autodetect_rscp_system_params(self.hass)
         # Batteriekapazität ist BRUTTO – nicht als Vorschlag ins Feld schreiben.
@@ -1060,31 +1333,31 @@ class E3DCMaestroOptionsFlow(_TariffSlotsMixin, OptionsFlow):
     async def async_step_season(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_pv_forecast()
+            return await self.async_step_init()
         return self.async_show_form(step_id="season", data_schema=self._prefilled(STEP_SEASON_SCHEMA))
 
     async def async_step_pv_forecast(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_ht()
+            return await self.async_step_init()
         return self.async_show_form(step_id="pv_forecast", data_schema=self._prefilled(STEP_PV_FORECAST_SCHEMA))
 
     async def async_step_ht(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_tariff_slots()
+            return await self.async_step_init()
         return self.async_show_form(step_id="ht", data_schema=self._prefilled(STEP_HT_SCHEMA))
 
     async def async_step_tariff(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_wallbox()
+            return await self.async_step_init()
         return self.async_show_form(step_id="tariff", data_schema=self._prefilled(STEP_TARIFF_SCHEMA))
 
     async def async_step_wallbox(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_evcc()
+            return await self.async_step_init()
         auto = _autodetect_rscp_sources(self.hass)
         wb_keys = {
             CONF_WALLBOX_TYPE,
@@ -1101,7 +1374,7 @@ class E3DCMaestroOptionsFlow(_TariffSlotsMixin, OptionsFlow):
     async def async_step_evcc(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_heatpump()
+            return await self.async_step_init()
         auto = _autodetect_evcc(self.hass)
         suggested = {**auto, **self._options}
         schema = self.add_suggested_values_to_schema(STEP_EVCC_SCHEMA, suggested)
@@ -1110,23 +1383,63 @@ class E3DCMaestroOptionsFlow(_TariffSlotsMixin, OptionsFlow):
     async def async_step_heatpump(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_failsafe()
+            return await self.async_step_init()
         return self.async_show_form(step_id="heatpump", data_schema=self._prefilled(STEP_HP_SCHEMA))
 
     async def async_step_failsafe(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_flat_curve()
+            return await self.async_step_init()
         return self.async_show_form(step_id="failsafe", data_schema=self._prefilled(STEP_FAILSAFE_SCHEMA))
 
     async def async_step_flat_curve(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return await self.async_step_auto_mode()
+            return await self.async_step_init()
         return self.async_show_form(step_id="flat_curve", data_schema=self._prefilled(STEP_FLAT_CURVE_SCHEMA))
 
     async def async_step_auto_mode(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
         if user_input is not None:
             self._options.update(user_input)
-            return self.async_create_entry(title="", data=self._options)
+            return await self.async_step_init()
         return self.async_show_form(step_id="auto_mode", data_schema=self._prefilled(STEP_AUTO_MODE_SCHEMA))
+
+    async def async_step_sizing_advisor(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
+        if user_input is not None:
+            # Volatile toggle: re-import sensors from Energy Dashboard
+            if user_input.pop(CONF_SIZING_IMPORT_FROM_ENERGY_DASHBOARD, False):
+                detected = await _autodetect_sizing_sensors(self.hass)
+                for k in (
+                    CONF_SIZING_PV_ENERGY_SENSOR,
+                    CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR,
+                    CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR,
+                    CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR,
+                    CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR,
+                ):
+                    if k in detected:
+                        user_input[k] = detected[k]
+            for k in (
+                CONF_SIZING_PV_ENERGY_SENSOR,
+                CONF_SIZING_HOUSE_ENERGY_SENSOR,
+                CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR,
+                CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR,
+                CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR,
+                CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR,
+                CONF_SIZING_WALLBOX_ENERGY_SENSOR,
+                CONF_SIZING_HEAT_PUMP_ENERGY_SENSOR,
+            ):
+                if not user_input.get(k):
+                    user_input.pop(k, None)
+            self._options.update(user_input)
+            return await self.async_step_init()
+        detected = await _autodetect_sizing_sensors(self.hass)
+        cur = dict(self._options)
+        pv_cur = cur.get(CONF_SIZING_PV_ENERGY_SENSOR)
+        if isinstance(pv_cur, str):
+            cur[CONF_SIZING_PV_ENERGY_SENSOR] = [pv_cur] if pv_cur else []
+        suggested = {**cur}
+        for k, v in detected.items():
+            if not suggested.get(k):
+                suggested[k] = v
+        schema = self.add_suggested_values_to_schema(STEP_SIZING_ADVISOR_SCHEMA, suggested)
+        return self.async_show_form(step_id="sizing_advisor", data_schema=schema)

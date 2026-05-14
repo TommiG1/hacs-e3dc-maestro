@@ -191,6 +191,33 @@
           "auto_mode_enabled": "Auto-Optimierung aktivieren",
           "auto_mode_objective": "Optimierungsziel"
         }
+      },
+      "sizing_advisor": {
+        "title": "Akku & PV Sizing Advisor",
+        "description": "Ordne die Langzeit-Statistik-Sensoren des HA Energy Dashboards zu. Die Simulation berechnet, wieviel Netzbezug mit mehr Akku oder PV hätte vermieden werden können.",
+        "data": {
+          "sizing_pv_energy_sensor": "PV-Energie-Sensor (total_increasing, kWh)",
+          "sizing_house_energy_sensor": "Hausverbrauch-Sensor (optional, kWh)",
+          "sizing_house_from_balance": "Hauslast aus Energiebilanz ableiten (Hausverbrauchs-Sensor ignorieren)",
+          "sizing_import_from_energy_dashboard": "Sensoren aus HA Energy Dashboard neu einlesen (überschreibt gespeicherte Werte)",
+          "sizing_grid_import_energy_sensor": "Netzbezug-Sensor (total_increasing, kWh)",
+          "sizing_grid_export_energy_sensor": "Netzeinspeisung-Sensor (total_increasing, kWh)",
+          "sizing_battery_charge_energy_sensor": "Batterie Laden-Sensor (total_increasing, kWh)",
+          "sizing_battery_discharge_energy_sensor": "Batterie Entladen-Sensor (total_increasing, kWh)",
+          "sizing_wallbox_energy_sensor": "Wallbox-Energie-Sensor (optional, kWh)",
+          "sizing_heat_pump_energy_sensor": "Wärmepumpen-Energie-Sensor (optional, kWh)",
+          "sizing_analysis_days": "Analysezeitraum (Tage)",
+          "sizing_electricity_price_eur_kwh": "Strompreis Bezug (€/kWh)",
+          "sizing_feed_in_price_eur_kwh": "Einspeisevergütung (€/kWh)",
+          "sizing_battery_price_eur_kwh": "Akkupreis (€/kWh nutzbare Kapazität)",
+          "sizing_pv_price_eur_per_kwp": "PV-Preis (€/kWp)",
+          "sizing_inverter_upgrade_price_eur": "WR-Upgrade-Kosten (€ pauschal)",
+          "sizing_round_trip_efficiency": "Lade-/Entlade-Wirkungsgrad (z. B. 0.92)",
+          "sizing_max_battery_sweep_kwh": "Max. Akku-Sweep (kWh)",
+          "sizing_battery_step_kwh": "Akku-Schrittweite (kWh)",
+          "sizing_max_pv_expansion_kwp": "Max. PV-Erweiterung (kWp)",
+          "sizing_pv_step_kwp": "PV-Schrittweite (kWp)"
+        }
       }
     },
     "abort": {
@@ -199,6 +226,29 @@
   },
   "options": {
     "step": {
+      "init": {
+        "title": "E3DC Maestro – Einstellungen",
+        "menu_options": {
+          "sources": "Quellen-Sensoren",
+          "system": "System-Parameter",
+          "season": "Saison & Korridor",
+          "pv_forecast": "PV-Prognose / Charge-Delay",
+          "ht": "HT/NT Lastspitzen",
+          "tariff_slots": "Tarif-Zeitfenster",
+          "tariff": "Dynamischer Tarif",
+          "wallbox": "Wallbox",
+          "evcc": "EVCC",
+          "heatpump": "Wärmepumpe",
+          "failsafe": "Failsafe",
+          "flat_curve": "F0 / Gentle-Charge",
+          "auto_mode": "F3 Auto-Modus",
+          "sizing_advisor": "Sizing Advisor",
+          "finish": "Speichern & Schließen"
+        }
+      },
+      "finish": {
+        "title": "Einstellungen gespeichert"
+      },
       "sources": {
         "title": "Quell-Entities",
         "description": "✅ **Auto-Detect:** {detected_count} Sensor(en) aus der RSCP-Integration erkannt:\n\n{detected_list}\n\nBestehende Einstellungen haben Vorrang. Überschreibe die Werte unten manuell, falls du die Auto-Detect-Werte übernehmen willst.",
@@ -247,7 +297,35 @@
         }
       },
       "season": {
-        "title": "Saison & Ladekorridor"
+        "title": "Saison & Ladekorridor",
+        "description": "Definiert das Ladeziel und die Notfall-Ladeschwelle. Die saisonale Reserve hält immer einen Mindest-SoC für Stromausfall-Sicherung, die adaptive Reserve lernt aus dem tatsächlichen Nachtverbrauch.",
+        "data": {
+          "charge_threshold": "Ladeschwelle – Notfallladung unter x% SoC",
+          "charge_target": "Ladeende SoC (%)",
+          "winter_minimum_hour": "Ladeende Winterminimum (Stunde)",
+          "summer_maximum_hour": "Ladeende Sommermaximum (Stunde)",
+          "summer_charge_end": "Ziel-Ladeende im Sommer (Stunde)",
+          "seasonal_reserve_enabled": "Saisonale Notstromreserve aktivieren",
+          "reserve_winter_percent": "Reserve Winter (% SoC)",
+          "reserve_equinox_percent": "Reserve Äquinoktium (% SoC)",
+          "adaptive_reserve_enabled": "Verbrauchsadaptive Reserve aktivieren",
+          "adaptive_reserve_lookback_days": "Adaptive Reserve – Lookback (Tage)",
+          "adaptive_reserve_min_days": "Adaptive Reserve – Mindestdaten (Tage)",
+          "adaptive_reserve_safety_factor": "Adaptive Reserve – Sicherheitsfaktor",
+          "adaptive_reserve_max_soc": "Adaptive Reserve – Max. SoC-Deckel (%)"
+        },
+        "data_description": {
+          "charge_threshold": "Unter diesem SoC lädt Maestro sofort nach, unabhängig von PV oder Tarif (Notfall-Schutz).",
+          "charge_target": "Maximaler Lade-SoC im Normalbetrieb. Werte >95 % beschleunigen Zellalterung.",
+          "winter_minimum_hour": "Bis zu dieser Stunde (z. B. 7 = 07:00 Uhr) stellt Maestro im Winter sicher, dass der Akku für den Morgen vollgeladen ist.",
+          "summer_charge_end": "Zielzeit für das Ladeende im Sommer – danach wird nur noch PV-Überschuss nachgeladen.",
+          "reserve_winter_percent": "Fest gehaltene Mindest-Reserve im Winter (Dez.–Feb.) für Stromausfälle.",
+          "reserve_equinox_percent": "Reserve zur Tagundnachtgleiche (Mrz./Sep.) – Übergangswert zwischen Winter und Sommer.",
+          "adaptive_reserve_safety_factor": "Multiplikator auf den berechneten Nachtbedarf (z. B. 1.2 = 20 % Puffer). Höhere Werte = mehr Reserve, aber weniger Entladetiefe.",
+          "adaptive_reserve_lookback_days": "Wie viele vergangene Tage für die Verbrauchsmittelung herangezogen werden.",
+          "adaptive_reserve_min_days": "Mindestanzahl an Datenpunkten – darunter greift die statische Saisonreserve statt der adaptiven.",
+          "adaptive_reserve_max_soc": "Obere Grenze für die adaptive Reserve. Verhindert, dass der Akku dauerhaft auf hohem SoC verbleibt."
+        }
       },
       "pv_forecast": {
         "title": "PV-Prognose / Ladeverzögerung",
@@ -265,23 +343,94 @@
           "spreading_target_soc": "Ziel-SoC für Ladeverteilung (%)",
           "forward_looking_enabled": "Forward-Looking aktivieren (lädt vorausschauend, wenn morgen wenig PV erwartet wird)",
           "forward_looking_max_soc": "Max. SoC für Forward-Looking-Vorladung (%)"
+        },
+        "data_description": {
+          "pv_forecast_safety_factor": "Die Prognose muss mind. (Bedarf × Faktor) erreichen, damit das Laden verzögert wird. z. B. 1.2 = 20 % Sicherheitspuffer.",
+          "pv_forecast_threshold_kwh": "Absolute Untergrenze: Liegt die Prognose darunter, wird nie verzögert (z. B. 1.0 kWh bei kleiner Anlage).",
+          "delay_min_soc": "Ist der Akku unter diesem SoC, wird das Laden niemals verzögert – unabhängig von der Prognose.",
+          "spreading_target_soc": "Ladeverteilung verteilt das Laden gleichmäßig bis zum saisonalen Ladeende (charge_end). Ziel-SoC ist die Obergrenze – oberhalb davon wird Laden aktiv blockiert, damit PV-Überschuss ins Netz fließt.",
+          "forward_looking_max_soc": "Maximaler SoC, auf den Maestro bei schlechter Morgen-Prognose vorlädt. Werte >90 % beschleunigen Zellalterung."
         }
       },
       "ht": {
-        "title": "HT/NT-Schutz"
+        "title": "HT/NT-Schutz",
+        "description": "Verhindert das Entladen im Hochtarif-Fenster und hält eine SoC-Reserve für teure Zeiten vor.",
+        "data": {
+          "ht_enabled": "HT/NT-Schutz aktivieren",
+          "ht_on": "Hochtarif Beginn (Stunde, lokal)",
+          "ht_off": "Hochtarif Ende (Stunde, lokal)",
+          "ht_min": "Speicherreserve Winter (%)",
+          "ht_sockel": "Speicherreserve Äquinoktium (%)",
+          "ht_sat": "Hochtarif Samstag",
+          "ht_sun": "Hochtarif Sonntag"
+        },
+        "data_description": {
+          "ht_on": "Ganzzahl in lokaler Zeit, z. B. 7 für 07:00 Uhr.",
+          "ht_off": "Ganzzahl in lokaler Zeit, z. B. 21 für 21:00 Uhr.",
+          "ht_min": "Ziel-SoC, den Maestro im Hochtarif-Fenster mindestens hält (Winter, Dez.–Feb.).",
+          "ht_sockel": "Reserve zur Tagundnachtgleiche – Übergangswert zwischen Winter und Sommer."
+        }
       },
       "tariff_slots": {
         "title": "Tarif-Slots",
         "description": "Aktuell konfiguriert:\n{slots}"
       },
       "tariff_slot_edit": {
-        "title": "Tarif-Slot bearbeiten"
+        "title": "Tarif-Slot bearbeiten",
+        "data": {
+          "weekdays": "Wochentage",
+          "start_h": "Beginn (Stunde, lokale Zeit)",
+          "end_h": "Ende (Stunde, lokale Zeit)",
+          "class_": "Klasse (high/low/normal)",
+          "min_reserve_soc": "Mindest-SoC-Reserve (%) – optional"
+        },
+        "data_description": {
+          "class_": "high = Entladen sperren, Netzladung verhindert · low = Netzladung bei günstigem Preis erlaubt · normal = neutral.",
+          "min_reserve_soc": "Maestro hält diesen SoC im Slot mindestens vor. Leer lassen für keine Reservepflicht."
+        }
       },
       "tariff": {
-        "title": "Tarif & Kosten"
+        "title": "Tarif & Kosten",
+        "description": "Stromtarif-Modus und €/kWh-Preise. Bei festem Tarif sperrt Maestro Strategien, die Strom aus dem Netz in den Akku einspeisen würden.",
+        "data": {
+          "tariff_mode": "Tarif-Modus",
+          "fixed_buy_price": "Strompreis Bezug (€/kWh, fester Tarif)",
+          "feed_in_price": "Einspeisevergütung (€/kWh)",
+          "battery_capex_eur": "Akku-Anschaffungskosten (€)",
+          "battery_total_cycles": "Akku-Lebensdauer (Vollzyklen)",
+          "dynamic_tariff_enabled": "Dynamische Tarife aktivieren",
+          "price_sensor": "Preis-Sensor (€/kWh)",
+          "cheap_threshold": "Günstig-Schwelle (€/kWh)",
+          "max_grid_charge_kwh": "Max. Netzladung pro Tag (kWh)"
+        },
+        "data_description": {
+          "battery_capex_eur": "Kaufpreis des Akkus in €. Wird für die Wear-Cost-Berechnung (Zellverschleiß pro kWh) genutzt.",
+          "battery_total_cycles": "Lebensdauer-Vollzyklen laut Hersteller-Datenblatt (z. B. 6000 für LFP). Bestimmt die Wear-Cost pro Zyklus.",
+          "cheap_threshold": "Liegt der Spotpreis darunter, erlaubt Maestro das Laden aus dem Netz (max. max_grid_charge_kwh pro Tag).",
+          "max_grid_charge_kwh": "Maximale Netzlade-Energie pro Kalendertag. Verhindert tägliches Vollladen aus dem Netz."
+        }
       },
       "wallbox": {
-        "title": "Wallbox"
+        "title": "Wallbox",
+        "description": "Überschussladung für Elektrofahrzeuge. Der optionale Wallbox-Leistungssensor rechnet EV-Ladespitzen aus dem Hausverbrauch heraus, damit Optimizer und Forecast stabil bleiben.",
+        "data": {
+          "wallbox_enabled": "Wallbox-Regelung aktivieren",
+          "wallbox_type": "Wallbox-Typ",
+          "wallbox_provider": "Wallbox-Verbrauchsquelle",
+          "wallbox_power_sensor": "Wallbox-Leistungssensor (W)",
+          "wallbox_included_in_house": "Wallbox bereits im Hausverbrauchszähler enthalten",
+          "wallbox_min_current": "Minimalstrom (A)",
+          "wallbox_max_current": "Maximalstrom (A)",
+          "wallbox_phases": "Phasenanzahl",
+          "wallbox_min_surplus": "Mindest-PV-Überschuss (W)",
+          "wallbox_service_on": "Service: Laden starten",
+          "wallbox_service_off": "Service: Laden stoppen"
+        },
+        "data_description": {
+          "wallbox_min_surplus": "Maestro startet die Wallbox erst, wenn dieser PV-Überschuss dauerhaft verfügbar ist (Hysterese verhindert Takten).",
+          "wallbox_min_current": "Mindestladestrom nach IEC 61851 (normalerweise 6 A). Darunter schaltet Maestro die Wallbox lieber ab.",
+          "wallbox_included_in_house": "Aktivieren bei openWB am EVU-Zähler oder wenn der Hausverbrauchssensor die Wallbox mitzählt. Verhindert Doppelzählung."
+        }
       },
       "evcc": {
         "title": "EVCC-Integration",
@@ -290,20 +439,96 @@
           "evcc_enabled": "EVCC/openWB/Wallbox-Integration aktivieren",
           "evcc_charging_entity": "Laden-aktiv Entity (optional, boolean/binary_sensor)",
           "evcc_mode_entity": "Lade-Modus Entity (Sensor/Select mit Sofortlade-Wert)",
-          "evcc_now_value": "Wert für 'Sofortladen' (EVCC: \"now\", openWB: \"Instant Charging\")"
+          "evcc_now_value": "Wert für 'Sofortladen' (EVCC: \"now\", openWB: \"Instant Charging\")",
+          "evcc_discharge_limit_w": "Entlade-Limit im Now-Modus (W)"
+        },
+        "data_description": {
+          "evcc_discharge_limit_w": "Maximale Entladeleistung des Akkus, während EVCC im Sofortlade-Modus ist. 0 = Entladen komplett gesperrt."
         }
       },
       "heatpump": {
-        "title": "Wärmepumpe"
+        "title": "Wärmepumpe",
+        "description": "Steuert die Wärmepumpe bei PV-Überschuss oder wenn der Strompreis die Preisgrenze unterschreitet.",
+        "data": {
+          "hp_enabled": "Wärmepumpen-Regelung aktivieren",
+          "hp_switch_entity": "Wärmepumpen-Schalter-Entity",
+          "hp_service_on": "Service: Wärmepumpe ein",
+          "hp_service_off": "Service: Wärmepumpe aus",
+          "hp_min_surplus": "Mindest-PV-Überschuss (W)",
+          "hp_max_price": "Max. Strompreis (€/kWh)",
+          "hp_time_start": "Tagesfenster Beginn",
+          "hp_time_end": "Tagesfenster Ende",
+          "hp_min_run_minutes": "Mindestlaufzeit (min)",
+          "hp_min_pause_minutes": "Mindestpause (min)"
+        },
+        "data_description": {
+          "hp_min_surplus": "Maestro schaltet die WP erst ein, wenn dieser PV-Überschuss überschritten ist.",
+          "hp_max_price": "Auch bei wenig PV kann die WP einschalten, wenn der Spotpreis darunter liegt. 0 = nur PV-Überschuss.",
+          "hp_min_run_minutes": "Mindestlaufzeit nach dem Einschalten. Verhindert kurze Taktzyklen, die den Kompressor belasten.",
+          "hp_min_pause_minutes": "Mindestpause nach dem Ausschalten. Schützt vor zu schnellem Wiedereinschalten."
+        }
       },
       "failsafe": {
-        "title": "Failsafe & Watchdog"
+        "title": "Failsafe & Watchdog",
+        "data": {
+          "watchdog_timeout": "Watchdog-Timeout (min, 0 = deaktiviert)"
+        },
+        "data_description": {
+          "watchdog_timeout": "Trifft Maestro für länger als diesen Wert keine Regelentscheidung (z. B. HA-Absturz oder Sensor-Ausfall), setzt es den E3DC-WR auf sicheren Ruhezustand zurück. 0 = deaktiviert."
+        }
       },
       "flat_curve": {
-        "title": "F0: Morning-Cap & Schonladung"
+        "title": "F0: Morning-Cap & Schonladung",
+        "data": {
+          "morning_cap_enabled": "Morning-Cap aktivieren",
+          "morning_cap_soc": "SoC-Deckel (%)",
+          "morning_cap_until_h": "Aktiv bis (Uhr, lokal)",
+          "gentle_charge_enabled": "Schonladung aktivieren",
+          "gentle_charge_factor": "Schonladung Faktor (0.05–1.0)"
+        },
+        "data_description": {
+          "morning_cap_soc": "Bis zur angegebenen Uhrzeit lässt Maestro den Akku nicht über diesen SoC steigen – Platz für Mittags-PV bleibt frei.",
+          "morning_cap_until_h": "Nach dieser Stunde (lokale Zeit) hebt Maestro den SoC-Deckel auf.",
+          "gentle_charge_factor": "Anteil der Max-Ladeleistung für die Schonladung (0.05 = 5 %, 1.0 = volle Leistung). Niedrigere Werte schonen die Zellen, verlangsamen aber das Laden."
+        }
       },
       "auto_mode": {
-        "title": "F3: Auto-Optimierung"
+        "title": "F3: Auto-Optimierung",
+        "description": "Optimiert die F0-Parameter täglich nach dem gewählten Ziel. Benötigt mind. 7 Tage Verbrauchs- und PV-Historie.",
+        "data": {
+          "auto_mode_enabled": "Auto-Optimierung aktivieren",
+          "auto_mode_objective": "Optimierungsziel"
+        },
+        "data_description": {
+          "auto_mode_objective": "self_consumption = maximale Eigenverbrauchsquote · cost = minimale Stromkosten (benötigt Preis-Sensor) · co2 = minimale CO₂-Emissionen."
+        }
+      },
+      "sizing_advisor": {
+        "title": "Akku & PV Sizing Advisor",
+        "description": "Ordne die Langzeit-Statistik-Sensoren des HA Energy Dashboards zu. Die Simulation berechnet, wieviel Netzbezug mit mehr Akku oder PV hätte vermieden werden können.",
+        "data": {
+          "sizing_pv_energy_sensor": "PV-Energie-Sensor (total_increasing, kWh)",
+          "sizing_house_energy_sensor": "Hausverbrauch-Sensor (optional, kWh)",
+          "sizing_house_from_balance": "Hauslast aus Energiebilanz ableiten (Hausverbrauchs-Sensor ignorieren)",
+          "sizing_import_from_energy_dashboard": "Sensoren aus HA Energy Dashboard neu einlesen (überschreibt gespeicherte Werte)",
+          "sizing_grid_import_energy_sensor": "Netzbezug-Sensor (total_increasing, kWh)",
+          "sizing_grid_export_energy_sensor": "Netzeinspeisung-Sensor (total_increasing, kWh)",
+          "sizing_battery_charge_energy_sensor": "Batterie Laden-Sensor (total_increasing, kWh)",
+          "sizing_battery_discharge_energy_sensor": "Batterie Entladen-Sensor (total_increasing, kWh)",
+          "sizing_wallbox_energy_sensor": "Wallbox-Energie-Sensor (optional, kWh)",
+          "sizing_heat_pump_energy_sensor": "Wärmepumpen-Energie-Sensor (optional, kWh)",
+          "sizing_analysis_days": "Analysezeitraum (Tage)",
+          "sizing_electricity_price_eur_kwh": "Strompreis Bezug (€/kWh)",
+          "sizing_feed_in_price_eur_kwh": "Einspeisevergütung (€/kWh)",
+          "sizing_battery_price_eur_kwh": "Akkupreis (€/kWh nutzbare Kapazität)",
+          "sizing_pv_price_eur_per_kwp": "PV-Preis (€/kWp)",
+          "sizing_inverter_upgrade_price_eur": "WR-Upgrade-Kosten (€ pauschal)",
+          "sizing_round_trip_efficiency": "Lade-/Entlade-Wirkungsgrad (z. B. 0.92)",
+          "sizing_max_battery_sweep_kwh": "Max. Akku-Sweep (kWh)",
+          "sizing_battery_step_kwh": "Akku-Schrittweite (kWh)",
+          "sizing_max_pv_expansion_kwp": "Max. PV-Erweiterung (kWp)",
+          "sizing_pv_step_kwp": "PV-Schrittweite (kWp)"
+        }
       }
     }
   },

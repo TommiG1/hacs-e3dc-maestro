@@ -95,6 +95,33 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[MaestroBinarySensorDescription, ...] = (
             > UNJUSTIFIED_GRID_CHARGE_THRESHOLD_KWH
         ),
     ),
+    # Sizing Advisor: WR upgrade needed for recommended OR current slider scenario
+    MaestroBinarySensorDescription(
+        key="sizing_inverter_upgrade_needed",
+        name="Advisor: WR-Upgrade empfohlen",
+        icon="mdi:swap-horizontal-bold",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda coord: (
+            getattr(coord, "sizing_scenario_wr_upgrade", False)
+            or (
+                coord.sizing_analysis
+                and coord.sizing_analysis.recommended_economic
+                and (
+                    coord.sizing_analysis.recommended_economic.battery_kwh > 0
+                    or coord.sizing_analysis.recommended_economic.pv_kwp > 0
+                )
+                and any(
+                    coord.sizing_analysis.matrix[bi][pi].inverter_upgrade_needed
+                    for bi in range(len(coord.sizing_analysis.battery_sizes_kwh))
+                    for pi in range(len(coord.sizing_analysis.pv_sizes_kwp))
+                    if round(coord.sizing_analysis.battery_sizes_kwh[bi], 2)
+                    == round(coord.sizing_analysis.recommended_economic.battery_kwh, 2)
+                    and round(coord.sizing_analysis.pv_sizes_kwp[pi], 2)
+                    == round(coord.sizing_analysis.recommended_economic.pv_kwp, 2)
+                )
+            )
+        ) or None,
+    ),
 )
 
 

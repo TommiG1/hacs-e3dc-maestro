@@ -564,9 +564,80 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: E3DCMaestroCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
-        MaestroNumber(coordinator, desc) for desc in NUMBER_DESCRIPTIONS
-    )
+    entities: list = list(MaestroNumber(coordinator, desc) for desc in NUMBER_DESCRIPTIONS)
+    entities += [
+        MaestroSizingNumber(
+            coordinator=coordinator,
+            unique_id_suffix="sizing_hypothetical_battery_kwh",
+            name="Advisor: Hypothetische Batteriekapazität",
+            icon="mdi:battery-plus-variant",
+            unit="kWh",
+            min_value=0.0,
+            max_value=100.0,
+            step=0.5,
+            attr="sizing_hypothetical_kwh",
+        ),
+        MaestroSizingNumber(
+            coordinator=coordinator,
+            unique_id_suffix="sizing_hypothetical_pv_kwp",
+            name="Advisor: Hypothetische PV-Erweiterung",
+            icon="mdi:solar-panel-large",
+            unit="kWp",
+            min_value=0.0,
+            max_value=100.0,
+            step=0.5,
+            attr="sizing_hypothetical_pv_kwp",
+        ),
+        MaestroSizingNumber(
+            coordinator=coordinator,
+            unique_id_suffix="sizing_price_battery_kwh",
+            name="Advisor: Preis Akku €/kWh",
+            icon="mdi:cash",
+            unit="EUR/kWh",
+            min_value=0.0,
+            max_value=100000.0,
+            step=1.0,
+            attr="sizing_price_battery_kwh",
+            mode=NumberMode.BOX,
+        ),
+        MaestroSizingNumber(
+            coordinator=coordinator,
+            unique_id_suffix="sizing_price_pv_kwp",
+            name="Advisor: Preis PV €/kWp",
+            icon="mdi:cash",
+            unit="EUR/kWp",
+            min_value=0.0,
+            max_value=100000.0,
+            step=1.0,
+            attr="sizing_price_pv_kwp",
+            mode=NumberMode.BOX,
+        ),
+        MaestroSizingNumber(
+            coordinator=coordinator,
+            unique_id_suffix="sizing_price_inverter",
+            name="Advisor: Preis WR-Upgrade €",
+            icon="mdi:swap-horizontal-bold",
+            unit="EUR",
+            min_value=0.0,
+            max_value=100000.0,
+            step=1.0,
+            attr="sizing_price_inverter",
+            mode=NumberMode.BOX,
+        ),
+        MaestroSizingNumber(
+            coordinator=coordinator,
+            unique_id_suffix="sizing_price_extra",
+            name="Advisor: Zusatzkosten € (Montage/Nebenkosten)",
+            icon="mdi:cash-plus",
+            unit="EUR",
+            min_value=0.0,
+            max_value=100000.0,
+            step=1.0,
+            attr="sizing_price_extra",
+            mode=NumberMode.BOX,
+        ),
+    ]
+    async_add_entities(entities)
 
 
 class MaestroNumber(CoordinatorEntity[E3DCMaestroCoordinator], NumberEntity):
@@ -589,4 +660,52 @@ class MaestroNumber(CoordinatorEntity[E3DCMaestroCoordinator], NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         self.coordinator.update_param(self.entity_description.param_key, value)
+        self.async_write_ha_state()
+
+
+class MaestroSizingNumber(CoordinatorEntity[E3DCMaestroCoordinator], NumberEntity):
+    """Slider for the Sizing Advisor hypothetical battery / PV value.
+
+    Unlike ``MaestroNumber``, these sliders do not map to ``_params`` but
+    update a dedicated field on the coordinator, then notify all listeners
+    so dependent sensor entities re-compute the interpolated scenario.
+    """
+
+    _attr_has_entity_name = True
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(
+        self,
+        coordinator: E3DCMaestroCoordinator,
+        unique_id_suffix: str,
+        name: str,
+        icon: str,
+        unit: str,
+        min_value: float,
+        max_value: float,
+        step: float,
+        attr: str,
+        mode: NumberMode = NumberMode.SLIDER,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_{unique_id_suffix}"
+        self._attr_name = name
+        self._attr_icon = icon
+        self._attr_native_unit_of_measurement = unit
+        self._attr_native_min_value = min_value
+        self._attr_native_max_value = max_value
+        self._attr_native_step = step
+        self._attr_device_info = _device_info(coordinator)
+        self._attr_mode = mode
+        self._sizing_attr = attr
+
+    @property
+    def native_value(self) -> float:
+        return getattr(self.coordinator, self._sizing_attr, 0.0)
+
+    async def async_set_native_value(self, value: float) -> None:
+        setattr(self.coordinator, self._sizing_attr, value)
+        # Notify all coordinator listeners (sensors etc.) without triggering a
+        # full poll cycle.
+        self.coordinator.async_update_listeners()
         self.async_write_ha_state()

@@ -419,3 +419,51 @@ STAT_PV_SAVINGS_TODAY_EUR = "pv_savings_today_eur"   # vermiedener Bezug durch P
 STAT_BATTERY_WEAR_TODAY_EUR = "battery_wear_today_eur"  # Akku-Verschleiß heute (€)
 # Wallbox-Energieverbrauch separat (kWh, total_increasing)
 STAT_WALLBOX_ENERGY_TODAY = "wallbox_energy_today_kwh"
+
+# ── Battery & PV Sizing Advisor ──────────────────────────────────────────────
+
+# Config entry keys – sizing advisor step
+CONF_SIZING_PV_ENERGY_SENSOR = "sizing_pv_energy_sensor"
+CONF_SIZING_HOUSE_ENERGY_SENSOR = "sizing_house_energy_sensor"
+CONF_SIZING_HOUSE_FROM_BALANCE = "sizing_house_from_balance"
+DEFAULT_SIZING_HOUSE_FROM_BALANCE = False
+# Volatile toggle – never persisted. When set at save-time the sizing sensors
+# are re-imported from the HA Energy Dashboard, overwriting stored values.
+CONF_SIZING_IMPORT_FROM_ENERGY_DASHBOARD = "sizing_import_from_energy_dashboard"
+CONF_SIZING_GRID_IMPORT_ENERGY_SENSOR = "sizing_grid_import_energy_sensor"
+CONF_SIZING_GRID_EXPORT_ENERGY_SENSOR = "sizing_grid_export_energy_sensor"
+CONF_SIZING_BATTERY_CHARGE_ENERGY_SENSOR = "sizing_battery_charge_energy_sensor"
+CONF_SIZING_BATTERY_DISCHARGE_ENERGY_SENSOR = "sizing_battery_discharge_energy_sensor"
+CONF_SIZING_WALLBOX_ENERGY_SENSOR = "sizing_wallbox_energy_sensor"        # optional
+CONF_SIZING_HEAT_PUMP_ENERGY_SENSOR = "sizing_heat_pump_energy_sensor"    # optional
+CONF_SIZING_ANALYSIS_DAYS = "sizing_analysis_days"
+CONF_SIZING_ELECTRICITY_PRICE_EUR_KWH = "sizing_electricity_price_eur_kwh"
+CONF_SIZING_FEED_IN_PRICE_EUR_KWH = "sizing_feed_in_price_eur_kwh"
+CONF_SIZING_BATTERY_PRICE_EUR_KWH = "sizing_battery_price_eur_kwh"
+CONF_SIZING_PV_PRICE_EUR_PER_KWP = "sizing_pv_price_eur_per_kwp"
+CONF_SIZING_INVERTER_UPGRADE_PRICE_EUR = "sizing_inverter_upgrade_price_eur"
+CONF_SIZING_ROUND_TRIP_EFFICIENCY = "sizing_round_trip_efficiency"
+CONF_SIZING_MAX_BATTERY_SWEEP_KWH = "sizing_max_battery_sweep_kwh"
+CONF_SIZING_BATTERY_STEP_KWH = "sizing_battery_step_kwh"
+CONF_SIZING_MAX_PV_EXPANSION_KWP = "sizing_max_pv_expansion_kwp"
+CONF_SIZING_PV_STEP_KWP = "sizing_pv_step_kwp"
+
+# Defaults – sizing advisor
+DEFAULT_SIZING_ANALYSIS_DAYS = 365
+DEFAULT_SIZING_ELECTRICITY_PRICE = 0.30        # €/kWh
+DEFAULT_SIZING_FEED_IN_PRICE = 0.08            # €/kWh
+DEFAULT_SIZING_BATTERY_PRICE_EUR_KWH = 600.0   # €/kWh usable capacity
+DEFAULT_SIZING_PV_PRICE_EUR_PER_KWP = 1200.0   # €/kWp installed
+DEFAULT_SIZING_INVERTER_UPGRADE_PRICE_EUR = 1500.0  # € lump sum when WR upgrade needed
+DEFAULT_SIZING_ROUND_TRIP_EFFICIENCY = 0.92    # round-trip (charge × discharge)
+DEFAULT_SIZING_MAX_BATTERY_SWEEP_KWH = 30.0
+DEFAULT_SIZING_BATTERY_STEP_KWH = 2.5
+DEFAULT_SIZING_MAX_PV_EXPANSION_KWP = 20.0
+DEFAULT_SIZING_PV_STEP_KWP = 2.0
+
+# Simulation constants
+SIZING_C_RATE = 0.5   # max charge/discharge per hour as fraction of capacity (0.5 C)
+# WR upgrade is triggered when (installed_kwp + extra_kwp) exceeds inverter_kw by this factor
+SIZING_INVERTER_UPGRADE_THRESHOLD = 1.2
+# Max battery lifetime in years for payback viability check
+SIZING_MAX_PAYBACK_YEARS = 15.0

@@ -61,3 +61,6 @@ htmlcov/
 
 # Internal docs (nicht ins Repo)
 ROADMAP.md
+
+# Lokales Archiv (alte Release Notes etc.)
+archive/

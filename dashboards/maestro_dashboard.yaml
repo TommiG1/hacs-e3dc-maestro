@@ -3125,3 +3125,357 @@ views:
 
           ---
 
+  # ─────────────────────────────────────────────────────────────────────────
+  # Akku & PV Sizing Advisor
+  # ─────────────────────────────────────────────────────────────────────────
+  - title: Akku & PV Advisor
+    icon: mdi:chart-timeline-variant-shimmer
+    path: sizing-advisor
+    cards:
+
+      - type: custom:mushroom-title-card
+        title: Akku & PV Sizing Advisor
+        subtitle: Historische Simulation – wie viel Netzbezug könntest du einsparen?
+
+      # ── Status-Chips ──────────────────────────────────────────────────
+      - type: custom:mushroom-chips-card
+        chips:
+          - type: template
+            content: >-
+              {{ states('sensor.e3dc_maestro_advisor_status') | title }}
+            icon: mdi:chart-timeline-variant-shimmer
+            icon_color: >-
+              {% if states('sensor.e3dc_maestro_advisor_status') == 'running' %}orange
+              {% elif states('sensor.e3dc_maestro_advisor_status') == 'ready' %}green
+              {% else %}grey{% endif %}
+            entity: sensor.e3dc_maestro_advisor_status
+          - type: template
+            content: >-
+              {% set sa = state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'computed_at') %}
+              {{ sa[:10] if sa else 'nie' }}
+            icon: mdi:calendar-clock
+            icon_color: grey
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.e3dc_maestro_advisor_wr_upgrade_empfohlen
+                state: "on"
+            chip:
+              type: template
+              content: WR-Upgrade empfohlen
+              icon: mdi:swap-horizontal-bold
+              icon_color: orange
+              entity: binary_sensor.e3dc_maestro_advisor_wr_upgrade_empfohlen
+
+      # ── Analyse starten ──────────────────────────────────────────────
+      - type: horizontal-stack
+        cards:
+          - type: button
+            name: Analyse starten
+            icon: mdi:play-circle-outline
+            entity: button.e3dc_maestro_sizing_analyse_starten
+            show_state: false
+            tap_action:
+              action: call-service
+              service: button.press
+              target:
+                entity_id: button.e3dc_maestro_sizing_analyse_starten
+          - type: custom:mushroom-entity-card
+            entity: sensor.e3dc_maestro_advisor_status
+            name: Status
+            icon: mdi:chart-timeline-variant-shimmer
+          - type: button
+            name: "ℹ️  Hilfe zu diesem Abschnitt"
+            icon: mdi:help-circle-outline
+            tap_action:
+              action: navigate
+              navigation_path: /e3dc-maestro/help-sizing-advisor
+
+      # ── Slider-Zeile ──────────────────────────────────────────────────
+      - type: custom:mushroom-title-card
+        subtitle: Szenario manuell einstellen (Slider → sofortige Interpolation)
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-number-card
+            entity: number.e3dc_maestro_advisor_hypothetische_batteriekapazitat
+            name: Akku-Kapazität
+            display_mode: slider
+            icon: mdi:battery-plus-variant
+          - type: custom:mushroom-number-card
+            entity: number.e3dc_maestro_advisor_hypothetische_pv_erweiterung
+            name: PV-Erweiterung
+            display_mode: slider
+            icon: mdi:solar-panel-large
+
+      # ── Kosten-Eingaben (frei editierbar, Investition wird live neu berechnet) ──
+      - type: custom:mushroom-title-card
+        subtitle: Investitionskosten (frei einstellbar – Investition & Amortisation rechnen sofort neu)
+
+      - type: entities
+        entities:
+          - entity: number.e3dc_maestro_advisor_preis_akku_eur_kwh
+            name: Akku-Preis €/kWh
+          - entity: number.e3dc_maestro_advisor_preis_pv_eur_kwp
+            name: PV-Preis €/kWp
+          - entity: number.e3dc_maestro_advisor_preis_wr_upgrade_eur
+            name: WR-Upgrade €
+          - entity: number.e3dc_maestro_advisor_zusatzkosten_eur_montage_nebenkosten
+            name: Zusatzkosten € (Montage)
+
+      # ── Szenario-KPIs ─────────────────────────────────────────────────
+      - type: custom:mushroom-title-card
+        subtitle: Szenario-KPIs (für aktuelle Slider-Einstellung)
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: sensor.e3dc_maestro_advisor_autarkie_szenario
+            name: Autarkie
+            icon: mdi:solar-panel
+          - type: custom:mushroom-entity-card
+            entity: sensor.e3dc_maestro_advisor_vermiedener_netzbezug_jahr
+            name: Verm. Netzbezug
+            icon: mdi:transmission-tower-off
+          - type: custom:mushroom-entity-card
+            entity: sensor.e3dc_maestro_advisor_ersparnis_jahr
+            name: Ersparnis/Jahr
+            icon: mdi:piggy-bank-outline
+
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: sensor.e3dc_maestro_advisor_investition
+            name: Investition
+            icon: mdi:cash-multiple
+          - type: custom:mushroom-entity-card
+            entity: sensor.e3dc_maestro_advisor_amortisationszeit
+            name: Amortisation
+            icon: mdi:calendar-clock
+          - type: custom:mushroom-entity-card
+            entity: sensor.e3dc_maestro_advisor_zyklen_jahr_virt_akku
+            name: Zyklen/Jahr
+            icon: mdi:battery-sync-outline
+
+      # ── Charts via Markdown (Apex verursacht in dieser Umgebung Tab-Freeze) ──
+      # Reine Jinja-Templates → Re-Render nur bei State-Change, kein JS-Polling.
+
+      # ── Monatlicher Netzbezug: Baseline vs. vermieden ────────────────
+      - type: markdown
+        content: |
+          ### 📅 Monatlicher Netzbezug – Baseline vs. vermieden
+
+          {% set base = state_attr('sensor.e3dc_maestro_advisor_szenario', 'scenario_monthly_baseline_grid_in') or [] %}
+          {% set avoid = state_attr('sensor.e3dc_maestro_advisor_szenario', 'scenario_monthly_avoided_kwh') or [] %}
+          {% set months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'] %}
+          {% set vmax = (base + avoid) | map('float', 0) | max if base else 0 %}
+          {% if base and vmax > 0 %}
+          | Monat | Baseline kWh | Vermieden kWh | Verteilung |
+          |-------|-------------:|--------------:|:-----------|
+          {% for i in range(12) -%}
+          {% set b = base[i] | float(0) %}
+          {% set a = avoid[i] | float(0) %}
+          {% set bw = (b / vmax * 20) | round(0, 'floor') | int %}
+          {% set aw = (a / vmax * 20) | round(0, 'floor') | int %}
+          | {{ months[i] }} | {{ b | round(0) }} | {{ a | round(0) }} | <span style="color:#e57373">{{ '█' * bw }}</span><span style="color:#66bb6a">{{ '█' * aw }}</span> |
+          {% endfor %}
+
+          <small>🟥 Baseline-Netzbezug · 🟩 vermiedener Netzbezug (Szenario)</small>
+          {% else %}
+          _Noch keine Szenario-Daten – bitte Analyse starten._
+          {% endif %}
+
+      # ── Autarkie je Akku-Erweiterung (PV +0 kWp) ─────────────────────
+      - type: markdown
+        content: |
+          ### 🔋 Autarkie je Akku-Erweiterung (PV +0 kWp)
+
+          {% set rows = state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'autarky_by_battery_pv0') or [] %}
+          {% if rows %}
+          | + Akku kWh | Autarkie % | |
+          |-----------:|-----------:|:--|
+          {% for r in rows -%}
+          {% set pct = r.autarky | float(0) %}
+          {% set w = (pct / 100 * 30) | round(0, 'floor') | int %}
+          | {{ r.b }} | {{ pct | round(1) }} | {{ '█' * w }}{{ '░' * (30 - w) }} |
+          {% endfor %}
+          {% else %}
+          _Noch keine Sizing-Matrix – bitte Analyse starten._
+          {% endif %}
+
+      # ── Top-Szenarien: Ersparnis & Investition ───────────────────────
+      - type: markdown
+        content: |
+          ### 🏆 Top-Szenarien – Ersparnis vs. Investition
+
+          {% set top = state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'top_savings_scenarios') or [] %}
+          {% if top %}
+          {% set smax = top | map(attribute='savings') | map('float', 0) | max %}
+          | +Akku/+PV | Ersparnis €/a | Invest € | Payback a | |
+          |-----------|--------------:|---------:|----------:|:--|
+          {% for r in top -%}
+          {% set s = r.savings | float(0) %}
+          {% set inv = r.invest | float(0) %}
+          {% set pay = (inv / s) if s > 0 else 0 %}
+          {% set sw = (s / smax * 15) | round(0, 'floor') | int if smax > 0 else 0 %}
+          | +{{ r.b }}/+{{ r.p }} | {{ s | round(0) }} | {{ inv | round(0) }} | {{ pay | round(1) }} | <span style="color:#66bb6a">{{ '█' * sw }}</span> |
+          {% endfor %}
+          {% else %}
+          _Noch keine Top-Szenarien – bitte Analyse starten._
+          {% endif %}
+
+      # ── Empfehlungen ──────────────────────────────────────────────────
+      - type: custom:mushroom-title-card
+        subtitle: Empfehlungen
+
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: markdown
+            content: |
+              ### 💰 Wirtschaftlich
+              {% set rec = state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'recommended_economic') %}
+              {% if rec %}
+              |  |  |
+              |--|--|
+              | Akku | **+{{ rec.battery_kwh }} kWh** |
+              | PV | **+{{ rec.pv_kwp }} kWp** |
+              | Payback | **{{ rec.payback_years }} a** |
+              | Ersparnis | **{{ '{:,.0f}'.format(rec.savings_eur_per_year | float(0)) | replace(',', '.') }} €/a** |
+              | Invest | **{{ '{:,.0f}'.format(rec.investment_eur | float(0)) | replace(',', '.') }} €** |
+              {% else %}_keine Daten_{% endif %}
+          - type: markdown
+            content: |
+              ### 🔋 Technisch
+              {% set rec = state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'recommended_technical') %}
+              {% if rec %}
+              |  |  |
+              |--|--|
+              | Akku | **+{{ rec.battery_kwh }} kWh** |
+              | PV | **+{{ rec.pv_kwp }} kWp** |
+              | Autarkie | **{{ rec.self_sufficiency_pct }} %** |
+              | Ersparnis | **{{ '{:,.0f}'.format(rec.savings_eur_per_year | float(0)) | replace(',', '.') }} €/a** |
+              | Invest | **{{ '{:,.0f}'.format(rec.investment_eur | float(0)) | replace(',', '.') }} €** |
+              {% else %}_keine Daten_{% endif %}
+          - type: markdown
+            content: |
+              ### ⚖️ Ausgewogen
+              {% set rec = state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'recommended_balanced') %}
+              {% if rec %}
+              |  |  |
+              |--|--|
+              | Akku | **+{{ rec.battery_kwh }} kWh** |
+              | PV | **+{{ rec.pv_kwp }} kWp** |
+              | Payback | **{{ rec.payback_years }} a** |
+              | Autarkie | **{{ rec.self_sufficiency_pct }} %** |
+              | Invest | **{{ '{:,.0f}'.format(rec.investment_eur | float(0)) | replace(',', '.') }} €** |
+              {% else %}_keine Daten_{% endif %}
+
+      # ── WR-Upgrade Warnung ────────────────────────────────────────────
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.e3dc_maestro_advisor_wr_upgrade_empfohlen
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          entity: binary_sensor.e3dc_maestro_advisor_wr_upgrade_empfohlen
+          primary: ⚠️ Wechselrichter-Upgrade nötig
+          secondary: >-
+            PV-Erweiterung übersteigt WR-Nennleistung. WR-Upgrade-Kosten sind in der Investitionsberechnung enthalten.
+          multiline_secondary: true
+          icon: mdi:swap-horizontal-bold
+          icon_color: orange
+
+      # ── Annahmen Markdown ─────────────────────────────────────────────
+      - type: markdown
+        content: >-
+          ### Simulationsannahmen
+
+          | Parameter | Wert |
+          |-----------|------|
+          | Analysezeitraum | {{ state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'analysis_days') }} Tage |
+          | Datenpunkte | {{ state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'records_count') }} Stunden |
+          | Energiebilanz-Anomalien | {{ state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'anomaly_rate_pct') }} % |
+          | Baseline Netzbezug | {{ state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'baseline_grid_import_kwh') }} kWh/Jahr |
+          | Baseline Autarkie | {{ state_attr('sensor.e3dc_maestro_advisor_sizing_matrix', 'baseline_self_sufficiency_pct') }} % |
+
+          > Die Simulation repliziert die gemessene Energiebilanz stündlich
+          > und fügt eine virtuelle Batterie + PV-Skalierung hinzu.
+          > Preise und Wirkungsgrad werden in den **Optionen** konfiguriert.
+
+  # ─────────────────────────────────────────────────────────────────────────
+  - title: Hilfe Sizing Advisor
+    path: help-sizing-advisor
+    subview: true
+    cards:
+      - type: markdown
+        content: |
+          ## Akku & PV Sizing Advisor
+
+          Der Sizing Advisor simuliert auf Basis deiner historischen Verbrauchsdaten,
+          wie viel Netzbezug du durch eine zusätzliche Batterie oder PV-Erweiterung
+          einsparen könntest.
+
+          ---
+
+          ### Wie funktioniert die Simulation?
+
+          Maestro lädt die stündlichen Energiewerte der letzten N Tage (konfigurierbar
+          in den Optionen) und repliziert jede Stunde mit einem virtuellen Akku und
+          skalierter PV-Leistung. Für jede Kombination aus Batteriegröße und
+          PV-Erweiterung wird berechnet:
+          - Wie viel Netzbezug entfällt?
+          - Wie hoch ist die jährliche Ersparnis?
+          - Wäre ein Wechselrichter-Upgrade nötig?
+
+          Das Ergebnis ist eine 2D-Matrix (Akku × PV), aus der drei Empfehlungen
+          abgeleitet werden.
+
+          ---
+
+          ### Szenario-Slider
+
+          Mit den Schiebereglern kannst du beliebige Punkte auf der Matrix interpolieren.
+          Die Werte für Autarkie, Ersparnis und Amortisation werden **sofort** neu
+          berechnet – ohne die Analyse erneut zu starten.
+
+          ---
+
+          ### Investitionskosten
+
+          Die vier Preisfelder (**Akku €/kWh**, **PV €/kWp**, **WR-Upgrade €**,
+          **Zusatzkosten €**) beeinflussen die Investitions- und Amortisationsberechnung
+          direkt. Ändere einen Wert → alle KPI-Karten rechnen sofort neu.
+
+          **WR-Upgrade** wird automatisch eingerechnet, wenn die PV-Erweiterung
+          die Wechselrichter-Nennleistung übersteigt.
+
+          ---
+
+          ### Empfehlungen
+
+          | Empfehlung | Kriterium |
+          |---|---|
+          | 💰 Wirtschaftlich | Bestes Verhältnis Ersparnis/Investition (kürzeste Amortisation) |
+          | 🔋 Technisch | Höchste Autarkie im gesamten Sweep-Bereich |
+          | ⚖️ Ausgewogen | Gewichtetes Scoring aus Autarkie + Amortisationszeit |
+
+          ---
+
+          ### Sweep-Grenzen anpassen
+
+          Unter **Einstellungen → Integrationen → E3DC Maestro → Optionen** kannst du
+          den maximalen Sweep-Bereich (Standard: 100 kWh / 100 kWp) und die
+          Schrittweite anpassen. Nach jeder Änderung **Analyse starten** drücken,
+          damit die Matrix neu berechnet wird.
+
+          ---
+
+          ### Hinweise
+
+          - Die Simulation basiert auf vergangenen Daten – zukünftiger Verbrauch
+            und Wetterbedingungen können abweichen.
+          - Sehr kleine Schrittweiten (z. B. 0,5 kWh) bei großem Sweep-Bereich
+            können die Analyse mehrere Minuten dauern lassen.
+          - Die Matrix wird lokal gespeichert und übersteht HA-Neustarts.
+

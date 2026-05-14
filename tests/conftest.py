@@ -53,10 +53,16 @@ _HA_STUBS = [
     ("homeassistant.components.switch", {}),
     ("homeassistant.components.button", {}),
     ("homeassistant.util", {}),
-    ("homeassistant.util.dt", {}),
+    ("homeassistant.util.dt", {"utcnow": __import__("datetime").datetime.utcnow}),
+    ("homeassistant.components.recorder", {}),
+    ("homeassistant.components.recorder.statistics", {}),
 ]
 
 for _name, _attrs in _HA_STUBS:
     sys.modules.setdefault(_name, _auto(_name, **_attrs))
 
+# battery_sizing.py does `from homeassistant.util import dt as dt_util`, which
+# goes through the homeassistant.util module object, not sys.modules directly.
+# Explicitly wire the submodule as an attribute so the import resolves correctly.
+sys.modules["homeassistant.util"].dt = sys.modules["homeassistant.util.dt"]  # type: ignore[attr-defined]
 

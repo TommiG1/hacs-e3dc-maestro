@@ -719,10 +719,13 @@ Das Dashboard nutzt folgende Custom Cards aus HACS:
 
 ### Import-Methode A: Neues Dashboard
 
+> **Wichtig:** Das Dashboard verwendet fest codierte Hilfe-Link-Pfade (z. B. `/e3dc-maestro/help-...`). Diese funktionieren nur, wenn der URL-Pfad des Dashboards exakt `e3dc-maestro` lautet. HA generiert den Slug automatisch aus dem Titel — daher das Dashboard **E3DC Maestro** nennen, dann stimmt der Slug.
+
 1. **Einstellungen → Dashboards → Dashboard hinzufügen**
-2. *Mit einer leeren Seite beginnen* oder *Mit YAML beginnen*
-3. Drei-Punkte-Menü des neuen Dashboards → **In YAML bearbeiten**
-4. Gesamten Inhalt von `maestro_dashboard.yaml` einfügen → Speichern
+2. Als Titel **E3DC Maestro** eingeben (setzt den URL-Pfad automatisch auf `e3dc-maestro`)
+3. *Mit einer leeren Seite beginnen* oder *Mit YAML beginnen*
+4. Drei-Punkte-Menü des neuen Dashboards → **In YAML bearbeiten**
+5. Gesamten Inhalt von `maestro_dashboard.yaml` einfügen → Speichern
 
 ### Import-Methode B: In bestehendes Dashboard
 

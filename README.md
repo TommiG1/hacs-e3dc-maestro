@@ -680,10 +680,13 @@ The dashboard requires the following custom cards from HACS:
 
 ### Method A: New dashboard
 
+> **Important:** The dashboard uses hardcoded help-link paths (e.g. `/e3dc-maestro/help-...`). These only work if the dashboard URL slug is exactly `e3dc-maestro`. HA generates the slug automatically from the title — so name the dashboard **E3DC Maestro** and the slug will be set correctly.
+
 1. **Settings → Dashboards → Add dashboard**
-2. *Start with an empty page* or *Start with YAML*
-3. Three-dot menu of the new dashboard → **Edit in YAML**
-4. Paste the entire content of `maestro_dashboard.yaml` → Save
+2. Enter the title **E3DC Maestro** (this sets the URL slug to `e3dc-maestro`)
+3. *Start with an empty page* or *Start with YAML*
+4. Three-dot menu of the new dashboard → **Edit in YAML**
+5. Paste the entire content of `maestro_dashboard.yaml` → Save
 
 ### Method B: Existing dashboard
 

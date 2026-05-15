@@ -56,6 +56,12 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Local RSCP test scripts (not part of Maestro)
+scripts/patch_local_auth.py
+scripts/test_local_auth.py
+scripts/test_local_tags.py
+scripts/test_rscp_lib.py
+
 # Logs
 *.log
 

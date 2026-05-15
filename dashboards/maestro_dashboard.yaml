@@ -3379,10 +3379,10 @@ views:
         card:
           type: custom:mushroom-template-card
           entity: binary_sensor.e3dc_maestro_advisor_wr_upgrade_empfohlen
-          primary: ⚠️ Wechselrichter-Upgrade nötig
+          primary: ⚠️ Wechselrichter-Upgrade empfohlen
           secondary: >-
-            PV-Erweiterung übersteigt WR-Nennleistung. WR-Upgrade-Kosten sind in der Investitionsberechnung enthalten.
-          multiline_secondary: true
+            Die empfohlene PV-Erweiterung übersteigt die WR-Nennleistung.
+            Für das wirtschaftliche Szenario wird ein WR-Upgrade eingerechnet.
           icon: mdi:swap-horizontal-bold
           icon_color: orange
 

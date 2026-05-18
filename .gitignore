@@ -61,6 +61,8 @@ scripts/patch_local_auth.py
 scripts/test_local_auth.py
 scripts/test_local_tags.py
 scripts/test_rscp_lib.py
+scripts/probe_login_logs.py
+scripts/test_rscp_grid_tags.py
 
 # Logs
 *.log

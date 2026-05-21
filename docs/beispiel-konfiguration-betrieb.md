@@ -2,6 +2,8 @@
 
 Diese Datei dokumentiert die **tatsächliche Produktiv-Konfiguration** des Maestro-Betreibers (Tommi), ausgelesen aus Home Assistant am **21.05.2026**. Sie dient als Referenz für Nutzer, die z. B. nur **200–300 W Ladeleistung** sehen oder den Akku abends nicht voll bekommen.
 
+**English version:** [example-production-configuration.md](example-production-configuration.md)
+
 > **Hinweis:** Werte stammen aus `config/.storage/core.config_entries` (Integrations-Optionen). Laufzeit-Overrides der **Auto-Optimierung** können Morning-Cap trotz `morning_cap_enabled: false` nachts setzen – siehe Abschnitt Auto-Modus.
 
 ---

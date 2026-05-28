@@ -131,6 +131,12 @@ def decision_explanation(coord) -> str:
             f"Akku-Schonung: Fester Max-SoC-Deckel von {limit}% erreicht – "
             "Maestro stoppt das Nachladen oberhalb dieser Grenze."
         )
+    elif phase == "fast_floor":
+        floor = _f(getattr(p, "fast_charge_floor_soc", None))
+        text = (
+            f"Schnelllade-Boden aktiv: Unter {floor}% SoC wird mit vollem "
+            "PV-Überschuss geladen, um schnell die Mindestreserve aufzubauen."
+        )
     elif phase == "corridor":
         target = _f(dec.target_soc)
         cpl = _f(dec.target_charge_power)

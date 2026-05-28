@@ -1340,11 +1340,16 @@ def decide(
         )
         # 7e. Post-ceiling corridor pause: if the house-ceiling reduced effective
         # charge below lower_corridor, don't send a tiny limit to the E3DC —
-        # send clear_power_limits (charge_power_limit=None) instead so the
-        # inverter self-manages the remaining surplus directly into the battery.
-        # A hard 0 W or sub-corridor limit causes exactly the wrong behaviour:
-        # the E3DC prefers grid export over the tiny charge command and keeps
-        # discharging via stale RSCP state. This check is intentionally placed
+        # block charging (charge_power_limit=0.0) so the inverter does NOT
+        # fall back to its internal default (which may charge at full PV surplus).
+        #
+        # Rationale: In the field we observed situations where the computed
+        # "usable surplus" is temporarily underestimated (sensor glitches /
+        # aggregation artefacts). If we "free the limits" in that moment, E3DC
+        # may immediately charge at full power, defeating the corridor/spreading
+        # strategy and causing the exact "why is it charging full power?" issue.
+        #
+        # This check is intentionally placed
         # AFTER _apply_house_ceiling so that it catches the case where
         # charge_power itself was above lower_corridor (no pause in 7b) but the
         # available surplus is too small to justify a cap at all.
@@ -1358,10 +1363,10 @@ def decide(
                 reason=(
                     f"Korridor-Pause (nach Surplus-Cap): nutzbarer Überschuss "
                     f"{effective_charge:.0f} W < unterer Korridor "
-                    f"{params.lower_corridor:.0f} W → Limits freigegeben"
+                    f"{params.lower_corridor:.0f} W → Ladung blockiert"
                 ),
                 power_mode=POWER_MODE_NORMAL,
-                charge_power_limit=None,
+                charge_power_limit=0.0,
                 target_soc=target,
             )
         return MaestroDecision(

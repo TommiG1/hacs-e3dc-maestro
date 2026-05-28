@@ -1228,14 +1228,16 @@ class TestPostCeilingCorridorPause:
         base.update(kwargs)
         return MaestroParams(**base)
 
-    def test_post_ceiling_pause_returns_idle_with_none_limit(self):
+    def test_post_ceiling_pause_returns_idle_with_zero_limit(self):
         """Klassischer Live-Fall: SoC=86%, Ziel=96%, Überschuss ~300 W.
 
         advanced_corridor: charge_power = 1500 + 8/100 * (9000-1500) ≈ 2100 W
         → weit über lower_corridor=1500 W → Pause 7b greift nicht.
         Surplus = pv(3500) - house(3250) = 250 W < lower_corridor(1500 W)
         → effective_charge nach house-ceiling ≈ 250 W < 1500 W
-        → Post-ceiling-Pause muss IDLE + None zurückgeben.
+        → Post-ceiling-Pause muss IDLE + 0 W zurückgeben (Ladung blockiert),
+          damit der Wechselrichter nicht auf sein Default-Verhalten (volle
+          PV-Überschussladung) zurückfällt.
         Zeitpunkt 16:50 Uhr: ramp-target ≈ 93 % > soc=86 % → corridor-block aktiv.
         """
         p = self._params()
@@ -1244,10 +1246,7 @@ class TestPostCeilingCorridorPause:
         )
         decision = decide(state, p, _now(5, 13, 16, 50))
         assert decision.phase == PHASE_IDLE
-        # charge_power_limit muss None sein (clear_power_limits), nicht 0
-        assert decision.charge_power_limit is None, (
-            f"Erwartet None (clear_power_limits), bekam {decision.charge_power_limit}"
-        )
+        assert decision.charge_power_limit == 0.0
 
     def test_post_ceiling_pause_disabled_sends_small_limit(self):
         """Mit lower_corridor_pause_enabled=False: kleines Limit wird gesendet."""

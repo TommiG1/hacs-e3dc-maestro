@@ -1,37 +1,33 @@
-# E3DC Maestro v0.3.8 – Bugfix: prevent unintended full-power charging
+# E3DC Maestro v0.3.8 – Bugfix: Prevent unintended full-power charging
 
-**Release type:** Bugfix  
-**Date:** 2026-05-28
-
----
-
-## Summary
-
-This release fixes a real-world scenario where the inverter could start charging the battery at **full PV surplus power** even though Maestro was effectively in a “pause / idle” situation.
+**Release-Typ:** Bugfix-Release  
+**Datum:** 28.05.2026
 
 ---
 
-## What was happening?
+## Übersicht
 
-Under certain conditions Maestro would enter an **idle pause** after applying the house-surplus ceiling (post-ceiling corridor pause). In that branch it previously returned:
-
-- `charge_power_limit = None` → coordinator sends `clear_power_limits`
-
-On some E3DC setups this means the inverter falls back to its internal default behaviour, which can immediately result in **full-power PV-surplus charging**.
+v0.3.8 behebt einen Live-Fall, in dem der Wechselrichter den Akku mit **vollem PV-Überschuss** laden konnte, obwohl Maestro effektiv in einer *Pause / Idle*-Situation war.
 
 ---
 
-## Fix
+## 🐛 Behobene Probleme
 
-The post-ceiling corridor pause now **actively blocks charging** instead of freeing limits:
+### Post-ceiling Korridor-Pause: `clear_power_limits` → volle PV-Überschussladung
 
-- `charge_power_limit = 0.0` → charging is blocked while discharge remains free (normal mode)
+**Symptom:** In einzelnen Situationen (z. B. kurzzeitig unterschätzter nutzbarer Überschuss) wurde die Korridor-Pause aktiv, Maestro gab aber die Limits frei. Auf manchen E3DC-Setups führt das zu einem Rückfall auf das Default-Verhalten: **Laden mit voller PV-Überschussleistung**.
 
-This prevents the inverter from switching to an uncontrolled default charging mode during the pause.
+**Ursache:** In der Post-ceiling Korridor-Pause wurde bisher
+
+- `charge_power_limit = None` zurückgegeben → Coordinator sendet `clear_power_limits`
+
+**Fix:** Die Post-ceiling Korridor-Pause blockiert die Ladung nun aktiv:
+
+- `charge_power_limit = 0.0` → Ladung blockiert (Entladung bleibt frei, Normal-Mode)
 
 ---
 
-## Changed files
+## ⚙️ Geänderte Dateien
 
 - `custom_components/e3dc_maestro/control_engine.py`
 - `custom_components/e3dc_maestro/explanation.py`

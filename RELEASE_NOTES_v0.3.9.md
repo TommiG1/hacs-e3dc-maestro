@@ -10,7 +10,8 @@
 v0.3.9 erkennt **bewölkte oder schwache PV-Tage** anhand der Tagesprognose
 (z. B. Solcast „Prognose heute“) und priorisiert an diesen Tagen die
 **Akku-Ladung vor Netzeinspeisung**. Spreading-Drosselung und Korridor-Pause
-werden umgangen; der volle PV-Überschuss (PV − Haus) geht in den Akku.
+werden umgangen; Maestro setzt **`NORMAL` + fester `max_charge`-Cap** – der
+E3DC nutzt den PV-Überschuss selbst, ohne ständiges Nachregeln.
 
 Typischer Anwendungsfall: An einem Tag mit nur ~50 % des erwarteten
 Sommertags-Ertrags würde Maestro sonst im Korridor/Spreading drosseln und
@@ -41,24 +42,32 @@ nachmittägliche Solcast-Korrekturen die Strategie nicht hin- und herschalten.
 
 | Normal | Schwacher-PV-Tag |
 |--------|------------------|
-| SoC-Rampe begrenzt Ladeleistung | Voller PV-Überschuss |
+| SoC-Rampe begrenzt Ladeleistung | **`NORMAL` + fester `max_charge`-Cap** |
 | Spreading drosselt auf Restzeit-Rate | Spreading aus |
 | Korridor-Pause bei kleinem Überschuss | Pause umgangen |
+| Maestro dosiert Ladeleistung pro Zyklus | E3DC nutzt PV-Überschuss selbst |
 
 In der Entscheidungserklärung: `[Schwacher-PV-Tag: Überschuss-Priorität]`
 
+### Finale Regelung
+
+Bei aktivem Schwacher-PV-Tag und PV > 0:
+
+- Modus **`NORMAL`** (kein Netzbezug – im Gegensatz zu `CHARGE`)
+- Lade-Cap = **`max_charge_power`** (einmal gesetzt, kein Nachregeln pro Zyklus)
+- Entspricht der bewährten **Korridor-7d-Logik** nach Ladeende-Stunde
+- Anlauf-Ramp bei Low-Yield **aus**
+
 ### Regelungs-Fixes (Live-Betrieb)
 
-Beim ersten v0.3.9-Release wurde im Feld noch Rest-Einspeisung (~300–500 W)
-beobachtet, obwohl die Priorität aktiv war. Ursachen und Fixes:
+Im Feld wurden mehrere Zwischenstände getestet. Finale Lösung:
 
-| Problem | Fix |
-|---------|-----|
-| EWMA-glättete PV/Haus-Werte überschätzten den Überschuss | Low-Yield nutzt **Momentanwerte** (`pv_power_instant`) für Soll-Leistung und Surplus-Cap |
-| Lade-Anlauf (+200 W/Zyklus) verzögerte volle Nutzung | Anlauf-Ramp bei aktivem Schwacher-PV-Tag **aus** |
-| E3DC `normal`-Modus lud unter dem Cap → Export | Korridor bei Low-Yield wechselt zu **`charge`-Modus** |
-| Momentan-Überschuss pro Zyklus → ständig wechselnde Limits | **Hysterese 350 W** am Überschuss-Cap (Coordinator) |
-| `CHARGE` + `max_charge` → Netzbezug | **`NORMAL` + Überschuss-Cap** – nur PV, kein Netzladen |
+| Problem | Zwischenversuch | Finaler Fix |
+|---------|-----------------|-------------|
+| EWMA-glättete Werte → Rest-Einspeisung (~300–500 W) | Momentan-Überschuss als Cap | Fester **`max_charge`-Cap** – Cap liegt immer über dem Surplus |
+| E3DC lud unter engem Cap → Export | `CHARGE`-Modus | **`NORMAL`** – E3DC regelt Überschuss intern |
+| `CHARGE` + `max_charge` → **Netzbezug** | – | **`NORMAL` + `max_charge`** – nur PV, kein Netzladen |
+| Momentan-Cap pro Zyklus → Limit-Flackern | Hysterese 350 W | Fester Cap – Hysterese entfällt |
 
 ### Abgrenzung zu PV-Verzögerung
 
@@ -113,8 +122,8 @@ Nach dem Update in den **Integrations-Optionen** (Bereich PV-Prognose):
 
 ## ⚙️ Geänderte Dateien
 
-- `control_engine.py` – `is_low_yield_day`, `surplus_priority_charge_w`, Korridor/Spreading-Hooks
-- `coordinator.py` – Prognose-Latch, live Schwellen-Auswertung
+- `control_engine.py` – `is_low_yield_day`, Korridor 6.96 (`NORMAL` + `max_charge`), Spreading-Hooks
+- `coordinator.py` – Prognose-Latch, live Schwellen-Auswertung, Ramp-Bypass
 - `consumption_stats.py` – `peak_daily_yield_kwh()`
 - `const.py`, `config_flow.py`, `switch.py`, `number.py`, `sensor.py`, `binary_sensor.py`
 - `explanation.py`, `strings.json`, `translations/de.json`
@@ -125,7 +134,7 @@ Nach dem Update in den **Integrations-Optionen** (Bereich PV-Prognose):
 
 ## 🧪 Tests
 
-306 Tests bestanden (inkl. neuer Low-Yield-Tests).
+305 Tests bestanden (inkl. neuer Low-Yield-Tests).
 
 ---
 
@@ -149,7 +158,8 @@ konfigurierten Prognose-Sensor greift die Erkennung nicht (kein Fehler).
 v0.3.9 detects **cloudy or low-PV days** using the daily yield forecast
 (e.g. Solcast “Forecast today”) and on those days **prioritises battery
 charging over grid export**. Spreading throttling and corridor pause are
-bypassed; the full PV surplus (PV − house load) goes into the battery.
+bypassed; Maestro sets **`NORMAL` + fixed `max_charge` cap** – the E3DC
+routes PV surplus to the battery autonomously, without per-cycle retuning.
 
 Typical use case: on a day with only ~50 % of the expected sunny-day yield,
 Maestro would otherwise throttle in corridor/spreading mode and export surplus
@@ -180,24 +190,32 @@ apply **immediately** when changed.
 
 | Normal | Low-yield day |
 |--------|----------------|
-| SoC ramp limits charge power | Full PV surplus |
+| SoC ramp limits charge power | **`NORMAL` + fixed `max_charge` cap** |
 | Spreading throttles to time-spread rate | Spreading off |
 | Corridor pause on small surplus | Pause bypassed |
+| Maestro retunes charge power each cycle | E3DC routes PV surplus autonomously |
 
 Decision explanation includes: `[Low-yield day: surplus priority]`
 
+### Final control behaviour
+
+When low-yield is active and PV > 0:
+
+- Mode **`NORMAL`** (no grid import – unlike `CHARGE`)
+- Charge cap = **`max_charge_power`** (set once, no per-cycle retuning)
+- Same pattern as proven **corridor 7d** logic after charge-end hour
+- Charge ramp **bypassed** on low-yield days
+
 ### Control fixes (field operation)
 
-The initial v0.3.9 build still showed residual grid export (~300–500 W) while
-priority was active. Root causes and fixes:
+Several intermediate builds were tested in the field. Final solution:
 
-| Issue | Fix |
-|-------|-----|
-| EWMA-smoothed PV/house values overstated surplus | Low-yield uses **instant** sensor values for target power and surplus cap |
-| Charge ramp (+200 W/cycle) delayed full utilisation | Ramp **bypassed** on active low-yield days |
-| E3DC `normal` mode charged below cap → export | Low-yield corridor switches to **`charge` mode** |
-| Per-cycle instant surplus → limits changed every cycle | **350 W hysteresis** on surplus cap (coordinator) |
-| `CHARGE` + `max_charge` → grid import | **`NORMAL` + surplus cap** – PV only, no grid charging |
+| Issue | Intermediate attempt | Final fix |
+|-------|---------------------|-----------|
+| EWMA-smoothed values → residual export (~300–500 W) | Instant surplus as cap | Fixed **`max_charge` cap** – cap always above surplus |
+| E3DC charged below tight cap → export | `CHARGE` mode | **`NORMAL`** – E3DC manages surplus internally |
+| `CHARGE` + `max_charge` → **grid import** | – | **`NORMAL` + `max_charge`** – PV only, no grid charging |
+| Per-cycle instant cap → limit flicker | 350 W hysteresis | Fixed cap – hysteresis removed |
 
 ### vs. PV delay
 
@@ -254,8 +272,8 @@ After updating, in **integration options** (PV forecast section):
 
 ## ⚙️ Changed files
 
-- `control_engine.py` – `is_low_yield_day`, `surplus_priority_charge_w`, corridor/spreading hooks
-- `coordinator.py` – forecast latch, live threshold evaluation
+- `control_engine.py` – `is_low_yield_day`, corridor 6.96 (`NORMAL` + `max_charge`), spreading hooks
+- `coordinator.py` – forecast latch, live threshold evaluation, ramp bypass
 - `consumption_stats.py` – `peak_daily_yield_kwh()`
 - `const.py`, `config_flow.py`, `switch.py`, `number.py`, `sensor.py`, `binary_sensor.py`
 - `explanation.py`, `strings.json`, `translations/de.json`
@@ -266,7 +284,7 @@ After updating, in **integration options** (PV forecast section):
 
 ## 🧪 Tests
 
-306 tests passed (including new low-yield tests).
+305 tests passed (including new low-yield tests).
 
 ---
 

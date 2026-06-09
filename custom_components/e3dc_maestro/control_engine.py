@@ -1269,13 +1269,36 @@ def decide(
             target_soc=params.fast_charge_floor_soc,
         )
 
+    # ── 6.96 Schwacher-PV-Tag: max. Ladeleistung, kein Surplus-Tracking ─────
+    # Ziel: gesamte verfügbare PV in den Akku (kein Export). Ständiges Nachziehen
+    # des Momentan-Überschusses würde bei Wolken jeden Zyklus neue Limits setzen
+    # (CHARGE mit wechselndem power_value) – E3DC regelt den Überschuss intern
+    # zuverlässiger mit einem stabilen max_charge-Cap (wie Korridor 7d).
+    if (
+        _low_yield
+        and state.soc < params.charge_target
+        and not curtailment_guard_active
+    ):
+        _pv_now = (
+            state.pv_power_instant
+            if state.pv_power_instant is not None
+            else state.pv_power
+        ) or 0.0
+        if _pv_now > 0:
+            return MaestroDecision(
+                phase=PHASE_CORRIDOR,
+                reason=(
+                    f"Ladekorridor [Schwacher-PV-Tag: Überschuss-Priorität]: "
+                    f"SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
+                    f"max. Ladeleistung – E3DC nutzt verfügbaren PV-Überschuss"
+                ),
+                power_mode=POWER_MODE_CHARGE,
+                charge_power_limit=params.max_charge_power,
+                target_soc=target,
+                target_charge_power=params.max_charge_power,
+            )
+
     charge_power = desired_charge_power(state.soc, target, params, now)
-    # Schwacher-PV-Tag: Korridor-Soll auf vollen PV-Überschuss heben, damit
-    # bewölkte Tage mit knappem Ertrag den Akku priorisieren statt einzuspeisen.
-    if _low_yield and state.soc < params.charge_target:
-        _surplus_w = surplus_priority_charge_w(state, params)
-        if _surplus_w > charge_power:
-            charge_power = _surplus_w
     if charge_power > 0 and state.soc < params.charge_target:
         # 7a. PV forecast → delay charging if enough sun expected today
         # Aber NICHT bei aktivem Abregelschutz: dort muss Ladung als Senke
@@ -1459,7 +1482,6 @@ def decide(
         effective_charge = _apply_house_ceiling(
             charge_power, state, params, PHASE_CORRIDOR, current_price,
             tariff_class=tariff_class,
-            use_instant_surplus=_low_yield,
         )
         # 7e. Post-ceiling corridor pause: if the house-ceiling reduced effective
         # charge below lower_corridor, don't send a tiny limit to the E3DC —
@@ -1493,21 +1515,13 @@ def decide(
                 charge_power_limit=0.0,
                 target_soc=target,
             )
-        _low_yield_note = " [Schwacher-PV-Tag: Überschuss-Priorität]" if _low_yield else ""
-        # Schwacher-PV-Tag: CHARGE-Mode erzwingt die Soll-Leistung (NORMAL lässt
-        # E3DC oft unter dem max_charge-Cap laden → Rest wird eingespeist).
-        _corridor_power_mode = (
-            POWER_MODE_CHARGE
-            if _low_yield and effective_charge > 0
-            else POWER_MODE_NORMAL
-        )
         return MaestroDecision(
             phase=PHASE_CORRIDOR,
             reason=(
                 f"Ladekorridor: SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
-                f"Leistung {effective_charge:.0f}W{smoothing_note}{_low_yield_note}"
+                f"Leistung {effective_charge:.0f}W{smoothing_note}"
             ),
-            power_mode=_corridor_power_mode,
+            power_mode=POWER_MODE_NORMAL,
             charge_power_limit=effective_charge if effective_charge > 0 else None,
             target_soc=target,
             target_charge_power=effective_charge,

@@ -57,6 +57,7 @@ beobachtet, obwohl die Priorität aktiv war. Ursachen und Fixes:
 | EWMA-glättete PV/Haus-Werte überschätzten den Überschuss | Low-Yield nutzt **Momentanwerte** (`pv_power_instant`) für Soll-Leistung und Surplus-Cap |
 | Lade-Anlauf (+200 W/Zyklus) verzögerte volle Nutzung | Anlauf-Ramp bei aktivem Schwacher-PV-Tag **aus** |
 | E3DC `normal`-Modus lud unter dem Cap → Export | Korridor bei Low-Yield wechselt zu **`charge`-Modus** |
+| Momentan-Überschuss pro Zyklus → ständig wechselnde Limits | Stabiles **`max_charge_power`-Cap** – E3DC regelt Überschuss intern (wie Korridor 7d) |
 
 ### Abgrenzung zu PV-Verzögerung
 
@@ -194,6 +195,7 @@ priority was active. Root causes and fixes:
 | EWMA-smoothed PV/house values overstated surplus | Low-yield uses **instant** sensor values for target power and surplus cap |
 | Charge ramp (+200 W/cycle) delayed full utilisation | Ramp **bypassed** on active low-yield days |
 | E3DC `normal` mode charged below cap → export | Low-yield corridor switches to **`charge` mode** |
+| Per-cycle instant surplus → limits changed every cycle | Stable **`max_charge_power` cap** – E3DC tracks surplus internally (like corridor 7d) |
 
 ### vs. PV delay
 

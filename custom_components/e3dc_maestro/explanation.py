@@ -144,7 +144,8 @@ def decision_explanation(coord) -> str:
         if low_yield:
             text = (
                 f"Schwacher-PV-Tag: Ziel-SoC {target}% – Akku-Priorität aktiv, "
-                f"voller PV-Überschuss ({cpl} W) fließt in den Akku statt ins Netz."
+                f"maximale Ladeleistung ({cpl} W Cap) – E3DC nutzt den "
+                f"verfügbaren PV-Überschuss statt einzuspeisen."
             )
         else:
             text = (

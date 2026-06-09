@@ -2499,6 +2499,7 @@ class TestTariffModeConstraint:
 # Schwacher-PV-Tag: Akku-Priorität an bewölkten Tagen
 # ──────────────────────────────────────────────────────────────────────────────
 
+from custom_components.e3dc_maestro.const import POWER_MODE_CHARGE
 from custom_components.e3dc_maestro.control_engine import (
     is_low_yield_day,
     reference_pv_yield_kwh,
@@ -2619,16 +2620,13 @@ class TestLowYieldDecide:
 
     def test_low_yield_lifts_corridor_to_surplus(self):
         # Sonniger Tag wäre 110 kWh; 50 kWh = 0.45 < 0.5 ⇒ low_yield aktiv.
-        # SoC 51 %, Ziel-Rampe um 11 Uhr ≈ 55 % → Spreading-Rate sehr klein.
-        # Mit low_yield: charge_power = surplus (~2400 W).
-        p = _low_yield_params()
+        # Stabiles max_charge-Cap – kein per-Zyklus-Surplus-Tracking.
+        p = _low_yield_params(max_charge_power=5000)
         s = self._state(soc=51, pv=3000, house=600, forecast_today=50.0)
         decision = decide(s, p, _now(6, 15, 11))
         assert decision.phase == PHASE_CORRIDOR
-        assert decision.charge_power_limit is not None
-        assert decision.charge_power_limit >= 2000, (
-            f"erwartet ≥2000W, erhielt {decision.charge_power_limit}"
-        )
+        assert decision.charge_power_limit == 5000
+        assert decision.power_mode == POWER_MODE_CHARGE
         assert "Schwacher-PV-Tag" in decision.reason
 
     def test_sunny_day_keeps_spreading_throttle(self):
@@ -2649,9 +2647,9 @@ class TestLowYieldDecide:
         decision = decide(s, p, _now(6, 15, 14))
         assert decision.phase != PHASE_SPREADING
 
-    def test_low_yield_uses_instant_surplus_not_ewma(self):
-        # EWMA würde 2400 W Überschuss zeigen, Momentanwert nur 600 W.
-        p = _low_yield_params()
+    def test_low_yield_ignores_ewma_for_cap_uses_max_charge(self):
+        # EWMA vs. Momentanwert irrelevant: stabiles max_charge, kein Tracking.
+        p = _low_yield_params(max_charge_power=9000)
         s = MaestroState(
             soc=51,
             pv_power=3000,
@@ -2664,10 +2662,8 @@ class TestLowYieldDecide:
         )
         decision = decide(s, p, _now(6, 15, 11))
         assert decision.phase == PHASE_CORRIDOR
-        assert decision.charge_power_limit is not None
-        assert decision.charge_power_limit <= 600 + 1, (
-            f"erwartet ≤600W (Momentan-Überschuss), erhielt {decision.charge_power_limit}"
-        )
+        assert decision.charge_power_limit == 9000
+        assert decision.power_mode == POWER_MODE_CHARGE
 
     def test_low_yield_bypasses_corridor_pause(self):
         # Surplus 100 W < lower_corridor 500 W: ohne low_yield → IDLE/Pause.

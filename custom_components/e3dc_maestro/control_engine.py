@@ -172,6 +172,9 @@ class MaestroState:
     # Schwacher-PV-Tag: Tagesprognose + Referenz-Peak aus PV-Statistik
     pv_forecast_today_kwh: float | None = None        # heute erwarteter Tagesertrag (kWh, Solcast prognose_heute)
     pv_stats_peak_kwh: float | None = None            # historischer Tages-Peak (kWh) aus PV-Statistik
+    # Rohwerte vor EWMA (Coordinator); für Schwacher-PV-Tag-Surplus ohne Glättungs-Lag
+    pv_power_instant: float | None = None
+    house_power_instant: float | None = None
 
 
 @dataclass
@@ -621,16 +624,28 @@ def is_low_yield_day(
     return ratio <= params.low_yield_threshold
 
 
+def _pv_surplus_w(state: MaestroState, *, instant: bool = False) -> float:
+    """PV-Überschuss (W). Bei ``instant=True`` Rohsensorwerte, sonst EWMA-State."""
+    if instant and state.pv_power_instant is not None and state.house_power_instant is not None:
+        pv = state.pv_power_instant
+        house = state.house_power_instant
+    else:
+        pv = state.pv_power
+        house = state.house_power
+    return max(0.0, pv - house)
+
+
 def surplus_priority_charge_w(
     state: MaestroState, params: MaestroParams
 ) -> float:
     """Ladeleistung (W) bei aktiver Schwacher-PV-Tag-Priorität.
 
-    Nutzt den vollen PV-Überschuss (PV − Haus), gedeckelt durch
-    ``max_charge_power``. Liefert ``0.0`` wenn der Überschuss unter
-    ``min_charge_power`` liegt (Anlauf-Schutz).
+    Nutzt den **aktuellen** PV-Überschuss (Rohwerte, nicht EWMA), damit bei
+    fallender PV keine überhöhte Ladegrenze entsteht und Rest ins Netz geht.
+    Gedeckelt durch ``max_charge_power``. ``0.0`` wenn Überschuss unter
+    ``min_charge_power`` (Anlauf-Schutz).
     """
-    surplus = max(0.0, state.pv_power - state.house_power)
+    surplus = _pv_surplus_w(state, instant=True)
     if surplus < params.min_charge_power:
         return 0.0
     return min(surplus, params.max_charge_power)
@@ -736,6 +751,7 @@ def _apply_house_ceiling(
     current_price: float | None,
     *,
     tariff_class: str | None = None,
+    use_instant_surplus: bool = False,
 ) -> float:
     """Cap charge power to available PV surplus to avoid drawing from grid.
 
@@ -754,7 +770,7 @@ def _apply_house_ceiling(
     tariff_mode = getattr(params, "tariff_mode", "fixed")
     if tariff_class == TARIFF_LOW and tariff_mode == "dynamic":
         return charge_power
-    surplus = max(0.0, state.pv_power - state.house_power)
+    surplus = _pv_surplus_w(state, instant=use_instant_surplus)
     return min(charge_power, surplus) if surplus > 0 else 0.0
 
 
@@ -1443,6 +1459,7 @@ def decide(
         effective_charge = _apply_house_ceiling(
             charge_power, state, params, PHASE_CORRIDOR, current_price,
             tariff_class=tariff_class,
+            use_instant_surplus=_low_yield,
         )
         # 7e. Post-ceiling corridor pause: if the house-ceiling reduced effective
         # charge below lower_corridor, don't send a tiny limit to the E3DC —
@@ -1477,13 +1494,20 @@ def decide(
                 target_soc=target,
             )
         _low_yield_note = " [Schwacher-PV-Tag: Überschuss-Priorität]" if _low_yield else ""
+        # Schwacher-PV-Tag: CHARGE-Mode erzwingt die Soll-Leistung (NORMAL lässt
+        # E3DC oft unter dem max_charge-Cap laden → Rest wird eingespeist).
+        _corridor_power_mode = (
+            POWER_MODE_CHARGE
+            if _low_yield and effective_charge > 0
+            else POWER_MODE_NORMAL
+        )
         return MaestroDecision(
             phase=PHASE_CORRIDOR,
             reason=(
                 f"Ladekorridor: SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
                 f"Leistung {effective_charge:.0f}W{smoothing_note}{_low_yield_note}"
             ),
-            power_mode=POWER_MODE_NORMAL,
+            power_mode=_corridor_power_mode,
             charge_power_limit=effective_charge if effective_charge > 0 else None,
             target_soc=target,
             target_charge_power=effective_charge,

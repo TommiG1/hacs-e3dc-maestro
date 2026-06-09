@@ -560,6 +560,8 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # A3: EWMA-Glättung von PV und Hausverbrauch (anti-flapping)
         # grid_power und battery_power bleiben roh – feed_in_limit braucht
         # schnelle Reaktion und wird separat durch Schwellen-Hysterese entstört.
+        _instant_pv = state_data.pv_power
+        _instant_house = state_data.house_power
         _dt_s = self.update_interval.total_seconds()
         self._ewma_pv = _ewma_update(
             self._ewma_pv, state_data.pv_power or 0.0,
@@ -578,6 +580,8 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             pv_power=self._ewma_pv,
             house_power=self._ewma_house,
             wallbox_power=self._ewma_wallbox or 0.0,
+            pv_power_instant=_instant_pv,
+            house_power_instant=_instant_house,
         )
 
         # Current electricity price (optional)
@@ -677,7 +681,7 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         bypass_ramp = decision.phase in (
             PHASE_OFF, PHASE_EMERGENCY, PHASE_FEED_IN_LIMIT, PHASE_CURTAILMENT_GUARD,
             PHASE_MORNING_DISCHARGE, PHASE_FORCE_DISCHARGE,
-        )
+        ) or self.low_yield_day_active
         if decision.charge_power_limit is not None:
             target_p = int(decision.charge_power_limit)
             ramp = active.charge_ramp_w_per_cycle

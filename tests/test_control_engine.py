@@ -2649,6 +2649,26 @@ class TestLowYieldDecide:
         decision = decide(s, p, _now(6, 15, 14))
         assert decision.phase != PHASE_SPREADING
 
+    def test_low_yield_uses_instant_surplus_not_ewma(self):
+        # EWMA würde 2400 W Überschuss zeigen, Momentanwert nur 600 W.
+        p = _low_yield_params()
+        s = MaestroState(
+            soc=51,
+            pv_power=3000,
+            house_power=600,
+            grid_power=0,
+            battery_power=0,
+            pv_forecast_today_kwh=50.0,
+            pv_power_instant=1200,
+            house_power_instant=600,
+        )
+        decision = decide(s, p, _now(6, 15, 11))
+        assert decision.phase == PHASE_CORRIDOR
+        assert decision.charge_power_limit is not None
+        assert decision.charge_power_limit <= 600 + 1, (
+            f"erwartet ≤600W (Momentan-Überschuss), erhielt {decision.charge_power_limit}"
+        )
+
     def test_low_yield_bypasses_corridor_pause(self):
         # Surplus 100 W < lower_corridor 500 W: ohne low_yield → IDLE/Pause.
         # Mit low_yield + Surplus ≥ min_charge_power (200 W) wäre Pause aus;

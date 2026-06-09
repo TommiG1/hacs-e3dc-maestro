@@ -47,6 +47,17 @@ nachmittägliche Solcast-Korrekturen die Strategie nicht hin- und herschalten.
 
 In der Entscheidungserklärung: `[Schwacher-PV-Tag: Überschuss-Priorität]`
 
+### Regelungs-Fixes (Live-Betrieb)
+
+Beim ersten v0.3.9-Release wurde im Feld noch Rest-Einspeisung (~300–500 W)
+beobachtet, obwohl die Priorität aktiv war. Ursachen und Fixes:
+
+| Problem | Fix |
+|---------|-----|
+| EWMA-glättete PV/Haus-Werte überschätzten den Überschuss | Low-Yield nutzt **Momentanwerte** (`pv_power_instant`) für Soll-Leistung und Surplus-Cap |
+| Lade-Anlauf (+200 W/Zyklus) verzögerte volle Nutzung | Anlauf-Ramp bei aktivem Schwacher-PV-Tag **aus** |
+| E3DC `normal`-Modus lud unter dem Cap → Export | Korridor bei Low-Yield wechselt zu **`charge`-Modus** |
+
 ### Abgrenzung zu PV-Verzögerung
 
 | Feature | Zweck |
@@ -172,6 +183,17 @@ apply **immediately** when changed.
 | Corridor pause on small surplus | Pause bypassed |
 
 Decision explanation includes: `[Low-yield day: surplus priority]`
+
+### Control fixes (field operation)
+
+The initial v0.3.9 build still showed residual grid export (~300–500 W) while
+priority was active. Root causes and fixes:
+
+| Issue | Fix |
+|-------|-----|
+| EWMA-smoothed PV/house values overstated surplus | Low-yield uses **instant** sensor values for target power and surplus cap |
+| Charge ramp (+200 W/cycle) delayed full utilisation | Ramp **bypassed** on active low-yield days |
+| E3DC `normal` mode charged below cap → export | Low-yield corridor switches to **`charge` mode** |
 
 ### vs. PV delay
 

@@ -2504,7 +2504,6 @@ from custom_components.e3dc_maestro.control_engine import (
     is_low_yield_day,
     reference_pv_yield_kwh,
     spreading_active,
-    surplus_priority_charge_w,
 )
 
 
@@ -2593,22 +2592,6 @@ class TestIsLowYieldDay:
         assert is_low_yield_day(s, p) is False
 
 
-class TestSurplusPriorityCharge:
-    def test_uses_full_surplus_capped_to_max(self):
-        p = _low_yield_params(max_charge_power=5000, min_charge_power=200)
-        s = MaestroState(
-            soc=50, pv_power=8000, house_power=500, grid_power=0, battery_power=0,
-        )
-        assert surplus_priority_charge_w(s, p) == 5000
-
-    def test_returns_zero_below_min(self):
-        p = _low_yield_params(min_charge_power=300)
-        s = MaestroState(
-            soc=50, pv_power=400, house_power=300, grid_power=0, battery_power=0,
-        )
-        assert surplus_priority_charge_w(s, p) == 0.0
-
-
 class TestLowYieldDecide:
     """End-to-end ``decide()``: schwacher Tag ⇒ Korridor mit Überschuss-Priorität."""
 
@@ -2618,16 +2601,17 @@ class TestLowYieldDecide:
             pv_forecast_today_kwh=forecast_today,
         )
 
-    def test_low_yield_lifts_corridor_to_surplus(self):
+    def test_low_yield_sets_max_charge_cap(self):
         # Sonniger Tag wäre 110 kWh; 50 kWh = 0.45 < 0.5 ⇒ low_yield aktiv.
-        # Cap = PV-Überschuss (3000-600), NORMAL-Mode (kein Netzbezug).
+        # Fester max_charge-Cap (wie Korridor 7d), NORMAL-Mode (kein Netzbezug).
         p = _low_yield_params(max_charge_power=5000)
         s = self._state(soc=51, pv=3000, house=600, forecast_today=50.0)
         decision = decide(s, p, _now(6, 15, 11))
         assert decision.phase == PHASE_CORRIDOR
-        assert decision.charge_power_limit == 2400
+        assert decision.charge_power_limit == 5000
         assert decision.power_mode == POWER_MODE_NORMAL
         assert "Schwacher-PV-Tag" in decision.reason
+        assert "E3DC nutzt PV-Überschuss" in decision.reason
 
     def test_sunny_day_keeps_spreading_throttle(self):
         # 90 kWh / 110 kWh = 0.82 > 0.5 ⇒ kein low_yield → Spreading-Cap aktiv.
@@ -2647,8 +2631,8 @@ class TestLowYieldDecide:
         decision = decide(s, p, _now(6, 15, 14))
         assert decision.phase != PHASE_SPREADING
 
-    def test_low_yield_uses_instant_surplus_cap(self):
-        # Momentan-Überschuss 600 W, nicht EWMA (2400 W).
+    def test_low_yield_ignores_instant_surplus_for_cap(self):
+        # Cap bleibt max_charge, auch wenn Momentan-Überschuss nur 600 W ist.
         p = _low_yield_params(max_charge_power=9000)
         s = MaestroState(
             soc=51,
@@ -2662,24 +2646,18 @@ class TestLowYieldDecide:
         )
         decision = decide(s, p, _now(6, 15, 11))
         assert decision.phase == PHASE_CORRIDOR
-        assert decision.charge_power_limit == 600
+        assert decision.charge_power_limit == 9000
         assert decision.power_mode == POWER_MODE_NORMAL
 
     def test_low_yield_bypasses_corridor_pause(self):
         # Surplus 100 W < lower_corridor 500 W: ohne low_yield → IDLE/Pause.
-        # Mit low_yield + Surplus ≥ min_charge_power (200 W) wäre Pause aus;
-        # hier liegt Surplus knapp unter min_charge_power → surplus_priority
-        # liefert 0 → trotzdem keine harte Pause; charge_power-Pfad weiter.
+        # Mit low_yield: fester max_charge-Cap, keine Korridor-Pause.
         p = _low_yield_params(min_charge_power=50, lower_corridor=500)
         s = self._state(soc=51, pv=700, house=600, forecast_today=50.0)
         decision = decide(s, p, _now(6, 15, 11))
-        # Wichtig: keine Korridor-Pause (charge_power_limit == 0.0) trotz
-        # Surplus < lower_corridor – low_yield deaktiviert die Pause.
-        assert not (
-            decision.phase == PHASE_IDLE
-            and decision.charge_power_limit == 0.0
-            and "Korridor-Pause" in decision.reason
-        )
+        assert decision.phase == PHASE_CORRIDOR
+        assert decision.charge_power_limit == 9000
+        assert "Korridor-Pause" not in decision.reason
 
 
 class TestPeakDailyYieldKwh:

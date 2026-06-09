@@ -635,22 +635,6 @@ def _pv_surplus_w(state: MaestroState, *, instant: bool = False) -> float:
     return max(0.0, pv - house)
 
 
-def surplus_priority_charge_w(
-    state: MaestroState, params: MaestroParams
-) -> float:
-    """Ladeleistung (W) bei aktiver Schwacher-PV-Tag-Priorität.
-
-    Nutzt den **aktuellen** PV-Überschuss (Rohwerte, nicht EWMA), damit bei
-    fallender PV keine überhöhte Ladegrenze entsteht und Rest ins Netz geht.
-    Gedeckelt durch ``max_charge_power``. ``0.0`` wenn Überschuss unter
-    ``min_charge_power`` (Anlauf-Schutz).
-    """
-    surplus = _pv_surplus_w(state, instant=True)
-    if surplus < params.min_charge_power:
-        return 0.0
-    return min(surplus, params.max_charge_power)
-
-
 def spreading_active(
     params: MaestroParams,
     state: MaestroState,
@@ -1269,10 +1253,9 @@ def decide(
             target_soc=params.fast_charge_floor_soc,
         )
 
-    # ── 6.96 Schwacher-PV-Tag: nur PV-Überschuss in den Akku ────────────────
-    # Cap = Momentan-Überschuss (kein Netzbezug). NORMAL-Mode: E3DC darf nur
-    # bis zum Cap aus PV laden. CHARGE+max_charge würde Netzstrom ziehen.
-    # Kleine Schwankungen filtert der Coordinator per Hysterese (const).
+    # ── 6.96 Schwacher-PV-Tag: PV-Überschuss-Priorität (wie Korridor 7d) ───
+    # NORMAL + max_charge_power: E3DC nutzt PV-Überschuss selbst, kein Netzbezug.
+    # Fester Cap statt Momentan-Überschuss → kein ständiges Nachregeln.
     if (
         _low_yield
         and state.soc < params.charge_target
@@ -1284,20 +1267,19 @@ def decide(
             else state.pv_power
         ) or 0.0
         if _pv_now > 0:
-            _surplus_w = surplus_priority_charge_w(state, params)
-            if _surplus_w >= params.min_charge_power:
-                return MaestroDecision(
-                    phase=PHASE_CORRIDOR,
-                    reason=(
-                        f"Ladekorridor [Schwacher-PV-Tag: Überschuss-Priorität]: "
-                        f"SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
-                        f"Überschuss-Cap {_surplus_w:.0f} W (nur PV, kein Netz)"
-                    ),
-                    power_mode=POWER_MODE_NORMAL,
-                    charge_power_limit=_surplus_w,
-                    target_soc=target,
-                    target_charge_power=_surplus_w,
-                )
+            return MaestroDecision(
+                phase=PHASE_CORRIDOR,
+                reason=(
+                    f"Ladekorridor [Schwacher-PV-Tag: Überschuss-Priorität]: "
+                    f"SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
+                    f"max_charge {params.max_charge_power:.0f} W "
+                    f"(E3DC nutzt PV-Überschuss, kein Netz)"
+                ),
+                power_mode=POWER_MODE_NORMAL,
+                charge_power_limit=params.max_charge_power,
+                target_soc=target,
+                target_charge_power=params.max_charge_power,
+            )
 
     charge_power = desired_charge_power(state.soc, target, params, now)
     if charge_power > 0 and state.soc < params.charge_target:

@@ -212,6 +212,27 @@ class ConsumptionStats:
             return self.avg_w_24h * 24.0 / 1000.0
         return None
 
+    def peak_daily_yield_kwh(self) -> float | None:
+        """Historischer Tages-Peak (kWh) als Proxy für einen sonnigen Referenztag.
+
+        Liefert das Maximum der Wochentags-Tagessummen (Σ Stundenmittel pro
+        Wochentag, dividiert durch 1000). Rückgabe ``None`` wenn das Profil
+        leer ist (z. B. zu wenig Historie). Wird vom Coordinator nur genutzt
+        wenn ``data_days >= 7``.
+
+        Auf reinen PV-Sensoren entspricht der Rückgabewert dem durchschnittlich
+        besten Tagesertrag des bislang besten Wochentags – das unterschätzt
+        Spitzentage, ist aber ein konservatives, robustes Maß.
+        """
+        totals: list[float] = []
+        for day in self.weekday_profile_w:
+            day_total = sum(day)
+            if day_total > 0:
+                totals.append(day_total)
+        if not totals:
+            return None
+        return max(totals) / 1000.0
+
 
 def _row_to_local(start_ts: Any) -> datetime | None:
     """Convert a recorder statistics row's ``start`` field to a local datetime."""

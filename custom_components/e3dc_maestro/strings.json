@@ -94,7 +94,12 @@
           "spreading_enabled": "Ladeverteilung aktivieren",
           "spreading_target_soc": "Ziel-SoC für Ladeverteilung (%)",
           "forward_looking_enabled": "Forward-Looking aktivieren (lädt vorausschauend, wenn morgen wenig PV erwartet wird)",
-          "forward_looking_max_soc": "Max. SoC für Forward-Looking-Vorladung (%)"
+          "forward_looking_max_soc": "Max. SoC für Forward-Looking-Vorladung (%)",
+          "low_yield_priority_enabled": "Schwacher-PV-Tag: Akku-Priorität aktivieren",
+          "pv_forecast_today_sensor": "Prognose heute – Tagessumme kWh (z. B. Solcast: Prognose heute) – für Schwacher-PV-Tag",
+          "low_yield_threshold": "Schwacher-PV-Tag Schwelle (Anteil 0–1)",
+          "low_yield_reference_kwh": "PV-Referenz manuell (kWh, 0 = automatisch)",
+          "low_yield_reference_kwh_per_kwp": "PV-Referenz Faktor (kWh/kWp)"
         }
       },
       "tariff": {
@@ -342,14 +347,22 @@
           "spreading_enabled": "Ladeverteilung aktivieren",
           "spreading_target_soc": "Ziel-SoC für Ladeverteilung (%)",
           "forward_looking_enabled": "Forward-Looking aktivieren (lädt vorausschauend, wenn morgen wenig PV erwartet wird)",
-          "forward_looking_max_soc": "Max. SoC für Forward-Looking-Vorladung (%)"
+          "forward_looking_max_soc": "Max. SoC für Forward-Looking-Vorladung (%)",
+          "low_yield_priority_enabled": "Schwacher-PV-Tag: Akku-Priorität aktivieren",
+          "pv_forecast_today_sensor": "Prognose heute – Tagessumme kWh (z. B. Solcast: Prognose heute) – für Schwacher-PV-Tag",
+          "low_yield_threshold": "Schwacher-PV-Tag Schwelle (Anteil 0–1)",
+          "low_yield_reference_kwh": "PV-Referenz manuell (kWh, 0 = automatisch)",
+          "low_yield_reference_kwh_per_kwp": "PV-Referenz Faktor (kWh/kWp)"
         },
         "data_description": {
           "pv_forecast_safety_factor": "Die Prognose muss mind. (Bedarf × Faktor) erreichen, damit das Laden verzögert wird. z. B. 1.2 = 20 % Sicherheitspuffer.",
           "pv_forecast_threshold_kwh": "Absolute Untergrenze: Liegt die Prognose darunter, wird nie verzögert (z. B. 1.0 kWh bei kleiner Anlage).",
           "delay_min_soc": "Ist der Akku unter diesem SoC, wird das Laden niemals verzögert – unabhängig von der Prognose.",
           "spreading_target_soc": "Ladeverteilung verteilt das Laden gleichmäßig bis zum saisonalen Ladeende (charge_end). Ziel-SoC ist die Obergrenze – oberhalb davon wird Laden aktiv blockiert, damit PV-Überschuss ins Netz fließt.",
-          "forward_looking_max_soc": "Maximaler SoC, auf den Maestro bei schlechter Morgen-Prognose vorlädt. Werte >90 % beschleunigen Zellalterung."
+          "forward_looking_max_soc": "Maximaler SoC, auf den Maestro bei schlechter Morgen-Prognose vorlädt. Werte >90 % beschleunigen Zellalterung.",
+          "low_yield_threshold": "Anteil Tagesprognose ÷ Referenz, unterhalb dessen Maestro die Akku-Priorität aktiviert (z. B. 0.5 = halb so sonnig wie ein Referenztag).",
+          "low_yield_reference_kwh": "Optionaler manueller Referenzwert. 0 bedeutet: automatisch aus installierter kWp × Faktor und PV-Statistik.",
+          "low_yield_reference_kwh_per_kwp": "Faktor für die kWp-Baseline: Standard 5.5 kWh/kWp entspricht einem sehr sonnigen Sommertag."
         }
       },
       "ht": {
@@ -653,6 +666,9 @@
       },
       "discharge_block_active": {
         "name": "Entladesperre aktiv"
+      },
+      "low_yield_day_active": {
+        "name": "Schwacher PV-Tag"
       }
     },
     "switch": {

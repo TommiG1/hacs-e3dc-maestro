@@ -70,6 +70,9 @@ from .const import (
     CONF_HARD_SOC_LIMIT,
     CONF_FAST_CHARGE_FLOOR_SOC,
     CONF_FORWARD_LOOKING_MAX_SOC,
+    CONF_LOW_YIELD_THRESHOLD,
+    CONF_LOW_YIELD_REFERENCE_KWH,
+    CONF_LOW_YIELD_REFERENCE_KWH_PER_KWP,
     CONF_EVCC_DISCHARGE_LIMIT_W,
     DOMAIN,
 )
@@ -554,6 +557,30 @@ NUMBER_DESCRIPTIONS: tuple[MaestroNumberDescription, ...] = (
         device_class=NumberDeviceClass.POWER,
         param_key=CONF_EVCC_DISCHARGE_LIMIT_W,
         min_value=0, max_value=15000, step_value=50,
+    ),
+    # ── Schwacher-PV-Tag: Akku-Priorität ───────────────────────────────────
+    MaestroNumberDescription(
+        key=CONF_LOW_YIELD_THRESHOLD,
+        name="Schwacher-PV-Tag Schwelle",
+        icon="mdi:weather-cloudy-clock",
+        param_key=CONF_LOW_YIELD_THRESHOLD,
+        min_value=0.1, max_value=1.0, step_value=0.05,
+    ),
+    MaestroNumberDescription(
+        key=CONF_LOW_YIELD_REFERENCE_KWH,
+        name="PV-Referenz manuell (0 = automatisch)",
+        icon="mdi:weather-sunny",
+        native_unit_of_measurement="kWh",
+        param_key=CONF_LOW_YIELD_REFERENCE_KWH,
+        min_value=0, max_value=500, step_value=1,
+    ),
+    MaestroNumberDescription(
+        key=CONF_LOW_YIELD_REFERENCE_KWH_PER_KWP,
+        name="PV-Referenz Faktor (kWh/kWp)",
+        icon="mdi:solar-power-variant",
+        native_unit_of_measurement="kWh/kWp",
+        param_key=CONF_LOW_YIELD_REFERENCE_KWH_PER_KWP,
+        min_value=1.0, max_value=10.0, step_value=0.1,
     ),
 )
 

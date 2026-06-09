@@ -11,7 +11,7 @@ import logging
 import math
 import statistics
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -49,6 +49,7 @@ from .const import (
     CONF_PV_FORECAST_ENABLED,
     CONF_PV_FORECAST_SENSOR,
     CONF_PV_FORECAST_SENSOR_DAY2,
+    CONF_PV_FORECAST_TODAY_SENSOR,
     CONF_TOMORROW_PV_SENSOR,
     CONF_PV_POWER_SENSOR,
     CONF_SOC_SENSOR,
@@ -374,6 +375,12 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # PV-Forecast Auto-Detect: cached entity_id after first discovery (avoids
         # repeated full sensor scan and log spam every cycle)
         self._autodetected_pv_sensor: str | None = None
+        # Schwacher-PV-Tag: Tagesprognose einmal pro Tag latchen (kein Flip durch
+        # Solcast-Updates). Schwelle/Referenz-Params wirken live – siehe
+        # ``_is_low_yield_day_active``.
+        self._low_yield_latch_date: date | None = None
+        self._low_yield_stats_peak_kwh: float | None = None
+        self._low_yield_today_kwh: float | None = None
 
         # Battery & PV Sizing Advisor
         self.sizing_analysis: SizingAnalysisResult | None = None
@@ -1179,6 +1186,58 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return None
         return round(max(0.0, s.tomorrow_consumption_kwh - s.tomorrow_pv_kwh), 2)
 
+    # ──────────────────────────────────────────────────────────────────────
+    # Schwacher-PV-Tag (Akku-Priorität)
+    # ──────────────────────────────────────────────────────────────────────
+
+    def _is_low_yield_day_active(self) -> bool:
+        """Schwacher Tag aus gelatchter Prognose + aktuellen Params (Schwelle live)."""
+        if not self._params.low_yield_priority_enabled:
+            return False
+        if self._low_yield_today_kwh is None or self._low_yield_today_kwh < 0:
+            return False
+        from .control_engine import MaestroState, is_low_yield_day
+
+        probe = MaestroState(
+            soc=0,
+            pv_power=0,
+            house_power=0,
+            grid_power=0,
+            battery_power=0,
+            pv_forecast_today_kwh=self._low_yield_today_kwh,
+            pv_stats_peak_kwh=self._low_yield_stats_peak_kwh,
+        )
+        return is_low_yield_day(
+            probe, self._params, stats_peak_kwh=self._low_yield_stats_peak_kwh
+        )
+
+    @property
+    def low_yield_day_active(self) -> bool:
+        """True wenn gelatchte Tagesprognose unter der aktuellen Schwelle liegt."""
+        return self._is_low_yield_day_active()
+
+    @property
+    def low_yield_today_kwh(self) -> float | None:
+        """Aktuelle Tagesprognose (kWh), wie sie für die Latch-Auswertung genutzt wurde."""
+        return self._low_yield_today_kwh
+
+    @property
+    def low_yield_reference_kwh(self) -> float | None:
+        """Berechnete Referenz (kWh) aus kWp-Baseline, Statistik und Override."""
+        from .control_engine import reference_pv_yield_kwh
+        ref = reference_pv_yield_kwh(
+            self._params, stats_peak_kwh=self._low_yield_stats_peak_kwh
+        )
+        return round(ref, 2) if ref > 0 else None
+
+    @property
+    def low_yield_ratio(self) -> float | None:
+        """Verhältnis Tagesprognose / Referenz (0–1+) oder None."""
+        ref = self.low_yield_reference_kwh
+        if ref is None or ref <= 0 or self._low_yield_today_kwh is None:
+            return None
+        return round(self._low_yield_today_kwh / ref, 3)
+
     @property
     def seasonal_charge_end_h(self) -> float:
         """Currently computed seasonal charge-end hour (fractional, local time)."""
@@ -1728,6 +1787,9 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if ms and ms.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                     evcc_mode = ms.state
 
+        # Schwacher-PV-Tag: Tagesprognose + historischer Peak einlesen, latchen.
+        today_pv_kwh, peak_pv_kwh = self._resolve_low_yield_inputs(opts)
+
         return MaestroState(
             soc=soc,
             pv_power=pv + additional_generation,
@@ -1740,7 +1802,50 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             evcc_mode=evcc_mode,
             tomorrow_pv_kwh=tomorrow_pv,
             tomorrow_consumption_kwh=tomorrow_consumption,
+            pv_forecast_today_kwh=today_pv_kwh,
+            pv_stats_peak_kwh=peak_pv_kwh,
         )
+
+    def _resolve_low_yield_inputs(
+        self, opts: dict[str, Any]
+    ) -> tuple[float | None, float | None]:
+        """Lese Tagesprognose + historischen Peak; latch nur die Eingangswerte.
+
+        Rückgabe ``(today_kwh, peak_kwh)`` für die ``MaestroState``-Felder.
+        Die Tagesprognose wird einmal pro lokalem Tag festgehalten, damit
+        Solcast-Updates den Tag nicht hin- und herschalten. Schwelle und
+        Referenz-Parameter werden in ``_is_low_yield_day_active`` live
+        ausgewertet.
+        """
+        if not self._params.low_yield_priority_enabled:
+            self._low_yield_latch_date = None
+            self._low_yield_stats_peak_kwh = None
+            self._low_yield_today_kwh = None
+            return (None, None)
+
+        today_kwh: float | None = None
+        sensor_id = opts.get(CONF_PV_FORECAST_TODAY_SENSOR)
+        if sensor_id:
+            today_kwh = self._read_float(sensor_id, required=False)
+
+        peak_kwh: float | None = None
+        if self._pv_stats is not None and self._pv_stats.data_days >= 7:
+            peak_kwh = self._pv_stats.peak_daily_yield_kwh()
+
+        # Latchen: nur einmal pro lokalem Tag aktualisieren. Vor dem ersten
+        # validen Wert (z. B. direkt nach HA-Start ohne Solcast-Update) bleibt
+        # der Latch leer und das Feature ist inaktiv.
+        local_today = dt_util.now().date()
+        if today_kwh is not None and today_kwh >= 0:
+            if (
+                self._low_yield_latch_date != local_today
+                or self._low_yield_today_kwh is None
+            ):
+                self._low_yield_today_kwh = today_kwh
+                self._low_yield_stats_peak_kwh = peak_kwh
+                self._low_yield_latch_date = local_today
+
+        return (self._low_yield_today_kwh, self._low_yield_stats_peak_kwh)
 
     def _read_float(self, entity_id: str, required: bool = False) -> float | None:
         state = self.hass.states.get(entity_id)

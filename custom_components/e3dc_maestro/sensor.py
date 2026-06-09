@@ -274,6 +274,27 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         value_fn=lambda coord: coord.tomorrow_deficit_kwh,
     ),
+    # Schwacher-PV-Tag: Tagesprognose + Referenz + Verhältnis
+    MaestroSensorDescription(
+        key="low_yield_today_kwh",
+        name="PV-Tagesprognose",
+        icon="mdi:weather-sunny",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        value_fn=lambda coord: coord.low_yield_today_kwh,
+    ),
+    MaestroSensorDescription(
+        key="low_yield_reference_kwh",
+        name="PV-Referenz-Ertrag",
+        icon="mdi:solar-power-variant",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        value_fn=lambda coord: coord.low_yield_reference_kwh,
+    ),
+    MaestroSensorDescription(
+        key="low_yield_ratio",
+        name="PV-Tag Quote",
+        icon="mdi:percent-outline",
+        value_fn=lambda coord: coord.low_yield_ratio,
+    ),
     # E3/Phase 1: Curtailment avoided today (Diagnose; kombiniert in pv_saved_today)
     MaestroSensorDescription(
         key="curtailment_avoided_today",

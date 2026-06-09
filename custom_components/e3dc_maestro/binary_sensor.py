@@ -83,6 +83,12 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[MaestroBinarySensorDescription, ...] = (
             and coord.last_decision.discharge_power_limit <= 0
         ),
     ),
+    MaestroBinarySensorDescription(
+        key="low_yield_day_active",
+        name="Schwacher PV-Tag",
+        icon="mdi:weather-cloudy-clock",
+        value_fn=lambda coord: coord.low_yield_day_active,
+    ),
     # v0.2.0: Sanity-Check – Netzladung trotz festem Tarif
     MaestroBinarySensorDescription(
         key="unjustified_grid_charge",

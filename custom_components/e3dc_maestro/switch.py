@@ -29,6 +29,7 @@ from .const import (
     CONF_AUTO_MODE_ENABLED,
     CONF_HARD_SOC_LIMIT_ENABLED,
     CONF_FORWARD_LOOKING_ENABLED,
+    CONF_LOW_YIELD_PRIORITY_ENABLED,
     CONF_PV_FORECAST_ENABLED,
     CONF_SEASONAL_RESERVE_ENABLED,
     CONF_TWO_TIER_ENABLED,
@@ -258,6 +259,15 @@ SWITCH_DESCRIPTIONS: tuple[MaestroSwitchDescription, ...] = (
         param_key=CONF_PV_FORECAST_ENABLED,
         on_fn=lambda coord: coord.update_param(CONF_PV_FORECAST_ENABLED, True),
         off_fn=lambda coord: coord.update_param(CONF_PV_FORECAST_ENABLED, False),
+    ),
+    # Schwacher-PV-Tag: Akku-Priorität an bewölkten Tagen
+    MaestroSwitchDescription(
+        key=CONF_LOW_YIELD_PRIORITY_ENABLED,
+        name="Schwacher-PV-Tag-Priorität",
+        icon="mdi:weather-cloudy-clock",
+        param_key=CONF_LOW_YIELD_PRIORITY_ENABLED,
+        on_fn=lambda coord: coord.update_param(CONF_LOW_YIELD_PRIORITY_ENABLED, True),
+        off_fn=lambda coord: coord.update_param(CONF_LOW_YIELD_PRIORITY_ENABLED, False),
     ),
 )
 

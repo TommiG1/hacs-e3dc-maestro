@@ -93,6 +93,37 @@ views:
             entity: binary_sensor.e3dc_maestro_entladesperre_aktiv
             tap_action:
               action: more-info
+          - type: template
+            content: Akku-Priorität
+            icon: mdi:weather-cloudy-clock
+            icon_color: "{{ 'orange' if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') else 'grey' }}"
+            entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+            tap_action:
+              action: navigate
+              navigation_path: /e3dc-maestro/help-low-yield
+
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          primary: Akku-Ladung priorisiert
+          secondary: >-
+            Geringer PV-Ertrag erwartet: {{ states('sensor.e3dc_maestro_pv_tagesprognose') }} kWh
+            von {{ states('sensor.e3dc_maestro_pv_referenz_ertrag') }} kWh Referenz
+            ({{ (states('sensor.e3dc_maestro_pv_tag_quote') | float(0) * 100) | round(0) }} %).
+            Überschuss wird in den Akku gelenkt statt eingespeist — Spreading und
+            Korridor-Drosselung sind für heute ausgesetzt.
+          icon: mdi:weather-cloudy-clock
+          icon_color: orange
+          badge_icon: mdi:battery-charging
+          badge_color: orange
+          multiline_secondary: true
+          fill_container: true
+          tap_action:
+            action: navigate
+            navigation_path: /e3dc-maestro/help-low-yield
 
       - type: custom:mushroom-template-card
         primary: "{{ states('sensor.e3dc_maestro_regelphase') }}"
@@ -433,7 +464,42 @@ views:
                 icon: mdi:weather-sunny
                 icon_color: amber
                 content_info: state
+              - type: template
+                content: >-
+                  {% if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') %}Akku-Priorität
+                  {% else %}
+                  {% set q = states('sensor.e3dc_maestro_pv_tag_quote') | float(-1) %}
+                  {% if q >= 0 %}{{ (q * 100) | round(0) }}% PV-Tag{% else %}PV-Tag?{% endif %}
+                  {% endif %}
+                icon: mdi:weather-partly-cloudy
+                icon_color: >-
+                  {{ 'orange' if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') else 'grey' }}
+                entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+                tap_action:
+                  action: navigate
+                  navigation_path: /e3dc-maestro/help-low-yield
     
+          - type: conditional
+            conditions:
+              - entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+                state: "on"
+            card:
+              type: custom:mushroom-template-card
+              primary: Schwacher PV-Tag — Ladung priorisiert
+              secondary: >-
+                Nur {{ (states('sensor.e3dc_maestro_pv_tag_quote') | float(0) * 100) | round(0) }} %
+                eines Referenztags erwartet ({{ states('sensor.e3dc_maestro_pv_tagesprognose') }} /
+                {{ states('sensor.e3dc_maestro_pv_referenz_ertrag') }} kWh).
+                Maestro nutzt den vollen PV-Überschuss für den Akku.
+              icon: mdi:battery-charging-high
+              icon_color: orange
+              multiline_secondary: true
+              fill_container: true
+              layout: horizontal
+              tap_action:
+                action: navigate
+                navigation_path: /e3dc-maestro/help-low-yield
+
           # ── Hero: aktueller Regelzustand ───────────────────────────────────
           - type: custom:mushroom-template-card
             primary: >-
@@ -454,10 +520,16 @@ views:
               {{ names.get(p, p) | default('—') }}
             secondary: >-
               {% set action = states('sensor.e3dc_maestro_letzte_aktion') %}
+              {% set low = is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') %}
+              {% set q = (states('sensor.e3dc_maestro_pv_tag_quote') | float(0) * 100) | round(0) %}
+              {% if low %}
+              Akku-Priorität wegen geringem PV-Ertrag ({{ q }} % Referenz).
+              {% endif %}
               {{ action if action not in ['unknown', 'unavailable', 'none', ''] else 'Noch keine Regelentscheidung verfügbar' }}
             icon: >-
               {% set p = states('sensor.e3dc_maestro_regelphase') %}
-              {% if p == 'emergency' %} mdi:alert-octagon
+              {% if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') %} mdi:weather-cloudy-clock
+              {% elif p == 'emergency' %} mdi:alert-octagon
               {% elif p == 'curtailment' %} mdi:weather-sunny-alert
               {% elif p == 'pv_delay' %} mdi:clock-alert-outline
               {% elif p == 'astro_wait' %} mdi:weather-sunset-up
@@ -468,7 +540,8 @@ views:
               {% else %} mdi:auto-mode {% endif %}
             icon_color: >-
               {% set p = states('sensor.e3dc_maestro_regelphase') %}
-              {% if p == 'emergency' %} red
+              {% if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') %} orange
+              {% elif p == 'emergency' %} red
               {% elif p == 'curtailment' %} deep-orange
               {% elif p == 'pv_delay' %} light-green
               {% elif p in ['astro_wait', 'morning_cap'] %} amber
@@ -477,7 +550,9 @@ views:
               {% elif p == 'predischarge' %} orange
               {% else %} green {% endif %}
             badge_icon: >-
-              {{ 'mdi:shield-check' if is_state('switch.e3dc_maestro_regelung_aktiv', 'on') else 'mdi:pause-circle' }}
+              {% if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') %}mdi:battery-charging
+              {% elif is_state('switch.e3dc_maestro_regelung_aktiv', 'on') %}mdi:shield-check
+              {% else %}mdi:pause-circle{% endif %}
             badge_color: >-
               {{ 'green' if is_state('switch.e3dc_maestro_regelung_aktiv', 'on') else 'grey' }}
             multiline_secondary: true
@@ -554,7 +629,8 @@ views:
                     is_state('binary_sensor.e3dc_maestro_abregelschutz_aktiv', 'on'),
                     is_state('binary_sensor.e3dc_maestro_einspeisedrosselung_aktiv', 'on'),
                     is_state('binary_sensor.e3dc_maestro_ht_schutz_aktiv', 'on'),
-                    p in ['pv_delay', 'astro_wait', 'morning_cap', 'corridor', 'spreading', 'predischarge']
+                    p in ['pv_delay', 'astro_wait', 'morning_cap', 'corridor', 'spreading', 'predischarge'],
+                    is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on')
                   ] | select('equalto', true) | list | count %}
                   {{ active ~ ' Eingriff' ~ ('e' if active != 1 else '') if active else 'keine Eingriffe' }}
                 icon: >-
@@ -685,6 +761,19 @@ views:
                   icon_color: orange
                   entity: sensor.e3dc_maestro_regelphase
                   tap_action: { action: more-info }
+              - type: conditional
+                conditions:
+                  - entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+                    state: "on"
+                chip:
+                  type: template
+                  content: Schwacher PV-Tag
+                  icon: mdi:weather-cloudy-clock
+                  icon_color: orange
+                  entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+                  tap_action:
+                    action: navigate
+                    navigation_path: /e3dc-maestro/help-low-yield
     
           # ── Statusgruppen: kompakt statt Kartenmatrix ──────────────────────
           - type: grid
@@ -715,13 +804,15 @@ views:
                 primary: Strategie
                 secondary: >-
                   {% set p = states('sensor.e3dc_maestro_regelphase') %}
-                  {% if p in ['corridor', 'spreading', 'predischarge'] %}{{ p }} aktiv
+                  {% if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') %}Akku-Priorität
+                  {% elif p in ['corridor', 'spreading', 'predischarge'] %}{{ p }} aktiv
                   {% elif is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}vorausschauend
                   {% else %}normal{% endif %}
                 icon: mdi:radar
                 icon_color: >-
                   {% set p = states('sensor.e3dc_maestro_regelphase') %}
-                  {% if p == 'corridor' %}blue
+                  {% if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on') %}orange
+                  {% elif p == 'corridor' %}blue
                   {% elif p == 'spreading' %}purple
                   {% elif p == 'predischarge' %}orange
                   {% elif is_state('switch.e3dc_maestro_vorausschauende_ladung', 'on') %}teal
@@ -770,6 +861,8 @@ views:
             name: Phase
           - entity: sensor.e3dc_maestro_letzte_aktion
             name: Aktion
+          - entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+            name: Schwacher PV-Tag
 
       # ── Kontext-Werte zur Entscheidung ─────────────────────────────────
       - type: entities
@@ -789,6 +882,14 @@ views:
             name: Verzögerter Ladestart heute
           - entity: sensor.e3dc_maestro_astro_ladestart_uhrzeit
             name: Astro-Ladestart
+          - entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+            name: Schwacher PV-Tag
+          - entity: sensor.e3dc_maestro_pv_tagesprognose
+            name: PV-Tagesprognose
+          - entity: sensor.e3dc_maestro_pv_referenz_ertrag
+            name: PV-Referenz-Ertrag
+          - entity: sensor.e3dc_maestro_pv_tag_quote
+            name: PV-Tag Quote
 
       # ── Live-Tuning (eine vertical-stack-Karte = eine Masonry-Spalte,
       #    sodass Mobile/Desktop dieselbe Reihenfolge zeigen) ──
@@ -814,6 +915,32 @@ views:
                 tap_action:
                   action: navigate
                   navigation_path: /e3dc-maestro/help-pv-delay
+          - type: entities
+            title: Live-Tuning · Schwacher-PV-Tag
+            show_header_toggle: false
+            entities:
+              - entity: switch.e3dc_maestro_schwacher_pv_tag_prioritat
+                name: "Schwacher-PV-Tag Priorität aktiv"
+              - entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+                name: "Heute schwacher PV-Tag"
+              - entity: sensor.e3dc_maestro_pv_tagesprognose
+                name: "PV-Tagesprognose"
+              - entity: sensor.e3dc_maestro_pv_referenz_ertrag
+                name: "PV-Referenz-Ertrag"
+              - entity: sensor.e3dc_maestro_pv_tag_quote
+                name: "PV-Tag Quote"
+              - entity: number.e3dc_maestro_schwacher_pv_tag_schwelle
+                name: "Schwelle (Anteil 0–1)"
+              - entity: number.e3dc_maestro_pv_referenz_manuell_0_automatisch
+                name: "PV-Referenz manuell (0 = auto)"
+              - entity: number.e3dc_maestro_pv_referenz_faktor_kwh_kwp
+                name: "PV-Referenz Faktor (kWh/kWp)"
+              - type: button
+                name: "ℹ️  Hilfe zu diesem Abschnitt"
+                icon: mdi:help-circle-outline
+                tap_action:
+                  action: navigate
+                  navigation_path: /e3dc-maestro/help-low-yield
           - type: entities
             title: Live-Tuning · Astro-Modus
             show_header_toggle: false
@@ -866,6 +993,15 @@ views:
             icon: mdi:chart-timeline-variant
             icon_color: "{{ 'teal' if is_state('switch.e3dc_maestro_ladeverteilung_spreading', 'on') else 'grey' }}"
             entity: switch.e3dc_maestro_ladeverteilung_spreading
+            tap_action:
+              action: toggle
+          - type: template
+            content: Schwacher-PV-Tag
+            icon: mdi:weather-cloudy-clock
+            icon_color: >-
+              {{ 'orange' if is_state('binary_sensor.e3dc_maestro_schwacher_pv_tag', 'on')
+                 else ('blue' if is_state('switch.e3dc_maestro_schwacher_pv_tag_prioritat', 'on') else 'grey') }}
+            entity: switch.e3dc_maestro_schwacher_pv_tag_prioritat
             tap_action:
               action: toggle
           - type: template
@@ -938,6 +1074,33 @@ views:
             tap_action:
               action: navigate
               navigation_path: /e3dc-maestro/help-spreading
+
+      - type: entities
+        title: Schwacher-PV-Tag (Akku-Priorität)
+        subtitle: Bei wenig erwarteter PV den Akku vor Einspeisung füllen
+        entities:
+          - entity: switch.e3dc_maestro_schwacher_pv_tag_prioritat
+            name: Priorität aktiv
+          - entity: binary_sensor.e3dc_maestro_schwacher_pv_tag
+            name: Heute erkannt
+          - entity: sensor.e3dc_maestro_pv_tagesprognose
+            name: PV-Tagesprognose
+          - entity: sensor.e3dc_maestro_pv_referenz_ertrag
+            name: PV-Referenz-Ertrag
+          - entity: sensor.e3dc_maestro_pv_tag_quote
+            name: PV-Tag Quote
+          - entity: number.e3dc_maestro_schwacher_pv_tag_schwelle
+            name: "Schwelle (Anteil 0–1)"
+          - entity: number.e3dc_maestro_pv_referenz_manuell_0_automatisch
+            name: "PV-Referenz manuell (0 = auto)"
+          - entity: number.e3dc_maestro_pv_referenz_faktor_kwh_kwp
+            name: "PV-Referenz Faktor (kWh/kWp)"
+          - type: button
+            name: "ℹ️  Hilfe zu diesem Abschnitt"
+            icon: mdi:help-circle-outline
+            tap_action:
+              action: navigate
+              navigation_path: /e3dc-maestro/help-low-yield
 
       - type: entities
         title: Abregelschutz (Curtailment Guard)
@@ -1455,6 +1618,7 @@ views:
           |---|---|
           | Ladekorridor (SoC-Rampe, Ladeende) | [→ Ladekorridor](/e3dc-maestro/help-ladekorridor) |
           | Ladeverteilung (Spreading) | [→ Spreading](/e3dc-maestro/help-spreading) |
+          | Schwacher-PV-Tag (Akku-Priorität) | [→ Schwacher-PV-Tag](/e3dc-maestro/help-low-yield) |
           | Abregelschutz (Curtailment Guard) | [→ Abregelschutz](/e3dc-maestro/help-curtailment) |
           | Spät-Ladung (Two-Tier) | [→ Two-Tier](/e3dc-maestro/help-two-tier) |
           | Astro-Modus (Sonnenuntergang) | [→ Astro](/e3dc-maestro/help-astro) |
@@ -1609,6 +1773,23 @@ views:
           wartet auf einen kräftigeren PV-Überschuss später am Tag.
 
           Der Curtailment Guard übersteuert die Pause immer, wenn Abregelung droht.
+
+      - type: markdown
+        content: |
+          ## Schwacher-PV-Tag (Akku-Priorität)
+
+          Erkennt bewölkt/schwache PV-Tage anhand der **Tagesprognose** (z. B. Solcast
+          „Prognose heute“) im Verhältnis zu einem **Referenz-Sommertag**. Ist die Quote
+          unter der Schwelle, priorisiert Maestro den Akku vor Netzeinspeisung:
+
+          - **Korridor:** lädt mit vollem PV-Überschuss statt gedrosselter SoC-Rampe
+          - **Spreading:** wird für den Tag deaktiviert (keine künstliche Drosselung)
+          - **Korridor-Pause:** wird umgangen, solange genug Überschuss für Mindestladung da ist
+
+          Die Erkennung wird **einmal pro Tag** gelatcht (frühmorgens), damit sich die
+          Strategie bei nachmittäglicher Prognose-Anhebung nicht ständig umschaltet.
+
+          Detail-Hilfe: [→ Schwacher-PV-Tag](/e3dc-maestro/help-low-yield)
 
       - type: markdown
         content: |
@@ -2130,6 +2311,117 @@ views:
           **Empfehlung:** 1,1–1,3. Bei sehr volatiler Wetterlage 1,3–1,5.
           
           **Standard:** 1,2
+
+  - title: "Hilfe: Schwacher-PV-Tag (Akku-Priorität)"
+    path: help-low-yield
+    subview: true
+    cards:
+      - type: markdown
+        content: |
+          ## Schwacher-PV-Tag – Akku-Priorität
+          
+          An stark bewölkten Tagen reicht die PV oft knapp für den Hausverbrauch **und**
+          einen vollen Akku. Ohne Anpassung drosselt Maestro im Korridor/Spreading die
+          Ladeleistung und speist Überschuss ins Netz ein – der Akku bleibt am Abend
+          unter dem Ziel.
+          
+          **Schwacher-PV-Tag** erkennt solche Tage früh (Solcast-Tagesprognose) und
+          schaltet auf **Überschuss-Priorität** um: Der Akku bekommt den verfügbaren
+          PV-Überschuss, bevor exportiert wird.
+          
+          ---
+          
+          ### Voraussetzung: Prognose-Sensor
+          
+          In den **Integrations-Optionen** von E3DC Maestro muss der Sensor
+          **„Prognose heute – Tagessumme kWh“** gesetzt sein (z. B.
+          `sensor.solcast_pv_forecast_prognose_heute`). Ohne diesen Sensor bleiben
+          die Diagnose-Sensoren auf *unknown* und die Erkennung ist deaktiviert.
+          
+          ---
+          
+          ### Erkennungslogik
+          
+          ```
+          Quote = Tagesprognose (kWh) ÷ Referenz-Ertrag (kWh)
+          Schwacher Tag ⇔ Quote ≤ Schwelle
+          ```
+          
+          **Referenz-Ertrag** = Maximum aus:
+          1. Manueller Referenzwert (wenn > 0)
+          2. Installierte kWp × Faktor (kWh/kWp)
+          3. Historischer Peak aus der PV-Statistik
+          
+          Die Erkennung wird **einmal pro Kalendertag** festgehalten (Latch), damit eine
+          nachmittäglich bessere Solcast-Prognose die Strategie nicht hin- und herschaltet.
+          
+          ---
+          
+          ### Schwacher-PV-Tag Priorität aktiv
+          
+          **Wirkung:** Master-Schalter. Aus = normales Korridor/Spreading-Verhalten.
+          
+          **Empfehlung:** Aktiv lassen, wenn Solcast-Tagesprognose zuverlässig ist.
+          
+          **Standard:** an
+          
+          ---
+          
+          ### Schwelle (Anteil 0–1)
+          
+          **Wirkung:** Unterhalb dieses Anteils gilt der Tag als „schwach“. Beispiel:
+          Schwelle 0,5 + Referenz 100 kWh → ab ≤ 50 kWh Prognose wird priorisiert.
+          
+          **Empfehlung:** 0,45–0,55. Grenzfälle (wie 52 % bei 0,5 Schwelle) können
+          bewusst über die Schwelle ein- oder ausgeschlossen werden.
+          
+          **Standard:** 0,5
+          
+          ---
+          
+          ### PV-Referenz manuell (kWh, 0 = automatisch)
+          
+          **Wirkung:** Optionaler fester Referenzwert für sehr sonnige Tage. 0 = automatisch
+          aus kWp × Faktor und PV-Statistik-Peak.
+          
+          **Empfehlung:** 0 lassen, außer die automatische Referenz passt nicht zur Anlage.
+          
+          **Standard:** 0
+          
+          ---
+          
+          ### PV-Referenz Faktor (kWh/kWp)
+          
+          **Wirkung:** kWp-Baseline für den Referenztag. 5,5 kWh/kWp entspricht einem
+          sehr sonnigen Sommertag (z. B. 19 kWp → ~105 kWh).
+          
+          **Empfehlung:** 5,0–6,0 je nach Region und Neigungswinkel.
+          
+          **Standard:** 5,5
+          
+          ---
+          
+          ### Verhalten im Korridor (wenn erkannt)
+          
+          | Normal | Schwacher-PV-Tag |
+          |---|---|
+          | SoC-Rampe begrenzt Ladeleistung | Voller PV-Überschuss (PV − Haus) |
+          | Spreading drosselt auf Restzeit-Rate | Spreading aus |
+          | Korridor-Pause bei kleinem Überschuss | Pause umgangen |
+          
+          In der Entscheidungserklärung erscheint der Zusatz
+          **`[Schwacher-PV-Tag: Überschuss-Priorität]`**.
+          
+          ---
+          
+          ### Abgrenzung zu PV-Verzögerung
+          
+          | Feature | Zweck |
+          |---|---|
+          | **PV-Verzögerung** | Bei *guter* Prognose Ladung *verschieben* |
+          | **Schwacher-PV-Tag** | Bei *schlechter* Prognose Akku *sofort* füllen |
+          
+          Beide können parallel aktiv sein – sie wirken in entgegengesetzten Situationen.
 
   - title: "Hilfe: Astro-Modus"
     path: help-astro

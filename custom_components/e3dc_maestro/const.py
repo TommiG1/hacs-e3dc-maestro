@@ -112,6 +112,17 @@ CONF_BATTERY_CAPACITY_KWH = "battery_capacity_kwh"    # usable capacity for sizi
 CONF_PV_FORECAST_SAFETY_FACTOR = "pv_forecast_safety_factor"  # forecast_remaining >= required * factor
 CONF_DELAY_MIN_SOC = "delay_min_soc"                  # % SoC; below this floor pv_delay/astro_wait must not block charging
 
+# Config entry keys – Schwacher-PV-Tag (Akku-Priorität an bewölkten Tagen)
+CONF_PV_FORECAST_TODAY_SENSOR = "pv_forecast_today_sensor"  # entity_id, value = Tagessumme heute (kWh)
+CONF_LOW_YIELD_PRIORITY_ENABLED = "low_yield_priority_enabled"  # bool
+CONF_LOW_YIELD_THRESHOLD = "low_yield_threshold"                # 0–1; ≤ Schwelle → schwacher Tag
+CONF_LOW_YIELD_REFERENCE_KWH = "low_yield_reference_kwh"        # kWh, 0 = automatisch
+CONF_LOW_YIELD_REFERENCE_KWH_PER_KWP = "low_yield_reference_kwh_per_kwp"  # kWh/kWp Faktor
+DEFAULT_LOW_YIELD_PRIORITY_ENABLED = True
+DEFAULT_LOW_YIELD_THRESHOLD = 0.5
+DEFAULT_LOW_YIELD_REFERENCE_KWH = 0.0
+DEFAULT_LOW_YIELD_REFERENCE_KWH_PER_KWP = 5.5
+
 # Config entry keys – F1+: Vorausschauende Ladung (Forward-Looking)
 # Hebt das Ladeziel intelligent an, wenn morgen wenig PV erwartet wird,
 # damit heutiger Überschuss in den Akku statt ins Netz fließt.

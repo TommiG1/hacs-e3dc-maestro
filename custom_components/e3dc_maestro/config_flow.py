@@ -60,8 +60,17 @@ from .const import (
     CONF_PV_FORECAST_SAFETY_FACTOR,
     CONF_PV_FORECAST_SENSOR,
     CONF_PV_FORECAST_SENSOR_DAY2,
+    CONF_PV_FORECAST_TODAY_SENSOR,
     CONF_PV_FORECAST_THRESHOLD_KWH,
     CONF_DELAY_MIN_SOC,
+    CONF_LOW_YIELD_PRIORITY_ENABLED,
+    CONF_LOW_YIELD_THRESHOLD,
+    CONF_LOW_YIELD_REFERENCE_KWH,
+    CONF_LOW_YIELD_REFERENCE_KWH_PER_KWP,
+    DEFAULT_LOW_YIELD_PRIORITY_ENABLED,
+    DEFAULT_LOW_YIELD_THRESHOLD,
+    DEFAULT_LOW_YIELD_REFERENCE_KWH,
+    DEFAULT_LOW_YIELD_REFERENCE_KWH_PER_KWP,
     CONF_PV_POWER_SENSOR,
     CONF_SOC_SENSOR,
     CONF_SUMMER_CHARGE_END,
@@ -482,9 +491,33 @@ def _autodetect_rscp_system_params(hass) -> dict[str, Any]:
         if state is None or state.state in (None, "", "unknown", "unavailable"):
             continue
         try:
-            value = float(state.state) * mult
+            raw = float(state.state)
         except (TypeError, ValueError):
             continue
+        # Prefer the sensor's unit_of_measurement when present.
+        # RSCP integration values have historically been inconsistent across
+        # firmware/integration versions (kW vs W). The config flow wants:
+        #  - inverter/max_charge_power in W
+        #  - installed_kwp in kWp
+        #  - battery_capacity_kwh in kWh
+        #  - feed_in_limit_percent in %
+        unit = (state.attributes.get("unit_of_measurement") or "").strip().lower()
+        if key in (CONF_INVERTER_POWER, CONF_MAX_CHARGE_POWER):
+            if unit in ("kw", "kilowatt"):
+                mult_eff = 1000.0
+            elif unit in ("w", "watt", "watts"):
+                mult_eff = 1.0
+            else:
+                mult_eff = mult
+            value = raw * mult_eff
+        elif key == CONF_INSTALLED_KWP:
+            # Target: kWp. If the sensor reports W, convert to kW.
+            if unit in ("w", "watt", "watts"):
+                value = raw / 1000.0
+            else:
+                value = raw * mult
+        else:
+            value = raw * mult
         # Prozent runden, sonst auf 1 Nachkommastelle für kWh / saubere Watt-Werte
         if key == CONF_FEED_IN_LIMIT_PERCENT:
             out[key] = round(value)
@@ -731,6 +764,23 @@ STEP_PV_FORECAST_SCHEMA = vol.Schema(
         vol.Optional(
             CONF_FORWARD_LOOKING_MAX_SOC, default=DEFAULT_FORWARD_LOOKING_MAX_SOC
         ): _number_selector(60, 100, 1, "%"),
+        # Schwacher-PV-Tag: Akku-Priorität an bewölkten Tagen
+        vol.Optional(
+            CONF_LOW_YIELD_PRIORITY_ENABLED,
+            default=DEFAULT_LOW_YIELD_PRIORITY_ENABLED,
+        ): selector.BooleanSelector(),
+        vol.Optional(CONF_PV_FORECAST_TODAY_SENSOR): _entity_selector(),
+        vol.Optional(
+            CONF_LOW_YIELD_THRESHOLD, default=DEFAULT_LOW_YIELD_THRESHOLD
+        ): _number_selector(0.1, 1.0, 0.05),
+        vol.Optional(
+            CONF_LOW_YIELD_REFERENCE_KWH,
+            default=DEFAULT_LOW_YIELD_REFERENCE_KWH,
+        ): _number_selector(0, 500, 1, "kWh"),
+        vol.Optional(
+            CONF_LOW_YIELD_REFERENCE_KWH_PER_KWP,
+            default=DEFAULT_LOW_YIELD_REFERENCE_KWH_PER_KWP,
+        ): _number_selector(1.0, 10.0, 0.1, "kWh/kWp"),
     }
 )
 STEP_FLAT_CURVE_SCHEMA = vol.Schema(

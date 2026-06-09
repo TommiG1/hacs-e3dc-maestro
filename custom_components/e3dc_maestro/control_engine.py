@@ -169,6 +169,9 @@ class MaestroState:
     # F1+: Forward-Looking (vorausschauende Ladung)
     tomorrow_pv_kwh: float | None = None              # morgen erwarteter PV-Ertrag (kWh)
     tomorrow_consumption_kwh: float | None = None     # morgen erwarteter Verbrauch (kWh, wochentagspezifisch)
+    # Schwacher-PV-Tag: Tagesprognose + Referenz-Peak aus PV-Statistik
+    pv_forecast_today_kwh: float | None = None        # heute erwarteter Tagesertrag (kWh, Solcast prognose_heute)
+    pv_stats_peak_kwh: float | None = None            # historischer Tages-Peak (kWh) aus PV-Statistik
 
 
 @dataclass
@@ -209,6 +212,13 @@ class MaestroParams:
     pv_forecast_threshold_kwh: float = 5.0
     battery_capacity_kwh: float = 10.0
     pv_forecast_safety_factor: float = 1.2
+    # Schwacher-PV-Tag: Akku-Priorität an bewölkten Tagen
+    # Verhältnis Tagesprognose / Referenz-Sommertag ≤ Schwelle → Spreading aus,
+    # Korridor-Pause aus, voller PV-Überschuss in den Akku.
+    low_yield_priority_enabled: bool = True
+    low_yield_threshold: float = 0.5                # Anteil 0–1
+    low_yield_reference_kwh: float = 0.0            # 0 = automatisch (kWp + Statistik)
+    low_yield_reference_kwh_per_kwp: float = 5.5    # Faktor für kWp-Baseline
     # Wallbox
     wallbox_enabled: bool = False
     wallbox_min_current: float = 6
@@ -554,6 +564,88 @@ def forward_looking_charge_target(
     cap = min(cap, 100.0)
 
     return max(base_target, min(base_target + extra_pct, cap))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Schwacher-PV-Tag: Erkennung + Überschuss-Priorität
+# ──────────────────────────────────────────────────────────────────────────────
+
+def reference_pv_yield_kwh(
+    params: MaestroParams,
+    *,
+    stats_peak_kwh: float | None = None,
+) -> float:
+    """Referenz-Tagesertrag (kWh) für einen sehr sonnigen Tag.
+
+    Ermittelt aus dem Maximum dreier Quellen:
+      1. ``params.low_yield_reference_kwh`` (manueller Override, > 0)
+      2. ``params.installed_kwp * params.low_yield_reference_kwh_per_kwp``
+      3. ``stats_peak_kwh`` (historischer Peak aus PV-Statistik, optional)
+
+    Wird ``0.0`` zurückgegeben, wenn keine Quelle eine sinnvolle Referenz
+    liefert (z. B. kWp ≤ 0 und keine Statistik) – ``is_low_yield_day`` deutet
+    das als „nicht erkennbar“ und gibt ``False`` zurück.
+    """
+    candidates: list[float] = []
+    if params.low_yield_reference_kwh > 0:
+        candidates.append(params.low_yield_reference_kwh)
+    if params.installed_kwp > 0 and params.low_yield_reference_kwh_per_kwp > 0:
+        candidates.append(params.installed_kwp * params.low_yield_reference_kwh_per_kwp)
+    if stats_peak_kwh is not None and stats_peak_kwh > 0:
+        candidates.append(stats_peak_kwh)
+    return max(candidates) if candidates else 0.0
+
+
+def is_low_yield_day(
+    state: MaestroState,
+    params: MaestroParams,
+    *,
+    stats_peak_kwh: float | None = None,
+) -> bool:
+    """True wenn ``pv_forecast_today_kwh / reference ≤ low_yield_threshold``.
+
+    Voraussetzungen:
+      * Feature aktiv (``params.low_yield_priority_enabled``)
+      * Tagesprognose vorhanden (``state.pv_forecast_today_kwh``)
+      * Referenz > 0 (sonst keine Aussage möglich)
+    """
+    if not params.low_yield_priority_enabled:
+        return False
+    if state.pv_forecast_today_kwh is None or state.pv_forecast_today_kwh < 0:
+        return False
+    peak = stats_peak_kwh if stats_peak_kwh is not None else state.pv_stats_peak_kwh
+    reference = reference_pv_yield_kwh(params, stats_peak_kwh=peak)
+    if reference <= 0:
+        return False
+    ratio = state.pv_forecast_today_kwh / reference
+    return ratio <= params.low_yield_threshold
+
+
+def surplus_priority_charge_w(
+    state: MaestroState, params: MaestroParams
+) -> float:
+    """Ladeleistung (W) bei aktiver Schwacher-PV-Tag-Priorität.
+
+    Nutzt den vollen PV-Überschuss (PV − Haus), gedeckelt durch
+    ``max_charge_power``. Liefert ``0.0`` wenn der Überschuss unter
+    ``min_charge_power`` liegt (Anlauf-Schutz).
+    """
+    surplus = max(0.0, state.pv_power - state.house_power)
+    if surplus < params.min_charge_power:
+        return 0.0
+    return min(surplus, params.max_charge_power)
+
+
+def spreading_active(
+    params: MaestroParams,
+    state: MaestroState,
+    *,
+    stats_peak_kwh: float | None = None,
+) -> bool:
+    """True wenn Spreading aktiv sein soll (Switch an UND kein Schwacher-PV-Tag)."""
+    if not params.spreading_enabled:
+        return False
+    return not is_low_yield_day(state, params, stats_peak_kwh=stats_peak_kwh)
 
 
 def time_to_target_power(state: MaestroState, params: MaestroParams, now: datetime, target: float) -> float:
@@ -902,6 +994,12 @@ def decide(
     tariff_class = current_tariff_class(now, schedule, current_price)
     active_slot = active_tariff_slot(now, schedule)
 
+    # Schwacher-PV-Tag: einmal pro Tick auswerten und als Flag durchreichen.
+    # Bei aktivem Flag wird Spreading übersprungen, die Korridor-Pause umgangen
+    # und im Korridor der volle PV-Überschuss genutzt.
+    _low_yield = is_low_yield_day(state, params)
+    _spread_on = params.spreading_enabled and not _low_yield
+
     # ── 1. Master switch off ────────────────────────────────────────────────
     if not regelung_aktiv:
         return MaestroDecision(
@@ -1156,6 +1254,12 @@ def decide(
         )
 
     charge_power = desired_charge_power(state.soc, target, params, now)
+    # Schwacher-PV-Tag: Korridor-Soll auf vollen PV-Überschuss heben, damit
+    # bewölkte Tage mit knappem Ertrag den Akku priorisieren statt einzuspeisen.
+    if _low_yield and state.soc < params.charge_target:
+        _surplus_w = surplus_priority_charge_w(state, params)
+        if _surplus_w > charge_power:
+            charge_power = _surplus_w
     if charge_power > 0 and state.soc < params.charge_target:
         # 7a. PV forecast → delay charging if enough sun expected today
         # Aber NICHT bei aktivem Abregelschutz: dort muss Ladung als Senke
@@ -1192,7 +1296,7 @@ def decide(
             # gleichmäßig über das Tagesfenster. Analog zur Korridor-Pause
             # weiter unten.
             _spreading_blocks_pv_delay = (
-                params.spreading_enabled and state.soc < BATTERY_FULL_SOC_CEILING
+                _spread_on and state.soc < BATTERY_FULL_SOC_CEILING
             )
             _pv_delay_gate_ok = (
                 state.pv_forecast_remaining_kwh >= min_required
@@ -1205,7 +1309,7 @@ def decide(
                 _LOGGER.debug(
                     "[pv_delay-gate] would_trigger=%s pv_remain=%.1fkWh "
                     "min_req=%.1fkWh hour=%.2f end=%.2f soc=%.1f%% "
-                    "floor=%.1f%% cooldown_ok=%s spreading_enabled=%s "
+                    "floor=%.1f%% cooldown_ok=%s spread_on=%s low_yield=%s "
                     "spread_blocks=%s ceiling=%.1f%%",
                     _pv_delay_gate_ok,
                     state.pv_forecast_remaining_kwh,
@@ -1215,7 +1319,8 @@ def decide(
                     state.soc,
                     params.delay_min_soc,
                     _pv_delay_cooldown_ok,
-                    params.spreading_enabled,
+                    _spread_on,
+                    _low_yield,
                     _spreading_blocks_pv_delay,
                     BATTERY_FULL_SOC_CEILING,
                 )
@@ -1252,7 +1357,8 @@ def decide(
             params.lower_corridor_pause_enabled
             and charge_power < params.lower_corridor
             and not curtailment_guard_active
-            and not (params.spreading_enabled and state.soc < BATTERY_FULL_SOC_CEILING)
+            and not _low_yield
+            and not (_spread_on and state.soc < BATTERY_FULL_SOC_CEILING)
         ):
             # charge_power_limit=0.0 → max_charge=0 (Ladung blockiert),
             # Entladung bleibt frei (Haus darf aus dem Akku versorgt werden).
@@ -1275,7 +1381,7 @@ def decide(
         # die Rate konsistent ist mit der Phase nach Erreichen von charge_target.
         smoothing_note = ""
         if (
-            params.spreading_enabled
+            _spread_on
             and state.soc < BATTERY_FULL_SOC_CEILING
         ):
             _cap_upper_soc = (
@@ -1357,6 +1463,7 @@ def decide(
             params.lower_corridor_pause_enabled
             and effective_charge < params.lower_corridor
             and not curtailment_guard_active
+            and not _low_yield
         ):
             return MaestroDecision(
                 phase=PHASE_IDLE,
@@ -1369,11 +1476,12 @@ def decide(
                 charge_power_limit=0.0,
                 target_soc=target,
             )
+        _low_yield_note = " [Schwacher-PV-Tag: Überschuss-Priorität]" if _low_yield else ""
         return MaestroDecision(
             phase=PHASE_CORRIDOR,
             reason=(
                 f"Ladekorridor: SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
-                f"Leistung {effective_charge:.0f}W{smoothing_note}"
+                f"Leistung {effective_charge:.0f}W{smoothing_note}{_low_yield_note}"
             ),
             power_mode=POWER_MODE_NORMAL,
             charge_power_limit=effective_charge if effective_charge > 0 else None,
@@ -1396,7 +1504,9 @@ def decide(
     if state.soc >= BATTERY_FULL_SOC_CEILING or curtailment_guard_active:
         _spread_active = False
     else:
-        _spread_active = params.spreading_enabled and state.soc < _spread_upper_soc
+        # Schwacher-PV-Tag: Spreading komplett überspringen, damit der
+        # Überschuss direkt in den Akku geht (Akku-Priorität statt Glättung).
+        _spread_active = _spread_on and state.soc < _spread_upper_soc
     if _spread_active:
         charge_end_h = seasonal_charge_end_hour(now, params)
         hour_now = now.hour + now.minute / 60
@@ -1464,7 +1574,7 @@ def decide(
     # Wechselrichter lädt mit vollem PV-Überschuss bis 100 %. Stattdessen
     # setzen wir hier ein hartes Mini-Limit, damit Überschuss ins Netz fließt.
     if (
-        params.spreading_enabled
+        _spread_on
         and state.soc >= _spread_upper_soc
         and state.soc < BATTERY_FULL_SOC_CEILING
         and not curtailment_guard_active

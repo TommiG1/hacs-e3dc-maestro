@@ -140,10 +140,17 @@ def decision_explanation(coord) -> str:
     elif phase == "corridor":
         target = _f(dec.target_soc)
         cpl = _f(dec.target_charge_power)
-        text = (
-            f"Saisonaler Ladekorridor: Ziel-SoC {target}% – Ladeleistung wird "
-            f"auf {cpl} W dosiert, um den Korridor planmäßig zu erreichen."
-        )
+        low_yield = "[Schwacher-PV-Tag" in (dec.reason or "")
+        if low_yield:
+            text = (
+                f"Schwacher-PV-Tag: Ziel-SoC {target}% – Akku-Priorität aktiv, "
+                f"voller PV-Überschuss ({cpl} W) fließt in den Akku statt ins Netz."
+            )
+        else:
+            text = (
+                f"Saisonaler Ladekorridor: Ziel-SoC {target}% – Ladeleistung wird "
+                f"auf {cpl} W dosiert, um den Korridor planmäßig zu erreichen."
+            )
     elif phase == "pv_delay":
         rem = _f(getattr(state, "pv_forecast_remaining_kwh", None), "{:.1f}")
         text = (

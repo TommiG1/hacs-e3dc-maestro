@@ -2493,3 +2493,225 @@ class TestTariffModeConstraint:
         """Default value protects naive users from accidental grid charging."""
         p = MaestroParams()
         assert p.tariff_mode == "fixed"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Schwacher-PV-Tag: Akku-Priorität an bewölkten Tagen
+# ──────────────────────────────────────────────────────────────────────────────
+
+from custom_components.e3dc_maestro.control_engine import (
+    is_low_yield_day,
+    reference_pv_yield_kwh,
+    spreading_active,
+    surplus_priority_charge_w,
+)
+
+
+def _low_yield_params(**overrides) -> MaestroParams:
+    """Reference: 20 kWp × 5.5 = 110 kWh; Schwelle 0.5 ⇒ ≤ 55 kWh = schwach."""
+    base = dict(
+        inverter_power=18000,
+        max_charge_power=9000,
+        min_charge_power=200,
+        installed_kwp=20.0,
+        lower_corridor=500,
+        upper_corridor=9000,
+        feed_in_limit_percent=70.0,
+        charge_threshold=15,
+        charge_target=100,
+        winter_minimum_hour=11,
+        summer_charge_end=18.5,
+        battery_capacity_kwh=20.0,
+        low_yield_priority_enabled=True,
+        low_yield_threshold=0.5,
+        low_yield_reference_kwh_per_kwp=5.5,
+        # Wir wollen den Korridor-Effekt isoliert sehen.
+        spreading_enabled=True,
+        spreading_target_soc=100.0,
+        lower_corridor_pause_enabled=True,
+        ht_enabled=False,
+    )
+    base.update(overrides)
+    return MaestroParams(**base)
+
+
+class TestLowYieldReference:
+    def test_kwp_baseline_only(self):
+        p = _low_yield_params(installed_kwp=10.0)
+        assert reference_pv_yield_kwh(p) == pytest.approx(55.0)
+
+    def test_manual_override_wins_when_higher(self):
+        p = _low_yield_params(installed_kwp=10.0, low_yield_reference_kwh=200.0)
+        assert reference_pv_yield_kwh(p) == pytest.approx(200.0)
+
+    def test_stats_peak_wins_when_higher(self):
+        p = _low_yield_params(installed_kwp=10.0)
+        assert reference_pv_yield_kwh(p, stats_peak_kwh=120.0) == pytest.approx(120.0)
+
+    def test_returns_zero_when_nothing_configured(self):
+        p = _low_yield_params(
+            installed_kwp=0.0, low_yield_reference_kwh_per_kwp=0.0,
+            low_yield_reference_kwh=0.0,
+        )
+        assert reference_pv_yield_kwh(p) == 0.0
+
+
+class TestIsLowYieldDay:
+    def test_detects_cloudy_day(self):
+        # 50 kWh / 110 kWh = 0.45 ≤ 0.5 → True
+        p = _low_yield_params()
+        s = MaestroState(
+            soc=50, pv_power=2000, house_power=600, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=50.0,
+        )
+        assert is_low_yield_day(s, p) is True
+
+    def test_ignores_sunny_day(self):
+        # 90 kWh / 110 kWh = 0.82 > 0.5 → False
+        p = _low_yield_params()
+        s = MaestroState(
+            soc=50, pv_power=2000, house_power=600, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=90.0,
+        )
+        assert is_low_yield_day(s, p) is False
+
+    def test_false_when_disabled(self):
+        p = _low_yield_params(low_yield_priority_enabled=False)
+        s = MaestroState(
+            soc=50, pv_power=2000, house_power=600, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=10.0,
+        )
+        assert is_low_yield_day(s, p) is False
+
+    def test_false_without_forecast(self):
+        p = _low_yield_params()
+        s = MaestroState(
+            soc=50, pv_power=2000, house_power=600, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=None,
+        )
+        assert is_low_yield_day(s, p) is False
+
+
+class TestSurplusPriorityCharge:
+    def test_uses_full_surplus_capped_to_max(self):
+        p = _low_yield_params(max_charge_power=5000, min_charge_power=200)
+        s = MaestroState(
+            soc=50, pv_power=8000, house_power=500, grid_power=0, battery_power=0,
+        )
+        assert surplus_priority_charge_w(s, p) == 5000
+
+    def test_returns_zero_below_min(self):
+        p = _low_yield_params(min_charge_power=300)
+        s = MaestroState(
+            soc=50, pv_power=400, house_power=300, grid_power=0, battery_power=0,
+        )
+        assert surplus_priority_charge_w(s, p) == 0.0
+
+
+class TestLowYieldDecide:
+    """End-to-end ``decide()``: schwacher Tag ⇒ Korridor mit Überschuss-Priorität."""
+
+    def _state(self, *, soc=51, pv=3000, house=600, forecast_today=50.0):
+        return MaestroState(
+            soc=soc, pv_power=pv, house_power=house, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=forecast_today,
+        )
+
+    def test_low_yield_lifts_corridor_to_surplus(self):
+        # Sonniger Tag wäre 110 kWh; 50 kWh = 0.45 < 0.5 ⇒ low_yield aktiv.
+        # SoC 51 %, Ziel-Rampe um 11 Uhr ≈ 55 % → Spreading-Rate sehr klein.
+        # Mit low_yield: charge_power = surplus (~2400 W).
+        p = _low_yield_params()
+        s = self._state(soc=51, pv=3000, house=600, forecast_today=50.0)
+        decision = decide(s, p, _now(6, 15, 11))
+        assert decision.phase == PHASE_CORRIDOR
+        assert decision.charge_power_limit is not None
+        assert decision.charge_power_limit >= 2000, (
+            f"erwartet ≥2000W, erhielt {decision.charge_power_limit}"
+        )
+        assert "Schwacher-PV-Tag" in decision.reason
+
+    def test_sunny_day_keeps_spreading_throttle(self):
+        # 90 kWh / 110 kWh = 0.82 > 0.5 ⇒ kein low_yield → Spreading-Cap aktiv.
+        p = _low_yield_params()
+        s = self._state(soc=51, pv=3000, house=600, forecast_today=90.0)
+        decision = decide(s, p, _now(6, 15, 11))
+        # Korridor liefert eine deutlich kleinere Rate als der volle Überschuss.
+        assert decision.charge_power_limit is not None
+        assert decision.charge_power_limit < 2000
+
+    def test_low_yield_skips_spreading_phase(self):
+        # SoC bereits am Korridor-Ziel-Ende, Spreading würde greifen.
+        # Mit low_yield: Spreading wird übersprungen → IDLE (oder Korridor mit
+        # Überschuss, je nach SoC). Wir prüfen nur, dass *kein* SPREADING entsteht.
+        p = _low_yield_params(charge_target=85)
+        s = self._state(soc=90, pv=3000, house=600, forecast_today=50.0)
+        decision = decide(s, p, _now(6, 15, 14))
+        assert decision.phase != PHASE_SPREADING
+
+    def test_low_yield_bypasses_corridor_pause(self):
+        # Surplus 100 W < lower_corridor 500 W: ohne low_yield → IDLE/Pause.
+        # Mit low_yield + Surplus ≥ min_charge_power (200 W) wäre Pause aus;
+        # hier liegt Surplus knapp unter min_charge_power → surplus_priority
+        # liefert 0 → trotzdem keine harte Pause; charge_power-Pfad weiter.
+        p = _low_yield_params(min_charge_power=50, lower_corridor=500)
+        s = self._state(soc=51, pv=700, house=600, forecast_today=50.0)
+        decision = decide(s, p, _now(6, 15, 11))
+        # Wichtig: keine Korridor-Pause (charge_power_limit == 0.0) trotz
+        # Surplus < lower_corridor – low_yield deaktiviert die Pause.
+        assert not (
+            decision.phase == PHASE_IDLE
+            and decision.charge_power_limit == 0.0
+            and "Korridor-Pause" in decision.reason
+        )
+
+
+class TestPeakDailyYieldKwh:
+    """ConsumptionStats.peak_daily_yield_kwh nutzt das Wochentags-Profil."""
+
+    def test_returns_none_for_empty_profile(self):
+        from custom_components.e3dc_maestro.consumption_stats import ConsumptionStats
+        cs = ConsumptionStats.__new__(ConsumptionStats)
+        cs.weekday_profile_w = [[0.0] * 24 for _ in range(7)]
+        assert cs.peak_daily_yield_kwh() is None
+
+    def test_returns_max_weekday_total(self):
+        from custom_components.e3dc_maestro.consumption_stats import ConsumptionStats
+        cs = ConsumptionStats.__new__(ConsumptionStats)
+        # Mo: 24h × 500W = 12 kWh, Di: 24h × 1500W = 36 kWh (Maximum)
+        cs.weekday_profile_w = [
+            [500.0] * 24,
+            [1500.0] * 24,
+            [0.0] * 24,
+            [0.0] * 24,
+            [0.0] * 24,
+            [0.0] * 24,
+            [0.0] * 24,
+        ]
+        assert cs.peak_daily_yield_kwh() == pytest.approx(36.0)
+
+
+class TestSpreadingActiveHelper:
+    def test_disabled_when_switch_off(self):
+        p = _low_yield_params(spreading_enabled=False)
+        s = MaestroState(
+            soc=50, pv_power=2000, house_power=600, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=50.0,
+        )
+        assert spreading_active(p, s) is False
+
+    def test_disabled_on_low_yield(self):
+        p = _low_yield_params(spreading_enabled=True)
+        s = MaestroState(
+            soc=50, pv_power=2000, house_power=600, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=40.0,
+        )
+        assert spreading_active(p, s) is False
+
+    def test_enabled_on_sunny_day(self):
+        p = _low_yield_params(spreading_enabled=True)
+        s = MaestroState(
+            soc=50, pv_power=2000, house_power=600, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=100.0,
+        )
+        assert spreading_active(p, s) is True

@@ -122,6 +122,8 @@ DEFAULT_LOW_YIELD_PRIORITY_ENABLED = True
 DEFAULT_LOW_YIELD_THRESHOLD = 0.5
 DEFAULT_LOW_YIELD_REFERENCE_KWH = 0.0
 DEFAULT_LOW_YIELD_REFERENCE_KWH_PER_KWP = 5.5
+# Low-Yield: Lade-Limit nur ändern wenn Überschuss um mehr als X W schwankt
+LOW_YIELD_LIMIT_HYSTERESIS_W = 350
 
 # Config entry keys – F1+: Vorausschauende Ladung (Forward-Looking)
 # Hebt das Ladeziel intelligent an, wenn morgen wenig PV erwartet wird,

@@ -75,6 +75,7 @@ from .const import (
     EWMA_JUMP_THRESHOLD_W,
     EWMA_TAU_S,
     FEED_IN_PV_DELAY_COOLDOWN_S,
+    LOW_YIELD_LIMIT_HYSTERESIS_W,
     DEFAULT_WATCHDOG_TIMEOUT,
     DOMAIN,
     E3DC_RSCP_DOMAIN,
@@ -92,6 +93,7 @@ from .const import (
     PHASE_MORNING_DISCHARGE,
     PHASE_OFF,
     PHASE_PV_DELAY,
+    PHASE_CORRIDOR,
     POWER_MODE_NORMAL,
     SERVICE_CLEAR_POWER_LIMITS,
     SERVICE_MANUAL_CHARGE,
@@ -675,6 +677,23 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             previous_phase=self.last_phase,
             previous_phase_since=self._last_phase_changed_at,
         )
+
+        # Low-Yield: Überschuss-Cap nur bei großen Änderungen anpassen (kein Flackern)
+        if (
+            self.low_yield_day_active
+            and decision.phase == PHASE_CORRIDOR
+            and decision.charge_power_limit is not None
+            and self._last_applied_charge_power > 0
+        ):
+            target_p = int(decision.charge_power_limit)
+            prev_p = int(self._last_applied_charge_power)
+            if abs(target_p - prev_p) < LOW_YIELD_LIMIT_HYSTERESIS_W:
+                import dataclasses as _dc_hyst
+                decision = _dc_hyst.replace(
+                    decision,
+                    charge_power_limit=float(prev_p),
+                    target_charge_power=float(prev_p),
+                )
 
         # Act on decision (debounced)
         # A2: Charge-power ramp – limit how fast charge power rises

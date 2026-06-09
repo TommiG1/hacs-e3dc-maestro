@@ -1269,11 +1269,10 @@ def decide(
             target_soc=params.fast_charge_floor_soc,
         )
 
-    # ── 6.96 Schwacher-PV-Tag: max. Ladeleistung, kein Surplus-Tracking ─────
-    # Ziel: gesamte verfügbare PV in den Akku (kein Export). Ständiges Nachziehen
-    # des Momentan-Überschusses würde bei Wolken jeden Zyklus neue Limits setzen
-    # (CHARGE mit wechselndem power_value) – E3DC regelt den Überschuss intern
-    # zuverlässiger mit einem stabilen max_charge-Cap (wie Korridor 7d).
+    # ── 6.96 Schwacher-PV-Tag: nur PV-Überschuss in den Akku ────────────────
+    # Cap = Momentan-Überschuss (kein Netzbezug). NORMAL-Mode: E3DC darf nur
+    # bis zum Cap aus PV laden. CHARGE+max_charge würde Netzstrom ziehen.
+    # Kleine Schwankungen filtert der Coordinator per Hysterese (const).
     if (
         _low_yield
         and state.soc < params.charge_target
@@ -1285,18 +1284,20 @@ def decide(
             else state.pv_power
         ) or 0.0
         if _pv_now > 0:
-            return MaestroDecision(
-                phase=PHASE_CORRIDOR,
-                reason=(
-                    f"Ladekorridor [Schwacher-PV-Tag: Überschuss-Priorität]: "
-                    f"SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
-                    f"max. Ladeleistung – E3DC nutzt verfügbaren PV-Überschuss"
-                ),
-                power_mode=POWER_MODE_CHARGE,
-                charge_power_limit=params.max_charge_power,
-                target_soc=target,
-                target_charge_power=params.max_charge_power,
-            )
+            _surplus_w = surplus_priority_charge_w(state, params)
+            if _surplus_w >= params.min_charge_power:
+                return MaestroDecision(
+                    phase=PHASE_CORRIDOR,
+                    reason=(
+                        f"Ladekorridor [Schwacher-PV-Tag: Überschuss-Priorität]: "
+                        f"SoC {state.soc:.0f}% → Ziel {target:.0f}%, "
+                        f"Überschuss-Cap {_surplus_w:.0f} W (nur PV, kein Netz)"
+                    ),
+                    power_mode=POWER_MODE_NORMAL,
+                    charge_power_limit=_surplus_w,
+                    target_soc=target,
+                    target_charge_power=_surplus_w,
+                )
 
     charge_power = desired_charge_power(state.soc, target, params, now)
     if charge_power > 0 and state.soc < params.charge_target:

@@ -47,6 +47,19 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         value_fn=lambda coord: (coord.last_decision.target_charge_power or 0) if coord.last_decision else 0,
     ),
     MaestroSensorDescription(
+        key="current_soc",
+        name="Aktueller SoC",
+        icon="mdi:battery",
+        native_unit_of_measurement="%",
+        device_class=SensorDeviceClass.BATTERY,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: (
+            round(coord.data["state"].soc, 1)
+            if coord.data and "state" in coord.data
+            else None
+        ),
+    ),
+    MaestroSensorDescription(
         key="target_soc",
         name="Ziel-SoC",
         icon="mdi:battery-clock",
@@ -345,7 +358,6 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         name="Forecast: Min-SoC nächste 24h",
         icon="mdi:battery-arrow-down-outline",
         native_unit_of_measurement="%",
-        device_class=SensorDeviceClass.BATTERY,
         value_fn=lambda coord: coord.forecast.min_soc if coord.forecast else None,
     ),
     MaestroSensorDescription(
@@ -353,7 +365,6 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         name="Forecast: Max-SoC nächste 24h",
         icon="mdi:battery-arrow-up-outline",
         native_unit_of_measurement="%",
-        device_class=SensorDeviceClass.BATTERY,
         value_fn=lambda coord: coord.forecast.max_soc if coord.forecast else None,
     ),
     MaestroSensorDescription(

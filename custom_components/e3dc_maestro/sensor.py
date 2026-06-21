@@ -424,7 +424,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
     ),
     MaestroSensorDescription(
         key="charge_power_limit",
-        name="Aktives Lade-Limit",
+        name="Soll-Lade-Limit",
         icon="mdi:battery-lock",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
@@ -437,16 +437,33 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
     ),
     MaestroSensorDescription(
         key="discharge_power_limit",
-        name="Aktives Entlade-Limit",
+        name="Soll-Entlade-Limit",
         icon="mdi:battery-off-outline",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda coord: (
-            int(coord.last_decision.discharge_power_limit)
-            if coord.last_decision and coord.last_decision.discharge_power_limit is not None
-            else None
-        ),
+        value_fn=lambda coord: coord.effective_discharge_limit,
+    ),
+    # Tatsächlich per e3dc_rscp gesendete Caps. Unterscheiden sich vom Soll
+    # (decision.*_power_limit), wenn der Debounce kleine Drifts unterdrückt –
+    # genau das Diagnose-Signal für "warum lädt der Akku nicht wie erwartet?".
+    MaestroSensorDescription(
+        key="sent_charge_power_limit",
+        name="Gesendetes Lade-Limit",
+        icon="mdi:battery-arrow-up",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: coord.last_sent_charge_limit,
+    ),
+    MaestroSensorDescription(
+        key="sent_discharge_power_limit",
+        name="Gesendetes Entlade-Limit",
+        icon="mdi:battery-arrow-down",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda coord: coord.last_sent_discharge_limit,
     ),
     # Wallbox / Verbrauchsaufteilung
     MaestroSensorDescription(
@@ -689,7 +706,9 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
                 "target_soc": dec.target_soc,
                 "target_charge_power": dec.target_charge_power,
                 "charge_power_limit": dec.charge_power_limit,
-                "discharge_power_limit": dec.discharge_power_limit,
+                "discharge_power_limit": coord.effective_discharge_limit,
+                "sent_charge_power_limit": coord.last_sent_charge_limit,
+                "sent_discharge_power_limit": coord.last_sent_discharge_limit,
                 "feed_in_excess_w": dec.feed_in_excess_w,
                 "timestamp": coord.last_action_info.get("timestamp"),
             }

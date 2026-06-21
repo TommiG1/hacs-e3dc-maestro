@@ -674,14 +674,27 @@ def desired_charge_power(soc: float, target: float, params: MaestroParams, now: 
 
     advanced_corridor mode: SoC-delta mapped linearly to [lower_corridor, upper_corridor].
     Default mode: time-to-target (physical energy / remaining hours).
+
+    Bei winzigem soc_delta (Interim-Ziel ≈ aktueller SoC, z. B. 47 → 47 %)
+    gibt der advanced_corridor 0 W zurück, damit der Korridor-Block in
+    :func:`decide` übersprungen wird und Phase 8 Spreading mit der
+    zeitbasierten Rate übernimmt. Andernfalls erzwingt der
+    min_charge_power-Clamp einen Snapshot ≈ lower_corridor (z. B. 51 W),
+    der die echte Spreading-Rate für mehrere Minuten verdeckt.
     """
     soc_delta = target - soc
     if params.advanced_corridor:
-        if soc_delta > 0:
-            raw = params.lower_corridor + (soc_delta / 100) * (params.upper_corridor - params.lower_corridor)
-        else:
-            raw = 0.0
-        return max(params.min_charge_power, min(params.max_charge_power, raw)) if raw > 0 else 0.0
+        if soc_delta <= 0:
+            return 0.0
+        # Spielraum oberhalb des lower_corridor-Ankers. Ist er kleiner als
+        # min_charge_power, ist soc_delta zu winzig für eine sinnvolle
+        # Ladung – 0 W zurückgeben statt einen Snapshot ≈ lower_corridor
+        # zu erzwingen.
+        raw_above_corridor = (soc_delta / 100) * (params.upper_corridor - params.lower_corridor)
+        if raw_above_corridor < params.min_charge_power:
+            return 0.0
+        raw = params.lower_corridor + raw_above_corridor
+        return min(params.max_charge_power, max(params.min_charge_power, raw))
 
     # Time-to-target strategy (default)
     if now is None or soc_delta <= 0:

@@ -69,9 +69,16 @@ views:
               action: more-info
           - type: template
             content: >-
-              {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %}
-              {%- if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') and v not in ('unknown','unavailable') -%}
-                Ladesperre {{ v }} W
+              {% set soll = states('sensor.e3dc_maestro_aktives_lade_limit') %}
+              {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') %}
+              {%- if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') -%}
+                {%- if sent not in ('unknown','unavailable','none','') -%}
+                  Ladesperre {{ sent }} W
+                {%- elif soll not in ('unknown','unavailable','none','') -%}
+                  Ladesperre {{ soll }} W
+                {%- else -%}
+                  Ladesperre
+                {%- endif -%}
               {%- else -%}
                 Ladesperre
               {%- endif %}
@@ -82,9 +89,16 @@ views:
               action: more-info
           - type: template
             content: >-
-              {% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
-              {%- if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') and v not in ('unknown','unavailable') -%}
-                Entladesperre {{ v }} W
+              {% set soll = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+              {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %}
+              {%- if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') -%}
+                {%- if sent not in ('unknown','unavailable','none','') -%}
+                  Entladesperre {{ sent }} W
+                {%- elif soll not in ('unknown','unavailable','none','') -%}
+                  Entladesperre {{ soll }} W
+                {%- else -%}
+                  Entladesperre
+                {%- endif -%}
               {%- else -%}
                 Entladesperre
               {%- endif %}
@@ -222,6 +236,81 @@ views:
             icon_color: purple
             tap_action:
               action: more-info
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %}
+              {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}
+            secondary: Soll-Lade-Limit
+            icon: mdi:battery-lock
+            icon_color: >-
+              {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %}
+              {% if v <= 0 %} disabled
+              {% elif v < 3000 %} blue
+              {% elif v < 7000 %} green
+              {% else %} amber {% endif %}
+            fill_container: true
+            entity: sensor.e3dc_maestro_aktives_lade_limit
+            tap_action: { action: more-info }
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set v = states('sensor.e3dc_maestro_gesendetes_lade_limit') %}
+              {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}
+            secondary: Gesendetes Lade-Limit
+            icon: mdi:battery-arrow-up
+            icon_color: >-
+              {% set soll = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %}
+              {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') | float(0) %}
+              {% set raw = states('sensor.e3dc_maestro_gesendetes_lade_limit') %}
+              {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled
+              {% elif (soll - sent) | abs > 50 %} orange
+              {% elif sent <= 0 %} disabled
+              {% elif sent < 3000 %} blue
+              {% elif sent < 7000 %} green
+              {% else %} amber {% endif %}
+            fill_container: true
+            entity: sensor.e3dc_maestro_gesendetes_lade_limit
+            tap_action: { action: more-info }
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+              {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}
+            secondary: Soll-Entlade-Limit
+            icon: mdi:battery-off-outline
+            icon_color: >-
+              {% set raw = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+              {% set v = raw | float(0) %}
+              {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled
+              {% elif v <= 0 %} grey
+              {% elif v < 3000 %} green
+              {% elif v < 7000 %} amber
+              {% else %} red {% endif %}
+            fill_container: true
+            entity: sensor.e3dc_maestro_aktives_entlade_limit
+            tap_action: { action: more-info }
+          - type: custom:mushroom-template-card
+            primary: >-
+              {% set v = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %}
+              {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}
+            secondary: Gesendetes Entlade-Limit
+            icon: mdi:battery-arrow-down
+            icon_color: >-
+              {% set soll = states('sensor.e3dc_maestro_aktives_entlade_limit') | float(0) %}
+              {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') | float(0) %}
+              {% set raw = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %}
+              {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled
+              {% elif (soll - sent) | abs > 50 %} orange
+              {% elif sent <= 0 %} grey
+              {% elif sent < 3000 %} green
+              {% elif sent < 7000 %} amber
+              {% else %} red {% endif %}
+            fill_container: true
+            entity: sensor.e3dc_maestro_gesendetes_entlade_limit
+            tap_action: { action: more-info }
 
       - type: grid
         columns: 2
@@ -562,17 +651,17 @@ views:
               entity: sensor.e3dc_maestro_letzte_aktion
             entity: sensor.e3dc_maestro_regelphase
     
-          # ── KPI-Kacheln: klare Werte ohne technische Balken ────────────────
+          # ── KPI-Kacheln: Soll vs. gesendet an E3DC ───────────────────────
           - type: grid
-            columns: 3
+            columns: 2
             square: false
             cards:
               - type: custom:mushroom-template-card
                 primary: >-
                   {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %}
                   {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}
-                secondary: Lade-Limit
-                icon: mdi:battery-charging
+                secondary: Soll-Lade-Limit
+                icon: mdi:battery-lock
                 icon_color: >-
                   {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %}
                   {% if v <= 0 %} disabled
@@ -584,10 +673,29 @@ views:
                 tap_action: { action: more-info }
               - type: custom:mushroom-template-card
                 primary: >-
+                  {% set v = states('sensor.e3dc_maestro_gesendetes_lade_limit') %}
+                  {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}
+                secondary: Gesendetes Lade-Limit
+                icon: mdi:battery-arrow-up
+                icon_color: >-
+                  {% set soll = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %}
+                  {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') | float(0) %}
+                  {% set raw = states('sensor.e3dc_maestro_gesendetes_lade_limit') %}
+                  {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled
+                  {% elif (soll - sent) | abs > 50 %} orange
+                  {% elif sent <= 0 %} disabled
+                  {% elif sent < 3000 %} blue
+                  {% elif sent < 7000 %} green
+                  {% else %} amber {% endif %}
+                fill_container: true
+                entity: sensor.e3dc_maestro_gesendetes_lade_limit
+                tap_action: { action: more-info }
+              - type: custom:mushroom-template-card
+                primary: >-
                   {% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
                   {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}
-                secondary: Entlade-Limit
-                icon: mdi:battery-arrow-down
+                secondary: Soll-Entlade-Limit
+                icon: mdi:battery-off-outline
                 icon_color: >-
                   {% set raw = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
                   {% set v = raw | float(0) %}
@@ -598,6 +706,25 @@ views:
                   {% else %} red {% endif %}
                 fill_container: true
                 entity: sensor.e3dc_maestro_aktives_entlade_limit
+                tap_action: { action: more-info }
+              - type: custom:mushroom-template-card
+                primary: >-
+                  {% set v = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %}
+                  {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}
+                secondary: Gesendetes Entlade-Limit
+                icon: mdi:battery-arrow-down
+                icon_color: >-
+                  {% set soll = states('sensor.e3dc_maestro_aktives_entlade_limit') | float(0) %}
+                  {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') | float(0) %}
+                  {% set raw = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %}
+                  {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled
+                  {% elif (soll - sent) | abs > 50 %} orange
+                  {% elif sent <= 0 %} grey
+                  {% elif sent < 3000 %} green
+                  {% elif sent < 7000 %} amber
+                  {% else %} red {% endif %}
+                fill_container: true
+                entity: sensor.e3dc_maestro_gesendetes_entlade_limit
                 tap_action: { action: more-info }
               - type: custom:mushroom-template-card
                 primary: >-
@@ -874,6 +1001,14 @@ views:
             name: Regelphase
           - entity: sensor.e3dc_maestro_letzte_aktion
             name: Letzte Aktion
+          - entity: sensor.e3dc_maestro_aktives_lade_limit
+            name: Soll-Lade-Limit
+          - entity: sensor.e3dc_maestro_gesendetes_lade_limit
+            name: Gesendetes Lade-Limit
+          - entity: sensor.e3dc_maestro_aktives_entlade_limit
+            name: Soll-Entlade-Limit
+          - entity: sensor.e3dc_maestro_gesendetes_entlade_limit
+            name: Gesendetes Entlade-Limit
           - entity: sensor.e3dc_maestro_morgen_pv_prognose
             name: Morgen PV-Prognose
           - entity: sensor.e3dc_maestro_morgen_energiedefizit
@@ -1581,6 +1716,14 @@ views:
       - type: entities
         title: Diagnose-Sensoren
         entities:
+          - entity: sensor.e3dc_maestro_aktives_lade_limit
+            name: Soll-Lade-Limit
+          - entity: sensor.e3dc_maestro_gesendetes_lade_limit
+            name: Gesendetes Lade-Limit
+          - entity: sensor.e3dc_maestro_aktives_entlade_limit
+            name: Soll-Entlade-Limit
+          - entity: sensor.e3dc_maestro_gesendetes_entlade_limit
+            name: Gesendetes Entlade-Limit
           - entity: sensor.e3dc_maestro_notstromreserve_aktuell
             name: Notstromreserve (aktuell, %)
           - entity: sensor.e3dc_maestro_saisonales_ladeende_uhrzeit
@@ -2928,6 +3071,29 @@ views:
           **Empfehlung:** 5–15 min. Zu kurz → Fehlalarm bei kurzen HA-Pausen.
           
           **Standard:** 10 min
+          
+          ---
+          
+          ### Soll- vs. Gesendet-Lade-Limit
+          
+          Maestro berechnet pro Zyklus ein **Soll-Lade-Limit** (interne Regelung).
+          Nur wenn sich der Wert genug vom zuletzt an die E3DC gesendeten Cap
+          unterscheidet (Debounce ≥ 50 W), wird ein neuer Befehl übertragen.
+          
+          - **Soll-Lade-Limit** (`sensor.e3dc_maestro_aktives_lade_limit`):
+            Was Maestro gerade anstrebt (inkl. Anlauf-Rampe).
+          - **Gesendetes Lade-Limit** (`sensor.e3dc_maestro_gesendetes_lade_limit`):
+            Was tatsächlich per e3dc_rscp an die Hardware ging.
+          
+          Weichen Soll und Gesendet dauerhaft auseinander (z. B. Soll 2 kW,
+          Gesendet 51 W), hängt die E3DC am alten Cap — genau der Bug, den
+          v0.3.11 behoben hat. Orange Markierung im Dashboard signalisiert
+          eine Drift > 50 W.
+          
+          **Entlade-Limit:** Ist kein explizites Cap gesetzt (Entladung frei),
+          sendet Maestro ``max_discharge = Max. Ladeleistung`` (nicht
+          WR-Nennleistung). Die WR-Nennleistung kann höher sein als die
+          tatsächliche Akku-Grenze (z. B. 18 kW WR vs. 9 kW Akku).
 
   - title: "Hilfe: Notstromreserve"
     path: help-notstromreserve

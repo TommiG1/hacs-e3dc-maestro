@@ -180,6 +180,93 @@ def _ewma_update(
 # How much a power limit must change to trigger a new service call (W)
 POWER_DEBOUNCE_W = 50
 
+
+def _limits_changed_vs_sent_values(
+    charge: float | None,
+    discharge: float | None,
+    last_sent_charge: int | None,
+    last_sent_discharge: int | None,
+    *,
+    debounce_w: int = POWER_DEBOUNCE_W,
+) -> bool:
+    """Return True when limits differ enough from last RSCP call to resend."""
+    if (last_sent_charge is None) != (charge is None):
+        return True
+    if (last_sent_discharge is None) != (discharge is None):
+        return True
+    if charge is not None and abs(
+        int(round(charge)) - (last_sent_charge or 0)
+    ) > debounce_w:
+        return True
+    if discharge is not None and abs(
+        int(round(discharge)) - (last_sent_discharge or 0)
+    ) > debounce_w:
+        return True
+    return False
+
+
+def _ramp_bypass_due_to_resync(
+    target_w: int,
+    last_sent_w: int | None,
+    ramp_w_per_cycle: int,
+    *,
+    min_threshold_w: int = 500,
+) -> bool:
+    """True wenn der Soll-Wert zu weit vom zuletzt gesendeten Cap abweicht.
+
+    Ohne Bypass würde die Anlauf-Rampe nach einem Phasenwechsel oder einem
+    Korridor-Dip (siehe :func:`control_engine.desired_charge_power`) zig
+    Zyklen brauchen, bis das Cap wieder zum echten Bedarf passt. In der
+    Zwischenzeit hängt die E3DC an einem veralteten, viel zu kleinen Cap
+    (z. B. 51 W) und kann den PV-Überschuss nicht in den Akku speisen.
+    """
+    if last_sent_w is None:
+        return False
+    threshold = max(min_threshold_w, 2 * ramp_w_per_cycle)
+    return abs(target_w - last_sent_w) > threshold
+
+
+def _effective_discharge_limit_w(
+    decision: MaestroDecision,
+    max_battery_power_w: float,
+) -> int | None:
+    """Soll-Entlade-Cap (W) für Anzeige und RSCP-Send.
+
+    ``decision.discharge_power_limit`` ist gesetzt → explizites Cap (z. B.
+    EVCC Now 800 W oder 0 = Sperre). Sonst, wenn ein Lade-Cap aktiv ist,
+    gilt Entladung als frei bis ``max_charge_power`` – muss an die E3DC
+    gesendet werden, sonst bleibt eine frühere Entladesperre (z. B. nach
+    EVCC) aktiv. Nicht ``inverter_power`` (WR-Nennleistung): die kann
+    höher sein als die tatsächliche Akku-Leistungsgrenze.
+    """
+    if decision.discharge_power_limit is not None:
+        return int(decision.discharge_power_limit)
+    if decision.charge_power_limit is not None:
+        return int(max_battery_power_w)
+    return None
+
+
+def _build_power_mode_data(
+    power_mode: str,
+    charge_power_limit: float | None,
+    discharge_power_limit: float | None,
+) -> dict[str, Any]:
+    """Build the data dict for the e3dc_rscp ``set_power_mode`` service.
+
+    ``power_value`` wird nur bei CHARGE/DISCHARGE mitgegeben. NORMAL und IDLE
+    brauchen kein ``power_value`` – das eigentliche Lade-/Entlade-Cap setzt
+    bereits ``set_power_limits`` (max_charge / max_discharge). Ein
+    zusätzliches ``power_value`` im NORMAL-Modus hat im Feld zu unklarem
+    Verhalten geführt (E3DC interpretiert je nach Firmware unterschiedlich).
+    """
+    data: dict[str, Any] = {"power_mode": power_mode}
+    if power_mode == POWER_MODE_CHARGE and charge_power_limit is not None:
+        # CHARGE-Mode verlangt strikt > 0 W.
+        data["power_value"] = max(1, int(charge_power_limit))
+    elif power_mode == POWER_MODE_DISCHARGE and discharge_power_limit is not None:
+        data["power_value"] = max(1, int(discharge_power_limit))
+    return data
+
 E3DC_RSCP_POWER_MODE_MAP = {
     POWER_MODE_NORMAL: "0",
     POWER_MODE_IDLE: "1",
@@ -327,8 +414,11 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # A1: SoC hysteresis – dampened SoC for rule engine
         self._stable_soc: float | None = None
 
-        # A2: Charge-power ramp – last value sent to inverter
+        # A2: Charge-power ramp – last ramped target (internal, not RSCP)
         self._last_applied_charge_power: int = 0
+        # Last charge/discharge limits actually sent via e3dc_rscp (for debounce)
+        self._last_sent_charge_limit: int | None = None
+        self._last_sent_discharge_limit: int | None = None
 
         # A3: EWMA-geglättete Leistungswerte (anti-flapping)
         self._ewma_pv: float | None = None
@@ -686,6 +776,12 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if decision.charge_power_limit is not None:
             target_p = int(decision.charge_power_limit)
             ramp = active.charge_ramp_w_per_cycle
+            # Resync-Bypass: zuletzt gesendetes Cap liegt deutlich daneben
+            # (Phasenwechsel, Korridor-Dip → Spreading-Rate). Ohne Bypass
+            # ramped die Hardware aus 51 W in 200-W-Schritten hoch und
+            # verliert mehrere Minuten Lade-Energie.
+            if _ramp_bypass_due_to_resync(target_p, self._last_sent_charge_limit, ramp):
+                bypass_ramp = True
             if not bypass_ramp and target_p > self._last_applied_charge_power + ramp:
                 ramped_p = self._last_applied_charge_power + ramp
                 import dataclasses as _dc2
@@ -1244,6 +1340,30 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return round(self._low_yield_today_kwh / ref, 3)
 
     @property
+    def last_sent_charge_limit(self) -> int | None:
+        """Lade-Cap in Watt, das zuletzt per e3dc_rscp gesendet wurde.
+
+        Unterscheidet sich vom Soll (``last_decision.charge_power_limit``):
+        Der Soll-Wert wird in jedem Zyklus neu berechnet, aber nur bei
+        ausreichender Drift (Debounce) tatsächlich an die E3DC übertragen.
+        """
+        return self._last_sent_charge_limit
+
+    @property
+    def last_sent_discharge_limit(self) -> int | None:
+        """Entlade-Cap in Watt, das zuletzt per e3dc_rscp gesendet wurde."""
+        return self._last_sent_discharge_limit
+
+    @property
+    def effective_discharge_limit(self) -> int | None:
+        """Soll-Entlade-Cap inkl. implizit freier Entladung (WR-Nennleistung)."""
+        if self.last_decision is None:
+            return None
+        return _effective_discharge_limit_w(
+            self.last_decision, self._params.max_charge_power
+        )
+
+    @property
     def seasonal_charge_end_h(self) -> float:
         """Currently computed seasonal charge-end hour (fractional, local time)."""
         return round(_seasonal_charge_end_hour(dt_util.now(), self._params), 2)
@@ -1345,6 +1465,15 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             minutes = 0
         return f"{hours:02d}:{minutes:02d}"
 
+    def _limits_changed_vs_sent(self, decision: MaestroDecision) -> bool:
+        """True when decision limits differ enough from last RSCP call to resend."""
+        return _limits_changed_vs_sent_values(
+            decision.charge_power_limit,
+            _effective_discharge_limit_w(decision, self._params.max_charge_power),
+            self._last_sent_charge_limit,
+            self._last_sent_discharge_limit,
+        )
+
     # ──────────────────────────────────────────────────────────────────────────────    # Actor calls
     # ──────────────────────────────────────────────────────────────────────────
 
@@ -1360,16 +1489,13 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # Power mode / limits
         mode_changed = prev is None or prev.power_mode != decision.power_mode
-        limits_changed = prev is None or (
-            (prev.charge_power_limit is None) != (decision.charge_power_limit is None)
-            or (prev.discharge_power_limit is None) != (decision.discharge_power_limit is None)
-            or abs((prev.charge_power_limit or 0) - (decision.charge_power_limit or 0)) > POWER_DEBOUNCE_W
-            or abs((prev.discharge_power_limit or 0) - (decision.discharge_power_limit or 0)) > POWER_DEBOUNCE_W
-        )
+        limits_changed = self._limits_changed_vs_sent(decision)
 
         if mode_changed or limits_changed:
             if decision.power_mode == POWER_MODE_NORMAL and decision.charge_power_limit is None and decision.discharge_power_limit is None:
                 await self._call_e3dc(SERVICE_CLEAR_POWER_LIMITS, {})
+                self._last_sent_charge_limit = None
+                self._last_sent_discharge_limit = None
                 self._log(f"[{decision.phase}] clear_power_limits → {decision.reason}")
             elif decision.power_mode == POWER_MODE_NORMAL and decision.charge_power_limit is None and decision.discharge_power_limit is not None:
                 # Nur Entladung begrenzen (z. B. EVCC Now-Modus) – kein Ladebefehl
@@ -1378,31 +1504,41 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     SERVICE_SET_POWER_LIMITS,
                     {"max_discharge": _max_discharge_w},
                 )
+                self._last_sent_discharge_limit = _max_discharge_w
                 self._log(
                     f"[{decision.phase}] set_power_limits max_discharge={_max_discharge_w}W → {decision.reason}"
                 )
             elif decision.power_mode is not None:
-                # E3DC-RSCP erwartet: max_charge >= 0 ; power_value für mode
-                # CHARGE strikt > 0. Decision-Werte können durch
-                # gentle_charge_factor (×0.35) oder Float-Rundung (z. B.
-                # 1 W × 0.35 → 0) auf 0 fallen. Hier hart auf 1 W heben,
-                # damit die Service-Schemas nicht den ganzen
-                # Update-Zyklus killen (→ Entitäten "unavailable").
+                # E3DC-RSCP erwartet: max_charge >= 0 (set_power_limits) und
+                # power_mode mit power_value NUR bei CHARGE/DISCHARGE. Im
+                # NORMAL-Modus reicht das Lade-Cap aus; ein zusätzliches
+                # power_value verwirrt manche Firmwares.
+                limits_data: dict[str, Any] = {}
                 if decision.charge_power_limit is not None:
                     _max_charge_w = max(0, int(decision.charge_power_limit))
+                    limits_data["max_charge"] = _max_charge_w
+                    self._last_sent_charge_limit = _max_charge_w
+                _effective_discharge = _effective_discharge_limit_w(
+                    decision, self._params.max_charge_power
+                )
+                if _effective_discharge is not None:
+                    limits_data["max_discharge"] = _effective_discharge
+                    self._last_sent_discharge_limit = _effective_discharge
+                if limits_data:
                     await self._call_e3dc(
                         SERVICE_SET_POWER_LIMITS,
-                        {"max_charge": _max_charge_w},
+                        limits_data,
                     )
-                power_mode_data: dict[str, Any] = {"power_mode": decision.power_mode}
-                if decision.charge_power_limit is not None:
-                    # CHARGE-Mode verlangt > 0 → mind. 1 W.
-                    power_mode_data["power_value"] = max(1, int(decision.charge_power_limit))
-                elif (
+                power_mode_data = _build_power_mode_data(
+                    decision.power_mode,
+                    decision.charge_power_limit,
+                    decision.discharge_power_limit,
+                )
+                if (
                     decision.power_mode == POWER_MODE_DISCHARGE
                     and decision.discharge_power_limit is not None
                 ):
-                    power_mode_data["power_value"] = max(1, int(decision.discharge_power_limit))
+                    self._last_sent_discharge_limit = int(decision.discharge_power_limit)
                 await self._call_e3dc(
                     SERVICE_SET_POWER_MODE,
                     power_mode_data,
@@ -1426,6 +1562,10 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     if decision.charge_power_limit is not None
                     else None
                 ),
+                # Tatsächlich per e3dc_rscp gesendete Caps – Diagnose für
+                # "Soll != Ist auf der E3DC" (z. B. Debounce-Drift).
+                "sent_charge_power_limit": self._last_sent_charge_limit,
+                "sent_discharge_power_limit": self._last_sent_discharge_limit,
                 "timestamp": _now_local.isoformat(timespec="seconds"),
                 "timestamp_display": _now_local.strftime("%d.%m.%Y %H:%M:%S"),
             }
@@ -1497,6 +1637,8 @@ class E3DCMaestroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             await self._call_e3dc(SERVICE_CLEAR_POWER_LIMITS, {})
             await self._call_e3dc(SERVICE_SET_POWER_MODE, {"power_mode": POWER_MODE_NORMAL})
+            self._last_sent_charge_limit = None
+            self._last_sent_discharge_limit = None
             self._log(f"Limits freigegeben: {reason}")
         except Exception as err:
             _LOGGER.warning("Fehler beim Freigeben der Limits: %s", err)

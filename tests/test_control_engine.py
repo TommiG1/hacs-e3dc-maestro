@@ -8,6 +8,7 @@ from custom_components.e3dc_maestro.control_engine import (
     MaestroState,
     decide,
     daylight_factor,
+    desired_charge_power,
     seasonal_charge_end_hour,
     seasonal_reserve_soc,
     ht_min_dynamic,
@@ -250,6 +251,54 @@ class TestCorridor:
         params = MaestroParams(**{**DEFAULT_PARAMS.__dict__, "ht_enabled": False, "charge_target": 85})
         decision = decide(state, params, _now(6, 15, 23))
         assert decision.phase == PHASE_IDLE
+
+    def test_advanced_corridor_returns_zero_at_interim_target(self):
+        """Bei winzigem soc_delta (Interim-Ziel ≈ aktueller SoC) muss
+        desired_charge_power 0 W zurückgeben, damit der Korridor-Block in
+        decide() übersprungen wird und Phase 8 Spreading übernimmt. Sonst
+        sendet Maestro einen 51-W-Snapshot (min_charge_power ≈ lower_corridor),
+        der die echte Spreading-Rate von ~2 kW über mehrere Minuten verdeckt."""
+        params = MaestroParams(**{
+            **DEFAULT_PARAMS.__dict__,
+            "advanced_corridor": True,
+            "lower_corridor": 50,
+            "upper_corridor": 9000,
+            "min_charge_power": 50,
+            "max_charge_power": 10000,
+        })
+        # soc_delta = 0.01 % → raw = 0.0001 * 8950 ≈ 0.9 W → < lower_corridor=50
+        assert desired_charge_power(47.0, 47.01, params) == 0.0
+        # SoC ≥ Ziel: ebenfalls 0
+        assert desired_charge_power(47.0, 47.0, params) == 0.0
+        # Wirkliches soc_delta von 1 % → raw = 89.5 W → > lower_corridor=50
+        assert desired_charge_power(47.0, 48.0, params) > 0.0
+
+    def test_corridor_dip_yields_to_spreading_at_interim_target(self):
+        """Integrationstest: SoC nahe Interim-Ziel mit spreading_enabled=True
+        → Phase Spreading übernimmt (nicht 51-W-Korridor-Snapshot)."""
+        # Mai, 11:00 → linear ramp target ≈ 49 %. SoC=49 → soc_delta≈0.
+        state = MaestroState(soc=49, pv_power=4000, house_power=500, grid_power=0, battery_power=0)
+        params = MaestroParams(**{
+            **DEFAULT_PARAMS.__dict__,
+            "ht_enabled": False,
+            "charge_target": 85,
+            "spreading_enabled": True,
+            "spreading_target_soc": 100,
+            "battery_capacity_kwh": 14.0,
+            "advanced_corridor": True,
+            "lower_corridor": 50,
+            "upper_corridor": 9000,
+            "min_charge_power": 50,
+            "max_charge_power": 10000,
+            "summer_charge_end": 18.5,
+        })
+        decision = decide(state, params, _now(5, 15, 11))
+        assert decision.phase == PHASE_SPREADING
+        assert decision.charge_power_limit is not None
+        assert decision.charge_power_limit > 500, (
+            f"Erwarte Spreading-Rate \u226b 51 W, erhielt "
+            f"{decision.charge_power_limit:.0f} W"
+        )
 
 
 class TestDaylightFactor:

@@ -649,10 +649,16 @@
         "name": "Auto: Geschätzte Einsparung"
       },
       "charge_power_limit": {
-        "name": "Aktives Lade-Limit"
+        "name": "Soll-Lade-Limit"
       },
       "discharge_power_limit": {
-        "name": "Aktives Entlade-Limit"
+        "name": "Soll-Entlade-Limit"
+      },
+      "sent_charge_power_limit": {
+        "name": "Gesendetes Lade-Limit"
+      },
+      "sent_discharge_power_limit": {
+        "name": "Gesendetes Entlade-Limit"
       }
     },
     "binary_sensor": {

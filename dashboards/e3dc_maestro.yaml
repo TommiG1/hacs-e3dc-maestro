@@ -70,7 +70,9 @@ views:
 
           **Modus:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'power_mode') }}
 
-          **Ladeleistung:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'charge_power_limit') }} W
+          **Soll-Ladeleistung:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'charge_power_limit') }} W
+
+          **Gesendetes Lade-Limit:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'sent_charge_power_limit') }} W
 
       # ── Tagesstatistik ────────────────────────────────
       - type: entities

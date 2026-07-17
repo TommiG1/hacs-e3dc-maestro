@@ -34,7 +34,8 @@ E3DC Maestro runs entirely **local and without any cloud connection**. It extend
 11. [Troubleshooting & FAQ](#troubleshooting--faq)
 12. [Known Compatibility](#known-compatibility)
 13. [Acknowledgements](#acknowledgements)
-14. [License](#license)
+14. [Changelog](CHANGELOG.md)
+15. [License](#license)
 
 ---
 
@@ -862,6 +863,10 @@ Also a heartfelt thank you to **Torben Nehmer** for the [e3dc_rscp](https://gith
 
 ---
 
+## Changelog
+
+Release history is maintained in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 **GNU Affero General Public License v3.0 (AGPL-3.0)** – see [LICENSE](LICENSE)
@@ -906,7 +911,8 @@ For questions about commercial licensing or use cases that are not compatible wi
 10. [Fehlerbehebung & FAQ](#fehlerbehebung--faq)
 11. [Bekannte Kompatibilität](#bekannte-kompatibilität)
 12. [Danksagung](#danksagung)
-13. [Lizenz](#lizenz)
+13. [Changelog](CHANGELOG.md)
+14. [Lizenz](#lizenz)
 
 ---
 
@@ -1745,6 +1751,10 @@ Maestro überträgt diese Ideen in die Home-Assistant-Welt als native HACS-Integ
 Ebenfalls ein herzlicher Dank an **Torben Nehmer** für die [e3dc_rscp](https://github.com/torbennehmer/hacs-e3dc) Home Assistant Integration, auf der Maestro als Kommunikationsschicht vollständig aufbaut. Ohne diese Arbeit wäre Maestro nicht möglich.
 
 ---
+
+## Changelog
+
+Die Release-Historie liegt fortlaufend in [CHANGELOG.md](CHANGELOG.md).
 
 ## Lizenz
 

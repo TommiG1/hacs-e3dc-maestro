@@ -34,7 +34,8 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 10. [Fehlerbehebung & FAQ](#fehlerbehebung--faq)
 11. [Bekannte Kompatibilität](#bekannte-kompatibilität)
 12. [Danksagung](#danksagung)
-13. [Lizenz](#lizenz)
+13. [Changelog](CHANGELOG.md)
+14. [Lizenz](#lizenz)
 
 ---
 
@@ -915,6 +916,10 @@ Maestro überträgt diese Ideen in die Home-Assistant-Welt als native HACS-Integ
 Ebenfalls ein herzlicher Dank an **Torben Nehmer** für die [e3dc_rscp](https://github.com/torbennehmer/hacs-e3dc) Home Assistant Integration, auf der Maestro als Kommunikationsschicht vollständig aufbaut. Ohne diese Arbeit wäre Maestro nicht möglich.
 
 ---
+
+## Changelog
+
+Die Release-Historie liegt fortlaufend in [CHANGELOG.md](CHANGELOG.md).
 
 ## Lizenz
 

@@ -342,38 +342,46 @@ class TestPvForecastResolution:
 
 
 class TestConsumptionStatsHourlyProfile:
-    """ConsumptionStats.hourly_profile_w is computed correctly."""
+    """ConsumptionStats.hourly_profile_w is computed correctly in UTC."""
 
-    def test_hourly_profile_averages_by_hour(self):
-        from unittest.mock import MagicMock, patch
-        from datetime import timezone
+    def test_hourly_profile_averages_by_utc_hour(self):
+        from unittest.mock import MagicMock
 
         from custom_components.e3dc_maestro.consumption_stats import ConsumptionStats
 
         stats = ConsumptionStats(MagicMock(), "sensor.test")
 
-        # Fake rows: hours 10 and 10 with values 400 and 600 → avg 500
         rows = [
             {"start": datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc), "mean": 400.0},
             {"start": datetime(2026, 1, 2, 10, 0, tzinfo=timezone.utc), "mean": 600.0},
             {"start": datetime(2026, 1, 1, 22, 0, tzinfo=timezone.utc), "mean": 200.0},
         ]
-
-        # Patch dt_util.as_local to return the UTC datetime unchanged
-        import custom_components.e3dc_maestro.consumption_stats as cs_mod
-        original_row_to_local = cs_mod._row_to_local
-
-        def _utc_row_to_local(start_ts):
-            if isinstance(start_ts, datetime):
-                return start_ts
-            return original_row_to_local(start_ts)
-
-        with patch.object(cs_mod, "_row_to_local", side_effect=_utc_row_to_local):
-            stats._update_from_rows(rows, None)
+        stats._update_from_rows(rows, None)
 
         assert abs(stats.hourly_profile_w[10] - 500.0) < 0.1
         assert abs(stats.hourly_profile_w[22] - 200.0) < 0.1
         assert stats.hourly_profile_w[0] == 0.0  # empty bucket
+
+    def test_hourly_profile_ignores_local_offset(self):
+        """Berlin summer (UTC+2): 10:00 local = 08:00 UTC → bucket 8."""
+        from unittest.mock import MagicMock, patch
+        from zoneinfo import ZoneInfo
+
+        from custom_components.e3dc_maestro.consumption_stats import ConsumptionStats
+        import custom_components.e3dc_maestro.consumption_stats as cs_mod
+
+        stats = ConsumptionStats(MagicMock(), "sensor.test")
+        berlin = ZoneInfo("Europe/Berlin")
+        local_10 = datetime(2026, 7, 17, 10, 0, tzinfo=berlin)
+        rows = [{"start": local_10, "mean": 900.0}]
+
+        with patch.object(
+            cs_mod.dt_util, "as_local", side_effect=lambda dt: dt.astimezone(berlin)
+        ):
+            stats._update_from_rows(rows, None)
+
+        assert abs(stats.hourly_profile_w[8] - 900.0) < 0.1
+        assert stats.hourly_profile_w[10] == 0.0
 
     def test_empty_rows_yields_zero_profile(self):
         from unittest.mock import MagicMock
@@ -382,3 +390,39 @@ class TestConsumptionStatsHourlyProfile:
         stats = ConsumptionStats(MagicMock(), "sensor.test")
         stats._update_from_rows([], None)
         assert stats.hourly_profile_w == [0.0] * 24
+
+
+class TestDay2Boundary:
+    def test_exact_24h_uses_day2_profile(self):
+        """At elapsed == 24.0 h the simulator must switch to day-2 arrays."""
+        params = MaestroParams(
+            inverter_power=12000,
+            max_charge_power=5000,
+            min_charge_power=300,
+            installed_kwp=10.0,
+            feed_in_limit_percent=0.0,
+            battery_capacity_kwh=15.0,
+            morning_cap_enabled=False,
+        )
+        cons = [200.0] * 24
+        pv_day1 = [0.0] * 24
+        pv_day2 = [5000.0] * 24
+        result = simulate_next_24h(
+            soc=50.0,
+            consumption_h=cons,
+            pv_h=pv_day1,
+            params=params,
+            now=_NOW,
+            battery_capacity_kwh=15.0,
+            pv_h_day2=pv_day2,
+            consumption_h_day2=cons,
+            horizon_h=48,
+        )
+        assert len(result.trajectory_soc) == 192
+        assert result.max_soc >= result.trajectory_soc[95]
+
+
+class TestBatteryThroughput:
+    def test_throughput_tracks_charge_and_discharge(self):
+        result = _simulate(soc=50.0, cons=500.0, pv=2000.0)
+        assert result.battery_throughput_kwh > 0.0

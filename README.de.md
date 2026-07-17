@@ -733,6 +733,46 @@ Das Dashboard nutzt folgende Custom Cards aus HACS:
 2. Drei-Punkte-Menü oben rechts → **Raw-Konfigurationseditor**
 3. Inhalt durch den Inhalt von `maestro_dashboard.yaml` ersetzen → Speichern
 
+### Variante: Modernes Dashboard (alternative Version)
+
+Zusätzlich zum klassischen Dashboard steht eine **zweite, wählbare**
+Variante [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
+zur Verfügung — mit modernem Look: Live-Energiefluss, mini-graph-Verläufe
+und Standard-HA-Karten (tile/gauge/entities). Sie enthält **alle Funktionen
+und alle Hilfe-Seiten** des Classic-Dashboards. Die Classic-Datei bleibt
+unverändert.
+
+**Zusätzliche Custom Cards (HACS → Frontend):**
+
+| Card | Installation |
+|---|---|
+| [button-card](https://github.com/custom-cards/button-card) | HACS → Frontend |
+| [mini-graph-card](https://github.com/kalkih/mini-graph-card) | HACS → Frontend |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | HACS → Frontend |
+| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | HACS → Frontend |
+
+> Die **Übersicht** ist vollständig mit `custom:button-card` und
+> wiederverwendbaren JavaScript-Templates aufgebaut (definiert im
+> Top-Level-Block `button_card_templates` der YAML). Sie liefert einen
+> State-of-the-Art-Look: Gradient-Phase-Hero, SoC-Ring,
+> vorzeichenabhängige Power-Tiles, animierte aktive Eingriffe und reiche
+> €-Karten.
+
+> **Wichtig:** Das moderne Dashboard verwendet fest codierte Hilfe-Link-Pfade
+> (z. B. `/e3dc-maestro-modern/help-...`). Diese funktionieren nur, wenn der
+> URL-Slug exakt `e3dc-maestro-modern` lautet. Beim Import daher den Titel
+> **E3DC Maestro Modern** verwenden.
+
+**Vor dem Import** öffne `dashboards/maestro_dashboard_modern.yaml` und
+passe die Platzhalter-Entity-IDs am Datei-Anfang
+(`sensor.e3dc_pv_power`, `sensor.e3dc_house_power`,
+`sensor.e3dc_grid_power`, `sensor.e3dc_battery_power`,
+`sensor.e3dc_soc`) an deine tatsächlichen E3DC-Sensoren an. Sie werden
+von der Power-Flow-Karte und der Live-Leistungs-Mini-Graph verwendet.
+
+Anschließend folge Import-Methode A oder B mit dem modernen YAML und
+dem Titel **E3DC Maestro Modern**.
+
 ### Tab-Übersicht
 
 | Tab | Inhalt |

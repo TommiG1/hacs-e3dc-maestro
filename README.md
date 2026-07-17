@@ -694,6 +694,44 @@ The dashboard requires the following custom cards from HACS:
 2. Three-dot menu top right → **Raw configuration editor**
 3. Replace content with the content of `maestro_dashboard.yaml` → Save
 
+### Variant: Modern dashboard (alternative)
+
+In addition to the classic dashboard, a **second, selectable** variant
+[`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
+is available with a modern look: live energy flow, mini-graph trends and
+standard HA tile/gauge/entities cards. It covers **all functions and all
+help pages** of the classic dashboard — the classic file stays unchanged.
+
+**Additional custom cards (HACS → Frontend):**
+
+| Card | Installation |
+|---|---|
+| [button-card](https://github.com/custom-cards/button-card) | HACS → Frontend |
+| [mini-graph-card](https://github.com/kalkih/mini-graph-card) | HACS → Frontend |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | HACS → Frontend |
+| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | HACS → Frontend |
+
+> The **Übersicht** tab is fully driven by `custom:button-card` with reusable
+> JavaScript templates (defined once in the top-level `button_card_templates`
+> block of the YAML). It gives the dashboard a state-of-the-art look:
+> gradient phase hero, SoC ring, sign-aware power tiles, animated active
+> intervention chips and rich money cards.
+
+> **Important:** The modern dashboard uses hardcoded help-link paths
+> (e.g. `/e3dc-maestro-modern/help-...`). These only work if the URL slug
+> is exactly `e3dc-maestro-modern`. So name the dashboard **E3DC Maestro
+> Modern** when importing.
+
+**Before importing**, open `dashboards/maestro_dashboard_modern.yaml`
+and adjust the placeholder E3DC raw entity IDs at the top of the file
+(`sensor.e3dc_pv_power`, `sensor.e3dc_house_power`,
+`sensor.e3dc_grid_power`, `sensor.e3dc_battery_power`,
+`sensor.e3dc_soc`) to match your actual E3DC sensors. They are used by
+the power-flow card and the live power mini-graph.
+
+Then follow Method A or B above with the modern YAML and title
+**E3DC Maestro Modern**.
+
 ---
 
 ## Sensor Sign Conventions
@@ -1540,6 +1578,46 @@ Das Dashboard nutzt folgende Custom Cards aus HACS:
 1. Drei-Punkte-Menü des Dashboards → **Dashboard bearbeiten**
 2. Drei-Punkte-Menü oben rechts → **Raw-Konfigurationseditor**
 3. Inhalt durch den Inhalt von `maestro_dashboard.yaml` ersetzen → Speichern
+
+### Variante: Modernes Dashboard (alternative Version)
+
+Zusätzlich zum klassischen Dashboard steht eine **zweite, wählbare**
+Variante [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
+zur Verfügung — mit modernem Look: Live-Energiefluss, mini-graph-Verläufe
+und Standard-HA-Karten (tile/gauge/entities). Sie enthält **alle Funktionen
+und alle Hilfe-Seiten** des Classic-Dashboards. Die Classic-Datei bleibt
+unverändert.
+
+**Zusätzliche Custom Cards (HACS → Frontend):**
+
+| Card | Installation |
+|---|---|
+| [button-card](https://github.com/custom-cards/button-card) | HACS → Frontend |
+| [mini-graph-card](https://github.com/kalkih/mini-graph-card) | HACS → Frontend |
+| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | HACS → Frontend |
+| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | HACS → Frontend |
+
+> Die **Übersicht** ist vollständig mit `custom:button-card` und
+> wiederverwendbaren JavaScript-Templates aufgebaut (definiert im
+> Top-Level-Block `button_card_templates` der YAML). Sie liefert einen
+> State-of-the-Art-Look: Gradient-Phase-Hero, SoC-Ring,
+> vorzeichenabhängige Power-Tiles, animierte aktive Eingriffe und reiche
+> €-Karten.
+
+> **Wichtig:** Das moderne Dashboard verwendet fest codierte Hilfe-Link-Pfade
+> (z. B. `/e3dc-maestro-modern/help-...`). Diese funktionieren nur, wenn der
+> URL-Slug exakt `e3dc-maestro-modern` lautet. Beim Import daher den Titel
+> **E3DC Maestro Modern** verwenden.
+
+**Vor dem Import** öffne `dashboards/maestro_dashboard_modern.yaml` und
+passe die Platzhalter-Entity-IDs am Datei-Anfang
+(`sensor.e3dc_pv_power`, `sensor.e3dc_house_power`,
+`sensor.e3dc_grid_power`, `sensor.e3dc_battery_power`,
+`sensor.e3dc_soc`) an deine tatsächlichen E3DC-Sensoren an. Sie werden
+von der Power-Flow-Karte und der Live-Leistungs-Mini-Graph verwendet.
+
+Anschließend folge Import-Methode A oder B mit dem modernen YAML und
+dem Titel **E3DC Maestro Modern**.
 
 ### Tab-Übersicht
 

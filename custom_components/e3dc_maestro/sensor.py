@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -17,6 +17,7 @@ from homeassistant.const import UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import ALL_PHASES, DOMAIN
 from .coordinator import E3DCMaestroCoordinator
@@ -754,7 +755,7 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
             # Pre-compute [timestamp_ms, soc] pairs so data_generator needs no JS date math.
             # v0.3.0: trajectory has 96 quarter-hour entries (15-min spacing) instead of 24.
             # Backward-compat: handle both lengths gracefully via len-based step calc.
-            now_utc = datetime.now(timezone.utc)
+            now_utc = dt_util.utcnow()
             n = len(fc.trajectory_soc)
             # 24h total span → step_ms = 24h / n
             step_ms = (24 * 3_600_000) // max(n, 1)

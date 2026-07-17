@@ -54,6 +54,9 @@ class ForecastResult:
     cost_eur: float = 0.0       # total grid-buy cost
     revenue_eur: float = 0.0    # total feed-in revenue
 
+    # Absolute battery energy moved (|charge| + |discharge|) over the horizon
+    battery_throughput_kwh: float = 0.0
+
 
 def simulate_next_24h(
     *,
@@ -132,6 +135,7 @@ def simulate_next_24h(
     pv_curtailed_wh = 0.0
     cost_eur = 0.0          # buy cost (€)
     revenue_eur = 0.0       # feed-in revenue (€)
+    battery_throughput_wh = 0.0
 
     # Feed-in limit in W (inf = no limit configured)
     feed_in_limit_w = (
@@ -206,7 +210,7 @@ def simulate_next_24h(
 
         # Day-1 vs day-2 lookup based on elapsed hours from base
         elapsed_h = (sim_now - base).total_seconds() / 3600.0
-        if _have_day2 and elapsed_h > 24.0:
+        if _have_day2 and elapsed_h >= 24.0:
             cons_arr = consumption_h_day2
             pv_arr = pv_h_day2
         else:
@@ -284,6 +288,8 @@ def simulate_next_24h(
         else:
             current_soc = raw_soc
 
+        battery_throughput_wh += abs(bat_net_w) * _STEP_H
+
         # ── Grid accounting with curtailment ────────────────────────────────
         # grid_net > 0 = feed-in, grid_net < 0 = draw
         grid_net_w = pv_w - cons_w - bat_net_w
@@ -333,4 +339,5 @@ def simulate_next_24h(
         self_sufficiency=self_sufficiency,
         cost_eur=round(cost_eur, 4),
         revenue_eur=round(revenue_eur, 4),
+        battery_throughput_kwh=round(battery_throughput_wh / 1000.0, 3),
     )

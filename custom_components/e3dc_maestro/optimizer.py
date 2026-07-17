@@ -29,10 +29,8 @@ OBJECTIVES = (OBJECTIVE_SELF_CONSUMPTION, OBJECTIVE_COST, OBJECTIVE_CO2)
 # Grid-search space.
 # Extended cap-soc/until-h ranges capture high-PV summer days where keeping
 # headroom until noon avoids midday curtailment.
-# Gentle-factor 1.0 = schonladung switch off (full power allowed).
 _MORNING_CAP_SOC_GRID = (20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0)
 _MORNING_CAP_UNTIL_H_GRID = (7.0, 8.0, 9.0, 10.0, 11.0, 12.0)
-_GENTLE_FACTOR_GRID = (0.2, 0.35, 0.5, 0.7, 1.0)
 
 # Cost / CO2 model coefficients (typical DE values, May 2026)
 # v0.2.0: buy/sell prices are now read from MaestroParams (configurable).
@@ -92,9 +90,9 @@ def _score(result: ForecastResult, objective: str, params: MaestroParams | None 
     if objective == OBJECTIVE_COST:
         cost = result.grid_draw_kwh * buy - result.grid_feed_in_kwh * sell
         # Curtailed PV = lost feed-in income
-        # Wear cost: penalise unnecessary cycling. Approximated via grid_draw
-        # (any kWh from grid that ends in battery causes a future discharge cycle).
-        wear = result.grid_draw_kwh * (_wear_eur_per_kwh(params) if params else 0.15)
+        # Wear cost: based on simulated battery throughput (charge+discharge).
+        throughput = getattr(result, "battery_throughput_kwh", 0.0) or 0.0
+        wear = throughput * (_wear_eur_per_kwh(params) if params else 0.15)
         return -cost - curtailed * sell - wear
     if objective == OBJECTIVE_CO2:
         # Curtailed PV could have displaced grid CO2
@@ -240,28 +238,42 @@ def run_optimizer(
                 best_params = candidate
                 best_forecast = fc
 
-    # Estimate savings vs. baseline (in % of baseline magnitude)
-    if baseline_score == 0:
-        estimated = 0.0
-    else:
-        estimated = (best_score - baseline_score) / abs(baseline_score) * 100.0
-
-    # Estimate €-savings vs. baseline using the configured tariff prices.
-    # Net = revenue - cost - wear (wear approximated via grid_draw, identisch zu _score).
+    # Estimate savings vs. baseline using a positive cost/draw baseline so
+    # percentage values stay interpretable (higher = better for the user).
     buy = getattr(base_params, "fixed_buy_price", _GRID_BUY_PRICE_FALLBACK)
     sell = getattr(base_params, "feed_in_price", _GRID_SELL_PRICE_FALLBACK)
     wear_per_kwh = _wear_eur_per_kwh(base_params)
+    base_throughput = getattr(baseline, "battery_throughput_kwh", 0.0) or 0.0
+    best_throughput = getattr(best_forecast, "battery_throughput_kwh", 0.0) or 0.0
     base_net = (
         baseline.grid_feed_in_kwh * sell
         - baseline.grid_draw_kwh * buy
-        - baseline.grid_draw_kwh * wear_per_kwh
+        - base_throughput * wear_per_kwh
     )
     best_net = (
         best_forecast.grid_feed_in_kwh * sell
         - best_forecast.grid_draw_kwh * buy
-        - best_forecast.grid_draw_kwh * wear_per_kwh
+        - best_throughput * wear_per_kwh
     )
     estimated_eur = best_net - base_net
+
+    if objective == OBJECTIVE_COST:
+        base_cost = (
+            baseline.grid_draw_kwh * buy
+            - baseline.grid_feed_in_kwh * sell
+            + base_throughput * wear_per_kwh
+        )
+        estimated = (estimated_eur / abs(base_cost) * 100.0) if abs(base_cost) > 1e-9 else 0.0
+    elif baseline.grid_draw_kwh > 1e-9:
+        estimated = (
+            (baseline.grid_draw_kwh - best_forecast.grid_draw_kwh)
+            / baseline.grid_draw_kwh
+            * 100.0
+        )
+    elif baseline_score == 0:
+        estimated = 0.0
+    else:
+        estimated = (best_score - baseline_score) / abs(baseline_score) * 100.0
 
     overrides: dict[str, Any] = {}
     if best_params is not base_params:

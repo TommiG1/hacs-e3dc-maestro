@@ -169,7 +169,8 @@ class ConsumptionStats:
         else:
             self.avg_w_ht_window = None
 
-        # Build 24-slot hourly profile (grouped by UTC hour-of-day)
+        # Build 24-slot hourly profile (grouped by UTC hour-of-day so it matches
+        # forecast.py / optimizer lookups which index profiles in UTC).
         buckets: list[list[float]] = [[] for _ in range(24)]
         weekday_buckets: list[list[list[float]]] = [
             [[] for _ in range(24)] for _ in range(7)
@@ -178,12 +179,12 @@ class ConsumptionStats:
             mean = row.get("mean")
             if mean is None:
                 continue
-            local = _row_to_local(row.get("start"))
-            if local is None:
+            utc = _row_to_utc(row.get("start"))
+            if utc is None:
                 continue
             value = abs(float(mean))
-            buckets[local.hour].append(value)
-            weekday_buckets[local.weekday()][local.hour].append(value)
+            buckets[utc.hour].append(value)
+            weekday_buckets[utc.weekday()][utc.hour].append(value)
         self.hourly_profile_w = [
             sum(b) / len(b) if b else 0.0 for b in buckets
         ]
@@ -236,18 +237,28 @@ class ConsumptionStats:
 
 def _row_to_local(start_ts: Any) -> datetime | None:
     """Convert a recorder statistics row's ``start`` field to a local datetime."""
+    utc = _row_to_utc(start_ts)
+    if utc is None:
+        return None
+    return dt_util.as_local(utc)
+
+
+def _row_to_utc(start_ts: Any) -> datetime | None:
+    """Convert a recorder statistics row's ``start`` field to UTC datetime."""
     if start_ts is None:
         return None
     if isinstance(start_ts, (int, float)):
-        return dt_util.as_local(
-            datetime.fromtimestamp(start_ts, tz=dt_util.UTC)
-        )
+        return datetime.fromtimestamp(start_ts, tz=dt_util.UTC)
     if isinstance(start_ts, datetime):
-        return dt_util.as_local(start_ts)
+        if start_ts.tzinfo is None:
+            return start_ts.replace(tzinfo=dt_util.UTC)
+        return start_ts.astimezone(dt_util.UTC)
     if isinstance(start_ts, str):
         try:
             parsed = datetime.fromisoformat(start_ts.replace("Z", "+00:00"))
         except ValueError:
             return None
-        return dt_util.as_local(parsed)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=dt_util.UTC)
+        return parsed.astimezone(dt_util.UTC)
     return None

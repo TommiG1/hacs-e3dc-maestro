@@ -53,7 +53,12 @@ _HA_STUBS = [
     ("homeassistant.components.switch", {}),
     ("homeassistant.components.button", {}),
     ("homeassistant.util", {}),
-    ("homeassistant.util.dt", {"utcnow": __import__("datetime").datetime.utcnow}),
+    ("homeassistant.util.dt", {
+        "utcnow": __import__("datetime").datetime.utcnow,
+        "now": __import__("datetime").datetime.now,
+        "UTC": __import__("datetime").timezone.utc,
+        "as_local": lambda dt: dt,
+    }),
     ("homeassistant.components.recorder", {}),
     ("homeassistant.components.recorder.statistics", {}),
 ]

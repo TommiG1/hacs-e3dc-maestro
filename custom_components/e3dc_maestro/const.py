@@ -1,8 +1,24 @@
 """Constants for E3DC Maestro."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
 
 DOMAIN = "e3dc_maestro"
 NAME = "E3DC Maestro"
-VERSION = "0.1.5"
+
+
+def _load_manifest_version() -> str:
+    """Read version from manifest.json (single source of truth)."""
+    manifest_path = Path(__file__).with_name("manifest.json")
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "0.0.0"
+    return str(data.get("version", "0.0.0"))
+
+
+VERSION = _load_manifest_version()
 
 # Integration expects e3dc_rscp to be configured
 E3DC_RSCP_DOMAIN = "e3dc_rscp"

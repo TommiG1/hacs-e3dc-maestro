@@ -929,8 +929,8 @@ async def _autodetect_sizing_sensors(hass) -> dict[str, Any]:
         if out:
             # Energy Dashboard lookup succeeded – return immediately
             return out
-    except Exception:  # noqa: BLE001
-        pass
+    except (AttributeError, KeyError, TypeError, ValueError) as err:  # noqa: BLE001
+        _LOGGER.debug("Energy-Dashboard Autodetect fehlgeschlagen: %s", err)
 
     # ── 2. Fallback: RSCP integration entity-id suffix matching ───────────────
     _RSCP_ENERGY_SUFFIX_MAP: dict[str, str] = {

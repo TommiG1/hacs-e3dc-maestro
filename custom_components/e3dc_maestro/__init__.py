@@ -79,13 +79,13 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
     """Handle options update – reload so entities pick up new settings.
 
     Skipped when the change came from a live entity toggle (coordinator sets
-    ``_skip_reload = True`` around ``async_update_entry`` calls for that).
+    ``skip_reload`` around ``async_update_entry`` calls for that).
     """
     from .coordinator import E3DCMaestroCoordinator
     coordinator: E3DCMaestroCoordinator | None = (
         hass.data.get(DOMAIN, {}).get(entry.entry_id)
     )
-    if coordinator is not None and coordinator._skip_reload:
+    if coordinator is not None and coordinator.skip_reload:
         return
     await hass.config_entries.async_reload(entry.entry_id)
 

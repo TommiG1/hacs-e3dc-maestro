@@ -117,7 +117,38 @@ class TestRunOptimizer:
         result = _run()
         if result.overrides:
             assert "morning_cap_soc" in result.overrides
-            assert "gentle_charge_factor" in result.overrides
+            assert "morning_cap_until_h" in result.overrides
+            assert "gentle_charge_factor" not in result.overrides
         else:
             # No improvement → base_params returned
             assert result.best_params.morning_cap_enabled is False
+
+    def test_cost_wear_uses_battery_throughput(self):
+        result = _run(OBJECTIVE_COST)
+        assert result.fallback is False
+        assert result.baseline_forecast is not None
+        assert result.baseline_forecast.battery_throughput_kwh >= 0.0
+        assert abs(result.estimated_savings_pct) < 1_000_000
+
+    def test_pv_charge_throughput_without_grid_draw(self):
+        """PV surplus charging creates battery throughput even with zero grid draw."""
+        result = run_optimizer(
+            base_params=_params(),
+            soc=20.0,
+            consumption_h=[100.0] * 24,
+            pv_h=[
+                0, 0, 0, 0, 0, 100, 500, 1500, 3000, 4500, 5500, 6000,
+                6000, 5500, 4500, 3000, 1500, 500, 100, 0, 0, 0, 0, 0,
+            ],
+            battery_capacity_kwh=15.0,
+            regelung_aktiv=True,
+            max_discharge_power=8000,
+            objective=OBJECTIVE_COST,
+            now=_NOW,
+            consumption_data_days=14,
+            pv_data_days=14,
+        )
+        assert result.baseline_forecast is not None
+        assert result.baseline_forecast.battery_throughput_kwh > 0.0
+        # Wear must be based on throughput field (present on ForecastResult)
+        assert hasattr(result.baseline_forecast, "battery_throughput_kwh")

@@ -125,3 +125,110 @@ def test_debounce_uses_effective_discharge_not_none():
     eff = _effective_discharge_limit_w(d, 9000)
     assert _limits_changed_vs_sent_values(2048.0, eff, 2040, 9000) is False
     assert _limits_changed_vs_sent_values(2100.0, eff, 2040, 9000) is True
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Energy integration / forecast helpers / retry semantics
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_energy_interval_skips_first_tick():
+    from datetime import datetime, timedelta, timezone
+    from custom_components.e3dc_maestro.coordinator_helpers import energy_interval_hours
+
+    now = datetime(2026, 7, 17, 12, 0, tzinfo=timezone.utc)
+    assert energy_interval_hours(None, now, timedelta(seconds=30)) is None
+
+
+def test_energy_interval_uses_elapsed_and_clamps():
+    from datetime import datetime, timedelta, timezone
+    from custom_components.e3dc_maestro.coordinator_helpers import energy_interval_hours
+
+    now = datetime(2026, 7, 17, 12, 0, tzinfo=timezone.utc)
+    last = now - timedelta(seconds=30)
+    assert abs(energy_interval_hours(last, now, timedelta(seconds=30)) - (30 / 3600)) < 1e-9
+
+    long_gap = now - timedelta(seconds=600)
+    # clamp to 3 × 30s = 90s
+    assert abs(energy_interval_hours(long_gap, now, timedelta(seconds=30)) - (90 / 3600)) < 1e-9
+
+
+def test_quarter_slot_floors_to_15_min():
+    from datetime import datetime, timezone
+    from custom_components.e3dc_maestro.coordinator_helpers import quarter_slot
+
+    now = datetime(2026, 7, 17, 12, 37, 40, tzinfo=timezone.utc)
+    assert quarter_slot(now) == datetime(2026, 7, 17, 12, 30, 0, tzinfo=timezone.utc)
+
+
+def test_forecast_fingerprint_stable_within_quarter():
+    from datetime import datetime, timezone
+    from custom_components.e3dc_maestro.coordinator_helpers import (
+        forecast_input_fingerprint,
+        quarter_slot,
+    )
+
+    now = datetime(2026, 7, 17, 12, 31, tzinfo=timezone.utc)
+    later = datetime(2026, 7, 17, 12, 44, tzinfo=timezone.utc)
+    kwargs = dict(
+        soc=55.2,
+        regelung_aktiv=True,
+        cons_h=[300.0] * 24,
+        pv_h=[1000.0] * 24,
+        params_key=(True, 40.0, 10.0),
+    )
+    a = forecast_input_fingerprint(quarter=quarter_slot(now), **kwargs)
+    b = forecast_input_fingerprint(quarter=quarter_slot(later), **kwargs)
+    assert a == b
+
+
+def test_forecast_fingerprint_changes_on_soc_or_quarter():
+    from datetime import datetime, timedelta, timezone
+    from custom_components.e3dc_maestro.coordinator_helpers import (
+        forecast_input_fingerprint,
+        quarter_slot,
+    )
+
+    now = datetime(2026, 7, 17, 12, 0, tzinfo=timezone.utc)
+    base = dict(
+        regelung_aktiv=True,
+        cons_h=[300.0] * 24,
+        pv_h=[1000.0] * 24,
+        params_key=(True, 40.0, 10.0),
+        quarter=quarter_slot(now),
+    )
+    a = forecast_input_fingerprint(soc=50.0, **base)
+    b = forecast_input_fingerprint(soc=60.0, **base)
+    c = forecast_input_fingerprint(
+        soc=50.0,
+        **{**base, "quarter": quarter_slot(now + timedelta(minutes=15))},
+    )
+    assert a != b
+    assert a != c
+
+
+def test_forecast_target_date_zero_is_today():
+    from datetime import datetime, timezone
+    from custom_components.e3dc_maestro.coordinator_helpers import forecast_target_date
+
+    now = datetime(2026, 7, 17, 22, 0, tzinfo=timezone.utc)
+    assert forecast_target_date(now, 0) == now.date()
+    assert forecast_target_date(now, 1).isoformat() == "2026-07-18"
+
+
+def test_rscp_retry_forced_when_last_act_failed():
+    """Same decision must resend when previous RSCP act failed."""
+    last_rscp_act_ok = False
+    prev_mode = POWER_MODE_NORMAL
+    decision_mode = POWER_MODE_NORMAL
+    needs_retry = not last_rscp_act_ok
+    mode_changed = prev_mode is None or prev_mode != decision_mode or needs_retry
+    limits_changed = _limits_changed_vs_sent_values(100.0, None, 100, None) or needs_retry
+    assert mode_changed is True
+    assert limits_changed is True
+
+
+def test_rscp_success_does_not_resend_identical_limits():
+    last_rscp_act_ok = True
+    needs_retry = not last_rscp_act_ok
+    assert (_limits_changed_vs_sent_values(100.0, None, 100, None) or needs_retry) is False

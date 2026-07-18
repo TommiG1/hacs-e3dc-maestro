@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hacs-e3dc-maestro"
-version = "0.3.11"
+version = "0.3.12"
 description = "E3DC Maestro Home Assistant custom integration"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -1,7 +1,7 @@
 {
   "domain": "e3dc_maestro",
   "name": "E3DC Maestro",
-  "version": "0.3.11",
+  "version": "0.3.12",
   "config_flow": true,
   "documentation": "https://github.com/TommiG1/hacs-e3dc-maestro",
   "issue_tracker": "https://github.com/TommiG1/hacs-e3dc-maestro/issues",

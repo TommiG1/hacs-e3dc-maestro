@@ -9,25 +9,55 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
-- **Community-Dashboard-Strategie:** Classic-Dashboard erscheint unter
-  *Einstellungen → Dashboards → Dashboard hinzufügen → Community dashboards*
-  (Home Assistant ≥ 2026.5). Kein YAML-Copy-Paste mehr nötig; Modern bleibt
-  manueller Import (installationsabhängige Roh-Entity-IDs)
-- **Bugfix Auto-Optimizer 48 h:** Tag-2 ist Kalender-**morgen** (nicht Solcast
-  „Tag 3“/Übermorgen). Fallback auf den konfigurierten Morgen-Sensor; Labels/Doku
-  korrigiert. `ignore_date`-Fallback nur noch bei eintägigen Sensoren
-- Forecast nutzt aktive Auto-Parameter, Solcast-Tagesprofil (wenn verfügbar) und
-  läuft im Executor; Optimizer-Fehler werden stündlich erneut versucht
-- RSCP-/Aktor-Aufrufe laufen serialisiert im Hintergrund (Polling blockiert nicht)
-- Diagnose-Entitäten als `EntityCategory.DIAGNOSTIC`; Debug-Log und Abregelungs-
-  Detail standardmäßig deaktiviert; Geräte-`sw_version` folgt dem Manifest
-- HA Diagnostics-Plattform, CI (pytest/ruff/hassfest), Dashboard-Validator
-- **Modernes Dashboard** als zweite Variante:
-  [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
-  (Live-Energiefluss, Graphen, Hilfe-Seiten wie im Classic-Dashboard)
-- Auto-Optimierung bewertet Akku-Verschleiß realistischer (über den
-  tatsächlichen Durchsatz) und zeigt Einsparungen verständlicher
-- interne Code-Struktur aufgeräumt (Tarif-Modul, Selector-Helpers, PV-Parser)
+---
+
+## [0.3.12] – Community-Dashboard & Forecast-Härten (2026-07-18)
+
+**Feature / Qualität.** Classic-Dashboard ohne YAML-Copy-Paste; 48‑h-Forecast
+korrekt; Aktorik und HA-Integration robuster.
+
+### Dashboard neu hinzufügen (Classic)
+
+Voraussetzungen: **Home Assistant ≥ 2026.5**, HACS-Frontend
+[Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) und
+[ApexCharts Card](https://github.com/RomRider/apexcharts-card).
+
+1. Integration auf **v0.3.12** aktualisieren (HACS) und **HA neu starten**
+   (oder Integration neu laden)
+2. Browser **hart neu laden** (damit das Strategy-Modul geladen wird)
+3. **Einstellungen → Dashboards → Dashboard hinzufügen**
+4. Unter **Community dashboards** **E3DC Maestro** wählen
+5. Vorgeschlagenen Titel **E3DC Maestro** und Icon bestätigen → Anlegen
+
+Der URL-Pfad muss **`e3dc-maestro`** lauten (Hilfe-Links). Den Titel im Dialog
+nicht umbenennen, bevor der Slug gesetzt ist.
+
+Bereits angelegte Dashboards werden durch Updates **nicht** überschrieben.
+Zum Erneuern: altes Dashboard löschen und wie oben neu anlegen.
+
+**Fallback** (ältere HA-Version ohne Community-Picker): YAML manuell aus
+[`dashboards/maestro_dashboard.yaml`](dashboards/maestro_dashboard.yaml)
+importieren, Titel **E3DC Maestro**.
+
+**Modern-Dashboard** bleibt manueller Import
+([`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml))
+wegen installationsabhängiger Roh-Entity-IDs.
+
+### Weitere Änderungen
+- **Bugfix Auto-Optimizer 48 h:** Tag-2 = Kalender-**morgen**; Fallback auf
+  Morgen-Sensor; `ignore_date` nur noch bei eintägigen Sensoren
+- Forecast mit aktiven Auto-Parametern, Solcast-Tagesprofil, Executor; Retry
+  nach Optimizer-Fehlern
+- RSCP-/Aktor-Aufrufe serialisiert im Hintergrund (Polling blockiert nicht)
+- Diagnose-Entitäten als `EntityCategory.DIAGNOSTIC`; Geräte-`sw_version` aus
+  Manifest; HA Diagnostics-Plattform
+- CI (pytest/ruff/hassfest), Dashboard-Validator, Glossar an `decide()`-Priorität
+- Auto-Optimierung: realistischerer Akku-Verschleiß über Durchsatz
+- interne Modularisierung (Tarif, Selectors, PV-Parser)
+
+### Nach dem Update
+HA neu starten oder Integration neu laden, Browser hard-refreshen, dann
+Dashboard wie oben anlegen bzw. prüfen.
 
 ---
 

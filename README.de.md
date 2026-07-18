@@ -445,6 +445,22 @@ persistiert und überlebt HA-Neustarts.
 > berechnen Investition und Amortisation **sofort** neu, ohne dass eine neue
 > Simulation läuft.
 
+### Abschluss: Dashboard hinzufügen
+
+Nach dem Sizing Advisor zeigt der Einrichtungsassistent die Seite
+**„Dashboard hinzufügen“**. Nach dem Abschluss erhältst du zusätzlich eine
+persistente Home-Assistant-Benachrichtigung mit derselben Anleitung:
+
+1. Browser **hart neu laden** (Cmd/Ctrl+Shift+R)
+2. **Einstellungen → Dashboards → Dashboard hinzufügen**
+3. Unter **Community dashboards** **E3DC Maestro** wählen
+4. Vorgeschlagenen Titel **E3DC Maestro** bestätigen → Anlegen
+
+Voraussetzungen: **Home Assistant ≥ 2026.5** sowie Mushroom Cards und
+ApexCharts Card aus HACS. Der URL-Pfad muss `e3dc-maestro` lauten, damit
+die Hilfe-Links funktionieren. Für ältere HA-Versionen steht der manuelle
+YAML-Import als Fallback bereit.
+
 ---
 
 ## Bereitgestellte Entitäten

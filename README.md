@@ -416,6 +416,21 @@ survives HA restarts.
 > recalculate investment and payback **instantly** without re-running the
 > simulation.
 
+### Finish: Add the dashboard
+
+After the Sizing Advisor, the setup flow shows an **“Add dashboard”** page.
+When you finish, Home Assistant also creates a persistent notification with
+the same instructions:
+
+1. **Hard-reload** the browser (Cmd/Ctrl+Shift+R)
+2. **Settings → Dashboards → Add dashboard**
+3. Under **Community dashboards**, choose **E3DC Maestro**
+4. Keep the suggested title **E3DC Maestro** → Create
+
+Requirements: **Home Assistant ≥ 2026.5**, plus Mushroom Cards and ApexCharts
+Card from HACS. The URL path must be `e3dc-maestro` so help links work. Older
+HA versions can use the manual YAML import as a fallback.
+
 ---
 
 ## Provided Entities

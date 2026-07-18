@@ -66,8 +66,37 @@ _HA_STUBS = [
 for _name, _attrs in _HA_STUBS:
     sys.modules.setdefault(_name, _auto(_name, **_attrs))
 
+# homeassistant.const stubs need EntityCategory for sensor platform imports
+sys.modules["homeassistant.const"].EntityCategory = type(  # type: ignore[attr-defined]
+    "EntityCategory",
+    (),
+    {"DIAGNOSTIC": "diagnostic", "CONFIG": "config"},
+)
+sys.modules["homeassistant.const"].UnitOfEnergy = type(  # type: ignore[attr-defined]
+    "UnitOfEnergy", (), {"KILO_WATT_HOUR": "kWh"}
+)
+sys.modules["homeassistant.const"].UnitOfPower = type(  # type: ignore[attr-defined]
+    "UnitOfPower", (), {"WATT": "W"}
+)
+sys.modules["homeassistant.const"].STATE_UNAVAILABLE = "unavailable"  # type: ignore[attr-defined]
+sys.modules["homeassistant.const"].STATE_UNKNOWN = "unknown"  # type: ignore[attr-defined]
+
+# sensor component stubs used by sensor.py imports in migration tests
+_sensor_mod = sys.modules["homeassistant.components.sensor"]
+for _name in (
+    "SensorDeviceClass",
+    "SensorEntity",
+    "SensorEntityDescription",
+    "SensorStateClass",
+):
+    if not hasattr(_sensor_mod, _name):
+        setattr(
+            _sensor_mod,
+            _name,
+            type(_name, (), {"__init__": lambda self, *a, **k: None}),
+        )
+
 # battery_sizing.py does `from homeassistant.util import dt as dt_util`, which
 # goes through the homeassistant.util module object, not sys.modules directly.
 # Explicitly wire the submodule as an attribute so the import resolves correctly.
 sys.modules["homeassistant.util"].dt = sys.modules["homeassistant.util.dt"]  # type: ignore[attr-defined]
-

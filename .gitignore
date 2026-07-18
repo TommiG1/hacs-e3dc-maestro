@@ -70,5 +70,8 @@ scripts/test_rscp_grid_tags.py
 # Internal docs (nicht ins Repo)
 ROADMAP.md
 
+# Local HA deploy notes / personal snippets
+.ha-deploy/
+
 # Lokales Archiv (nicht Teil des Repos; Release-Historie → CHANGELOG.md)
 archive/

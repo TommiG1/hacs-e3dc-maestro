@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio pytest-cov ruff pyyaml
+      - name: Ruff check
+        run: ruff check custom_components tests
+      - name: Validate dashboards
+        run: |
+          python scripts/validate_dashboards.py --strict-shared
+          python scripts/sync_dashboard_strategy.py --check
+      - name: Unit tests with coverage
+        run: |
+          pytest --cov=custom_components.e3dc_maestro --cov-report=term-missing
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master

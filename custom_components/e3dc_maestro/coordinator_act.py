@@ -63,6 +63,58 @@ class CoordinatorActMixin:
         task.add_done_callback(_done)
 
 
+    async def _async_schedule_act(
+        self,
+        decision: MaestroDecision,
+        state: MaestroState,
+        opts: dict,
+        current_price: float | None,
+    ) -> None:
+        """Queue actuation so the poll cycle is not blocked by RSCP I/O.
+
+        Pending payloads coalesce (last write wins). A single serial worker
+        processes them so service order stays deterministic.
+        """
+        if self._shutting_down:
+            return
+        self._pending_act = (decision, state, opts, current_price)
+        if self._act_task is not None and not self._act_task.done():
+            return
+
+        async def _worker() -> None:
+            try:
+                while True:
+                    async with self._act_lock:
+                        pending = self._pending_act
+                        self._pending_act = None
+                    if pending is None:
+                        return
+                    await self._async_act(*pending)
+            finally:
+                self._act_task = None
+                # A new payload may have arrived after we cleared pending.
+                if self._pending_act is not None and not self._shutting_down:
+                    self._act_task = self.hass.async_create_task(
+                        _worker(), name="e3dc_maestro_act_worker"
+                    )
+                    self._background_tasks.add(self._act_task)
+
+                    def _done(t: asyncio.Task[Any]) -> None:
+                        self._background_tasks.discard(t)
+
+                    self._act_task.add_done_callback(_done)
+
+        self._act_task = self.hass.async_create_task(
+            _worker(), name="e3dc_maestro_act_worker"
+        )
+        self._background_tasks.add(self._act_task)
+
+        def _done(t: asyncio.Task[Any]) -> None:
+            self._background_tasks.discard(t)
+
+        self._act_task.add_done_callback(_done)
+
+
     def _limits_changed_vs_sent(self, decision: MaestroDecision) -> bool:
         """True when decision limits differ enough from last RSCP call to resend."""
         return _limits_changed_vs_sent_values(
@@ -222,7 +274,11 @@ class CoordinatorActMixin:
                     # Set to minimum to effectively stop
                     ok = await self._call_e3dc(SERVICE_SET_WALLBOX_CURRENT, {"current": 0})
                 elif opts.get(CONF_WALLBOX_SERVICE_OFF):
-                    await self._call_generic_service(opts[CONF_WALLBOX_SERVICE_OFF])
+                    try:
+                        await self._call_generic_service(opts[CONF_WALLBOX_SERVICE_OFF])
+                    except (HomeAssistantError, ValueError, asyncio.TimeoutError) as err:
+                        _LOGGER.warning("Wallbox aus: %s", err)
+                        ok = False
                 if ok:
                     self._last_wallbox_current = 0
                     self._log("Wallbox ausgeschaltet (kein Überschuss)")
@@ -234,7 +290,11 @@ class CoordinatorActMixin:
                         SERVICE_SET_WALLBOX_CURRENT, {"current": int(desired_current)}
                     )
                 elif opts.get(CONF_WALLBOX_SERVICE_ON):
-                    await self._call_generic_service(opts[CONF_WALLBOX_SERVICE_ON])
+                    try:
+                        await self._call_generic_service(opts[CONF_WALLBOX_SERVICE_ON])
+                    except (HomeAssistantError, ValueError, asyncio.TimeoutError) as err:
+                        _LOGGER.warning("Wallbox ein: %s", err)
+                        ok = False
                 if ok:
                     self._last_wallbox_current = desired_current
                     self._log(f"Wallbox {desired_current:.0f}A (Überschuss)")
@@ -243,17 +303,26 @@ class CoordinatorActMixin:
     async def _async_act_hp(self, turn_on: bool, opts: dict) -> None:
         service_key = CONF_HP_SERVICE_ON if turn_on else CONF_HP_SERVICE_OFF
         service = opts.get(service_key)
-        if service:
-            await self._call_generic_service(service)
-        elif opts.get(CONF_HP_SWITCH_ENTITY):
-            domain = "switch"
-            entity_id = opts[CONF_HP_SWITCH_ENTITY]
-            await self.hass.services.async_call(
-                domain,
-                "turn_on" if turn_on else "turn_off",
-                {"entity_id": entity_id},
-                blocking=True,
-            )
+        ok = True
+        try:
+            if service:
+                await self._call_generic_service(service)
+            elif opts.get(CONF_HP_SWITCH_ENTITY):
+                domain = "switch"
+                entity_id = opts[CONF_HP_SWITCH_ENTITY]
+                await self.hass.services.async_call(
+                    domain,
+                    "turn_on" if turn_on else "turn_off",
+                    {"entity_id": entity_id},
+                    blocking=True,
+                )
+            else:
+                ok = False
+        except (HomeAssistantError, ValueError, asyncio.TimeoutError) as err:
+            _LOGGER.warning("Wärmepumpen-Umschaltung fehlgeschlagen: %s", err)
+            ok = False
+        if not ok:
+            return
         self._hp_running = turn_on
         self._hp_last_change = dt_util.utcnow()
         self._log(f"Wärmepumpe {'ein' if turn_on else 'aus'}geschaltet")

@@ -1,8 +1,10 @@
 """Forecast cache, optimizer scheduling, and PV profile reading."""
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import date, datetime, timedelta
+from datetime import datetime
+from typing import TYPE_CHECKING
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 
@@ -13,18 +15,31 @@ from .const import (
     CONF_TOMORROW_PV_SENSOR,
 )
 from .coordinator_helpers import (
+    _run_optimizer_sync,
     forecast_input_fingerprint as _forecast_input_fingerprint,
     quarter_slot as _quarter_slot,
-    _run_optimizer_sync,
 )
 from .forecast import simulate_next_24h
+from .pv_forecast_profile import (
+    FORECAST_ATTR_KEYS,
+    extract_pv_profile,
+    forecast_params_key,
+    is_single_day_forecast,
+    profile_source_tag,
+)
+
+if TYPE_CHECKING:
+    from .control_engine import MaestroState
 
 _LOGGER = logging.getLogger(__name__)
+
+# How long to wait before retrying a failed optimizer run (same calendar day).
+_OPTIMIZER_RETRY_HOURS = 1
 
 
 class CoordinatorForecastMixin:
     async def _async_update_forecast(
-        self, state: "MaestroState", now: datetime
+        self, state: MaestroState, now: datetime
     ) -> None:
         """F1: Recompute the 24-hour forecast using current stats (cached)."""
         try:
@@ -44,16 +59,22 @@ class CoordinatorForecastMixin:
                 return  # No historical data yet
 
             cons_used = cons_h if cons_h is not None else [state.house_power] * 24
-            pv_used = pv_h if pv_h is not None else [state.pv_power] * 24
-            params_key = (
-                self._params.morning_cap_enabled,
-                self._params.morning_cap_soc,
-                self._params.morning_cap_until_h,
-                self._params.charge_target,
-                self._params.max_charge_power,
-                self._params.feed_in_limit_percent,
-                self._params.installed_kwp,
-                self._params.battery_capacity_kwh,
+            # Prefer today's Solcast/Forecast.Solar profile when available so the
+            # dashboard forecast matches the optimizer PV basis.
+            pv_source = "historic_mean"
+            pv_forecast = self._read_pv_forecast_profile(now, days_ahead=0)
+            if pv_forecast is not None:
+                pv_used = pv_forecast
+                pv_source = "day_forecast"
+            elif pv_h is not None:
+                pv_used = pv_h
+            else:
+                pv_used = [state.pv_power] * 24
+                pv_source = "instant"
+
+            active = self._active_params
+            params_key = forecast_params_key(active) + profile_source_tag(
+                pv_source, pv_used if pv_source == "day_forecast" else None
             )
             fingerprint = _forecast_input_fingerprint(
                 soc=state.soc,
@@ -68,22 +89,50 @@ class CoordinatorForecastMixin:
                 and self._forecast_fingerprint == fingerprint
             ):
                 return
-            self.forecast = simulate_next_24h(
-                soc=state.soc,
-                consumption_h=cons_used,
-                pv_h=pv_used,
-                params=self._params,
-                now=now,
-                battery_capacity_kwh=self._params.battery_capacity_kwh,
-                regelung_aktiv=self.regelung_aktiv,
-            )
-            self._forecast_fingerprint = fingerprint
+
+            # Serialise concurrent simulations (poll tick vs. listener refresh).
+            if not hasattr(self, "_forecast_lock"):
+                self._forecast_lock = asyncio.Lock()
+            async with self._forecast_lock:
+                if (
+                    self.forecast is not None
+                    and self._forecast_fingerprint == fingerprint
+                ):
+                    return
+                generation = getattr(self, "_forecast_generation", 0) + 1
+                self._forecast_generation = generation
+
+                def _run_sim(
+                    _soc=state.soc,
+                    _cons=cons_used,
+                    _pv=pv_used,
+                    _params=active,
+                    _now=now,
+                    _cap=active.battery_capacity_kwh,
+                    _active=self.regelung_aktiv,
+                ):
+                    return simulate_next_24h(
+                        soc=_soc,
+                        consumption_h=_cons,
+                        pv_h=_pv,
+                        params=_params,
+                        now=_now,
+                        battery_capacity_kwh=_cap,
+                        regelung_aktiv=_active,
+                    )
+
+                result = await self.hass.async_add_executor_job(_run_sim)
+                if getattr(self, "_forecast_generation", 0) != generation:
+                    return  # superseded by a newer request
+                self.forecast = result
+                self._forecast_fingerprint = fingerprint
+                self._forecast_pv_source = pv_source
         except Exception as err:
             _LOGGER.debug("Forecast update failed: %s", err)
 
 
     async def _async_maybe_run_optimizer(
-        self, state: "MaestroState", now: datetime
+        self, state: MaestroState, now: datetime
     ) -> None:
         """F3: Run grid-search optimizer 1×/day when auto-mode is on.
 
@@ -91,6 +140,7 @@ class CoordinatorForecastMixin:
         - Only runs when no override exists for the current local date
         - Requires ≥7 days of consumption AND PV history; falls back otherwise
         - Manual entity writes invalidate the override and force a re-run
+        - Failed runs retry after ``_OPTIMIZER_RETRY_HOURS`` (same day)
         """
         if not self._params.auto_mode_enabled:
             # Auto-mode off → make sure no stale override is applied
@@ -98,13 +148,15 @@ class CoordinatorForecastMixin:
                 self.invalidate_auto_params()
             return
 
-        # Only re-run when we haven't optimised for today (local date).
-        # NOTE: do NOT gate on ``self._auto_params`` – that field is None when
-        # baseline turned out optimal (no override needed).  Re-running every
-        # update would only re-evaluate the same daily forecast.
         today = now.date()
         if self._auto_last_run is not None and self._auto_last_run.date() == today:
-            return
+            # Successful run today — do not re-evaluate until tomorrow.
+            if not getattr(self, "_auto_run_failed", False):
+                return
+            # Failed earlier today — allow controlled retry.
+            elapsed_h = (now - self._auto_last_run).total_seconds() / 3600.0
+            if elapsed_h < _OPTIMIZER_RETRY_HOURS:
+                return
 
         cs = self._consumption_stats
         pv = self._pv_stats
@@ -128,14 +180,9 @@ class CoordinatorForecastMixin:
 
         # If a Solcast/Forecast.Solar sensor provides today's hourly PV
         # profile (as a list/dict attribute), prefer it over the historic mean.
-        # Supported attribute shapes:
-        #   list[float]  len=24 → direct hourly W values
-        #   list[dict]   with 'pv_estimate'/'value' + 'period_start' keys (Solcast)
-        # days_ahead: 0 = today, 1 = tomorrow
         pv_h_forecast = self._read_pv_forecast_profile(now, days_ahead=0)
         if pv_h_forecast is not None:
             pv_h = pv_h_forecast
-            # Sum is in W per slot — convert to kWh based on resolution
             _slots_per_hour = max(1, len(pv_h_forecast) // 24)
             _kwh_total = sum(pv_h_forecast) / 1000.0 / _slots_per_hour
             _LOGGER.info(
@@ -143,8 +190,8 @@ class CoordinatorForecastMixin:
                 max(pv_h_forecast), _kwh_total, 60 // _slots_per_hour,
             )
         else:
-            _LOGGER.info(
-                "Auto-Optimizer: keine Tagesprognose gefunden \u2192 90d-Mittel (max=%.0f W)",
+            _LOGGER.debug(
+                "Auto-Optimizer: keine Tagesprognose gefunden → 90d-Mittel (max=%.0f W)",
                 max(pv_h),
             )
 
@@ -155,7 +202,7 @@ class CoordinatorForecastMixin:
         if pv_h_day2 is not None:
             _slots_per_hour_d2 = max(1, len(pv_h_day2) // 24)
             _LOGGER.info(
-                "Auto-Optimizer: Tag-2-Prognose genutzt (sum=%.1f kWh) \u2192 48 h-Horizont",
+                "Auto-Optimizer: Tag-2-Prognose genutzt (sum=%.1f kWh) → 48 h-Horizont",
                 sum(pv_h_day2) / 1000.0 / _slots_per_hour_d2,
             )
 
@@ -180,10 +227,16 @@ class CoordinatorForecastMixin:
             self._auto_params = None
             self._auto_result = None
             self._auto_last_run = now
+            self._auto_run_failed = True
+            # Invalidate forecast so next tick recomputes with manual params.
+            self._forecast_fingerprint = None
             return
 
         self._auto_result = result
         self._auto_last_run = now
+        self._auto_run_failed = False
+        # Auto override changed → force forecast refresh with active params.
+        self._forecast_fingerprint = None
         if result.fallback or not result.overrides:
             # No improvement found / fallback → keep manual params active
             self._auto_params = None
@@ -212,7 +265,7 @@ class CoordinatorForecastMixin:
 
 
     def _read_pv_forecast_profile(
-        self, now: "datetime", days_ahead: int = 0
+        self, now: datetime, days_ahead: int = 0
     ) -> list[float] | None:
         """Try to read a 24h PV forecast (W) from a Solcast/Forecast.Solar sensor.
 
@@ -228,128 +281,11 @@ class CoordinatorForecastMixin:
         """
         import datetime as _dt
 
-        def _parse_iso(s: str) -> "_dt.datetime | None":
-            try:
-                return _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
-            except (TypeError, ValueError):
-                return None
-
         target_date = (now + _dt.timedelta(days=days_ahead)).date()
-        # Profiles are indexed by UTC hour-of-day (matching consumption/pv stats).
-        _UTC = _dt.timezone.utc
-
-        def _to_utc_slot(ts: _dt.datetime) -> tuple[int, int]:
-            """Return (hour, minute) in UTC."""
-            if ts.tzinfo is not None:
-                ts_utc = ts.astimezone(_UTC)
-            else:
-                ts_utc = ts.replace(tzinfo=_UTC)
-            return ts_utc.hour, ts_utc.minute
-
-        def _period_calendar_date(ts: _dt.datetime) -> _dt.date:
-            """Wall-clock calendar date of the forecast period (Solcast day label)."""
-            # Keep the date as labeled in the ISO string / sensor (local day),
-            # not the UTC date — otherwise CEST midnight→01:59 falls on "yesterday".
-            return ts.date()
-
-        def _try_extract(attrs, *, ignore_date: bool = False) -> list[float] | None:
-            # Shape 1: list of dicts with period_start + pv_estimate (kW)
-            # Prefer detailedForecast (30-min) when present — higher resolution.
-            for key in ("detailedForecast", "detailedHourly", "forecast", "hourly_data", "forecasts"):
-                raw = attrs.get(key)
-                if isinstance(raw, list) and raw and isinstance(raw[0], dict):
-                    # Collect into 48 half-hour buckets to preserve sub-hour peaks.
-                    halfhour: list[list[float]] = [[] for _ in range(48)]
-                    for item in raw:
-                        ts_str = (
-                            item.get("period_start")
-                            or item.get("time")
-                            or item.get("datetime")
-                        )
-                        if not ts_str:
-                            continue
-                        ts = _parse_iso(str(ts_str))
-                        if ts is None:
-                            continue
-                        if not ignore_date and _period_calendar_date(ts) != target_date:
-                            continue
-                        utc_hour, utc_minute = _to_utc_slot(ts)
-                        val = (
-                            item.get("pv_estimate")
-                            or item.get("value")
-                            or item.get("pv_estimate90")
-                            or 0.0
-                        )
-                        try:
-                            val_w = float(val) * 1000.0  # kW → W
-                        except (TypeError, ValueError):
-                            continue
-                        slot = utc_hour * 2 + (1 if utc_minute >= 30 else 0)
-                        halfhour[slot].append(val_w)
-                    # Did we get genuine sub-hour data? (any hour has both halves filled)
-                    has_halfhour = any(
-                        halfhour[h * 2] and halfhour[h * 2 + 1]
-                        for h in range(24)
-                    )
-                    if has_halfhour:
-                        # Fill empty slots from the matching hour mean (rare gaps).
-                        profile_48 = []
-                        for h in range(24):
-                            a = halfhour[h * 2]
-                            b = halfhour[h * 2 + 1]
-                            if a and b:
-                                profile_48.append(sum(a) / len(a))
-                                profile_48.append(sum(b) / len(b))
-                            elif a or b:
-                                vals = a or b
-                                avg = sum(vals) / len(vals)
-                                profile_48.append(avg)
-                                profile_48.append(avg)
-                            else:
-                                profile_48.append(0.0)
-                                profile_48.append(0.0)
-                        if any(v > 0 for v in profile_48):
-                            return profile_48
-                    # Fallback to hourly resolution if data is hour-only.
-                    profile_24 = []
-                    for h in range(24):
-                        vals = halfhour[h * 2] + halfhour[h * 2 + 1]
-                        profile_24.append(sum(vals) / len(vals) if vals else 0.0)
-                    if any(v > 0 for v in profile_24):
-                        return profile_24
-            # Shape 2: plain list len=24
-            for key in ("hourly_wh", "watt_hours_period", "watt"):
-                raw = attrs.get(key)
-                if isinstance(raw, list) and len(raw) == 24:
-                    try:
-                        return [float(v) for v in raw]
-                    except (TypeError, ValueError):
-                        pass
-            # Shape 3: dict with ISO datetime keys → Wh (hourly buckets)
-            raw = attrs.get("watt_hours")
-            if isinstance(raw, dict):
-                buckets: list[list[float]] = [[] for _ in range(24)]
-                for k, v in raw.items():
-                    ts = _parse_iso(str(k))
-                    if ts is None:
-                        continue
-                    if not ignore_date and _period_calendar_date(ts) != target_date:
-                        continue
-                    utc_hour, _ = _to_utc_slot(ts)
-                    try:
-                        buckets[utc_hour].append(float(v))
-                    except (TypeError, ValueError):
-                        pass
-                profile = [sum(b) / len(b) if b else 0.0 for b in buckets]
-                if any(v > 0 for v in profile):
-                    return profile
-            return None
-
         opts = self.entry.options
         if not opts.get(CONF_PV_FORECAST_ENABLED):
             return None
 
-        # 1. Try configured sensors (first match with data for target_date wins).
         # Tag-2 of the 48 h horizon is calendar tomorrow (days_ahead=1), not
         # Solcast "Tag 3"/übermorgen. Prefer the Forward-Looking tomorrow
         # sensor (same day), then an explicit day-2 override, then the main
@@ -371,15 +307,20 @@ class CoordinatorForecastMixin:
             state = self.hass.states.get(sensor_id)
             if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 continue
-            profile = _try_extract(state.attributes)
+            attrs = dict(state.attributes)
+            profile = extract_pv_profile(attrs, target_date=target_date)
             # Solcast day entities (prognose_morgen / tag_N) only contain one
             # calendar day — if the strict date filter missed (UTC vs local),
-            # accept the sensor's full profile for Tag-2 candidates.
-            if profile is None and days_ahead >= 1:
-                profile = _try_extract(state.attributes, ignore_date=True)
+            # accept the sensor's full profile for Tag-2 candidates ONLY when
+            # the attribute payload is clearly single-day. Multi-day sensors
+            # (e.g. wrongly configured Tag-3) must not silently become "tomorrow".
+            if profile is None and days_ahead >= 1 and is_single_day_forecast(attrs):
+                profile = extract_pv_profile(
+                    attrs, target_date=target_date, ignore_date=True
+                )
             if profile is not None:
                 if days_ahead >= 1:
-                    _LOGGER.info(
+                    _LOGGER.debug(
                         "Auto-Optimizer: Tag-%s-Profil aus '%s' (target=%s, sum≈%.1f kWh)",
                         days_ahead + 1,
                         sensor_id,
@@ -389,27 +330,29 @@ class CoordinatorForecastMixin:
                 return profile
 
         if days_ahead >= 1:
-            _LOGGER.info(
+            _LOGGER.debug(
                 "Auto-Optimizer: kein Tag-2-PV-Profil (target=%s, tried=%s)",
                 target_date,
                 [s for s in candidate_ids if s],
             )
 
-        # 2. Auto-detect: scan all sensor.* states for one with detailedHourly/forecast/watt_hours
-        # Only for days_ahead=0 — for tomorrow we require configured sensors so
-        # Solcast Tag-3..7 entities cannot silently extend the horizon to 48 h.
+        # Auto-detect: only for days_ahead=0 — for tomorrow we require configured
+        # sensors so Solcast Tag-3..7 entities cannot silently extend the horizon.
         if days_ahead != 0:
             return None
 
-        # Use cached result from a previous scan to avoid rescanning every cycle.
         if self._autodetected_pv_sensor is not None:
             cached_state = self.hass.states.get(self._autodetected_pv_sensor)
-            if cached_state is not None and cached_state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-                profile = _try_extract(cached_state.attributes)
+            if cached_state is not None and cached_state.state not in (
+                STATE_UNAVAILABLE,
+                STATE_UNKNOWN,
+            ):
+                profile = extract_pv_profile(
+                    dict(cached_state.attributes), target_date=target_date
+                )
                 if profile is not None:
                     return profile
-            # Cached sensor is gone or no longer usable – clear cache and re-scan below.
-            _LOGGER.info(
+            _LOGGER.debug(
                 "Auto-Optimizer: Gecachter PV-Sensor '%s' nicht mehr verfügbar – erneute Suche",
                 self._autodetected_pv_sensor,
             )
@@ -417,12 +360,9 @@ class CoordinatorForecastMixin:
 
         for state in self.hass.states.async_all("sensor"):
             attrs = state.attributes
-            if not any(
-                k in attrs
-                for k in ("detailedHourly", "forecast", "hourly_data", "watt_hours")
-            ):
+            if not any(k in attrs for k in FORECAST_ATTR_KEYS):
                 continue
-            profile = _try_extract(attrs)
+            profile = extract_pv_profile(dict(attrs), target_date=target_date)
             if profile is not None:
                 self._autodetected_pv_sensor = state.entity_id
                 _LOGGER.info(

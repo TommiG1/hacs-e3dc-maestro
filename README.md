@@ -29,7 +29,7 @@ E3DC Maestro runs entirely **local and without any cloud connection**. It extend
    - [Selects](#selects)
    - [Buttons](#buttons)
 8. [Rule Logic & Phase Priority](#rule-logic--phase-priority)
-9. [Import Dashboard](#import-dashboard)
+9. [Set up Dashboard](#set-up-dashboard)
 10. [Sensor Sign Conventions](#sensor-sign-conventions)
 11. [Troubleshooting & FAQ](#troubleshooting--faq)
 12. [Known Compatibility](#known-compatibility)
@@ -66,7 +66,7 @@ E3DC Maestro runs entirely **local and without any cloud connection**. It extend
 | **Decision explanation** | `decision_explanation` sensor with a full plain-text explanation for every phase |
 | **Anti-flapping** | EWMA smoothing of PV/load (τ = 60 s, jump-reset at 2 kW) + feed-in-limit hysteresis + pv-delay cooldown to prevent rapid phase oscillation |
 | **Battery & PV Sizing Advisor (v0.3.7)** | 2D simulation (additional battery × additional PV) on historical hourly data — calculates savings, payback time, self-sufficiency and three recommendations (economic / technical / balanced) |
-| **287 automated tests** | Control engine, forecast simulator, optimiser and sizing advisor fully covered |
+| **Automated tests + CI** | Control engine, forecast/PV parser, optimiser and sizing advisor covered; GitHub Actions runs pytest, Ruff and hassfest |
 
 ---
 
@@ -666,42 +666,55 @@ Maestro decides **every tick** (default: 30 s) in descending priority. The first
 
 ---
 
-## Import Dashboard
+## Set up Dashboard
 
-The included dashboard [`dashboards/maestro_dashboard.yaml`](dashboards/maestro_dashboard.yaml) provides **10 tabs** (incl. **Sizing Advisor** since v0.3.7) with a complete overview, controls, diagnostics and what-if analysis.
+The classic dashboard ([`dashboards/maestro_dashboard.yaml`](dashboards/maestro_dashboard.yaml))
+provides **10 tabs** (incl. **Sizing Advisor** since v0.3.7) with overview, controls,
+diagnostics and what-if analysis. With the community dashboard strategy you no longer
+need to paste YAML by hand.
 
 ### Prerequisites
-
-The dashboard requires the following custom cards from HACS:
 
 | Card | Installation |
 |---|---|
 | [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) | HACS → Frontend |
 | [ApexCharts Card](https://github.com/RomRider/apexcharts-card) | HACS → Frontend |
 
-### Method A: New dashboard
+Also: **Home Assistant ≥ 2026.5** for the *Community dashboards* picker entry
+(older versions can still use the YAML fallback below).
 
-> **Important:** The dashboard uses hardcoded help-link paths (e.g. `/e3dc-maestro/help-...`). These only work if the dashboard URL slug is exactly `e3dc-maestro`. HA generates the slug automatically from the title — so name the dashboard **E3DC Maestro** and the slug will be set correctly.
+### Recommended: Community dashboard (one click)
+
+1. Set up the **E3DC Maestro** integration (or restart HA if it is already running)
+2. **Hard-reload** the browser so the strategy module loads
+3. **Settings → Dashboards → Add dashboard**
+4. Under **Community dashboards**, choose **E3DC Maestro**
+5. Keep the suggested title **E3DC Maestro** and icon → Create
+
+> Help links require the URL path **`e3dc-maestro`**. The dialog suggests the
+> matching title — do not rename before the slug is set.
+
+The dashboard appears in the sidebar. Integration updates refresh the strategy
+template; an already created storage dashboard stays as-is until you delete and
+re-add it.
+
+### Fallback: Manual YAML import
+
+If the community picker is missing (older HA) or you prefer YAML:
 
 1. **Settings → Dashboards → Add dashboard**
-2. Enter the title **E3DC Maestro** (this sets the URL slug to `e3dc-maestro`)
-3. *Start with an empty page* or *Start with YAML*
-4. Three-dot menu of the new dashboard → **Edit in YAML**
-5. Paste the entire content of `maestro_dashboard.yaml` → Save
+2. Title **E3DC Maestro** (slug `e3dc-maestro`)
+3. Three-dot menu → **Edit in YAML**
+4. Paste `maestro_dashboard.yaml` → Save
 
-### Method B: Existing dashboard
+Or replace an existing dashboard via the raw configuration editor.
 
-1. Three-dot menu of the dashboard → **Edit dashboard**
-2. Three-dot menu top right → **Raw configuration editor**
-3. Replace content with the content of `maestro_dashboard.yaml` → Save
+### Variant: Modern dashboard (manual)
 
-### Variant: Modern dashboard (alternative)
-
-In addition to the classic dashboard, a **second, selectable** variant
 [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
-is available with a modern look: live energy flow, mini-graph trends and
-standard HA tile/gauge/entities cards. It covers **all functions and all
-help pages** of the classic dashboard — the classic file stays unchanged.
+is an optional modern look (live energy flow, graphs). It is **not** offered
+automatically because five **installation-specific** raw E3DC entity IDs at the
+top of the file must be adjusted first.
 
 **Additional custom cards (HACS → Frontend):**
 
@@ -712,26 +725,13 @@ help pages** of the classic dashboard — the classic file stays unchanged.
 | [apexcharts-card](https://github.com/RomRider/apexcharts-card) | HACS → Frontend |
 | [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | HACS → Frontend |
 
-> The **Übersicht** tab is fully driven by `custom:button-card` with reusable
-> JavaScript templates (defined once in the top-level `button_card_templates`
-> block of the YAML). It gives the dashboard a state-of-the-art look:
-> gradient phase hero, SoC ring, sign-aware power tiles, animated active
-> intervention chips and rich money cards.
+> Help links need slug **`e3dc-maestro-modern`** → title **E3DC Maestro Modern**.
 
-> **Important:** The modern dashboard uses hardcoded help-link paths
-> (e.g. `/e3dc-maestro-modern/help-...`). These only work if the URL slug
-> is exactly `e3dc-maestro-modern`. So name the dashboard **E3DC Maestro
-> Modern** when importing.
-
-**Before importing**, open `dashboards/maestro_dashboard_modern.yaml`
-and adjust the placeholder E3DC raw entity IDs at the top of the file
+**Before importing**, replace the placeholders
 (`sensor.e3dc_pv_power`, `sensor.e3dc_house_power`,
 `sensor.e3dc_grid_power`, `sensor.e3dc_battery_power`,
-`sensor.e3dc_soc`) to match your actual E3DC sensors. They are used by
-the power-flow card and the live power mini-graph.
-
-Then follow Method A or B above with the modern YAML and title
-**E3DC Maestro Modern**.
+`sensor.e3dc_soc`) with your real E3DC sensors, then import YAML as in the
+fallback.
 
 ---
 
@@ -906,7 +906,7 @@ For questions about commercial licensing or use cases that are not compatible wi
    - [Auswahlen (Selects)](#auswahlen-selects)
    - [Schaltflächen (Buttons)](#schaltflächen-buttons)
 7. [Regellogik & Phasenpriorität](#regellogik--phasenpriorität)
-8. [Dashboard importieren](#dashboard-importieren)
+8. [Dashboard einrichten](#dashboard-einrichten)
 9. [Sensor-Vorzeichen-Konventionen](#sensor-vorzeichen-konventionen)
 10. [Fehlerbehebung & FAQ](#fehlerbehebung--faq)
 11. [Bekannte Kompatibilität](#bekannte-kompatibilität)
@@ -942,7 +942,7 @@ For questions about commercial licensing or use cases that are not compatible wi
 | **Regelungs-Cockpit** | Live Command Center mit Hero-Status, KPI-Kacheln, „Aktiv jetzt"-Chips, 24 h Phasenverlauf und „Warum diese Entscheidung?" |
 | **Entscheidungs-Erklärung** | Sensor `decision_explanation` mit vollständigem deutschen Erklärungssatz pro Regelphase (alle 17 Phasen) |
 | **Battery & PV Sizing Advisor (v0.3.7)** | 2D-Simulation (Zusatz-Akku × Zusatz-PV) auf historischen Stundendaten — berechnet Einsparung, Amortisation, Autarkie und drei Empfehlungen (wirtschaftlich / technisch / ausgewogen) |
-| **287 automatisierte Tests** | Control-Engine, Forecast-Simulator, Optimizer und Sizing Advisor vollständig abgedeckt |
+| **Automatisierte Tests + CI** | Control-Engine, Forecast/PV-Parser, Optimizer und Sizing Advisor abgedeckt; GitHub Actions mit pytest, Ruff und hassfest |
 
 ---
 
@@ -1365,18 +1365,21 @@ Szenario-Sensoren (live, folgen den beiden Slidern):
 
 ---
 
-### Sensoren – Diagnose (manuell aktivieren)
+### Sensoren – Diagnose
 
-Diese Sensoren sind nach der Installation **deaktiviert** (erscheinen grau in der Entitätenliste). Sie müssen manuell aktiviert werden wenn du sie nutzen möchtest.
+Diagnose-Sensoren sind in der Entitätenliste unter der Kategorie **Diagnose**
+gruppiert. Die meisten sind nach der Installation **aktiviert**. Nur besonders
+schreibintensive Detailwerte sind standardmäßig deaktiviert und müssen manuell
+eingeschaltet werden (`debug_log`, `abregelung_verhindert_heute`).
 
-| Entity-ID | Name | Beschreibung |
-|---|---|---|
-| `sensor.e3dc_maestro_abregelung_verhindert_heute` | Abregelung verhindert heute | Energie die durch Einspeiselimit-Eingriff (70%-Regel) gesichert wurde (Detailwert von `pv_verlust_verhindert`) |
-| `sensor.e3dc_maestro_dc_abregelung_verhindert_heute` | DC-Abregelung verhindert heute | Energie die durch Curtailment Guard (DC-seitige Überdimensionierung) gesichert wurde (Detailwert von `pv_verlust_verhindert`) |
-| `sensor.e3dc_maestro_notstromreserve_aktuell` | Notstromreserve (aktuell) | Aktuell berechneter Reserve-SoC (saisonal interpoliert) |
-| `sensor.e3dc_maestro_notstromreserve_adaptiv` | Notstromreserve (adaptiv) | Verbrauchsadaptiv berechnete Reserve |
-| `sensor.e3dc_maestro_ht_reserve_adaptiv` | HT-Reserve (adaptiv) | Adaptiv berechnete HT-Reserve |
-| `sensor.e3dc_maestro_debug_log` | Debug-Log | Letzte 5 Regel-Logeinträge; nur sinnvoll wenn Debug-Logging eingeschaltet ist |
+| Entity-ID | Name | Beschreibung | Default |
+|---|---|---|---|
+| `sensor.e3dc_maestro_abregelung_verhindert_heute` | Abregelung verhindert heute | Energie die durch Einspeiselimit-Eingriff (70%-Regel) gesichert wurde (Detailwert von `pv_verlust_verhindert`) | deaktiviert |
+| `sensor.e3dc_maestro_dc_abregelung_verhindert_heute` | DC-Abregelung verhindert heute | Energie die durch Curtailment Guard (DC-seitige Überdimensionierung) gesichert wurde (Detailwert von `pv_verlust_verhindert`) | aktiv |
+| `sensor.e3dc_maestro_notstromreserve_aktuell` | Notstromreserve (aktuell) | Aktuell berechneter Reserve-SoC (saisonal interpoliert) | aktiv (Diagnose) |
+| `sensor.e3dc_maestro_notstromreserve_adaptiv` | Notstromreserve (adaptiv) | Verbrauchsadaptiv berechnete Reserve | aktiv (Diagnose) |
+| `sensor.e3dc_maestro_ht_reserve_adaptiv` | HT-Reserve (adaptiv) | Adaptiv berechnete HT-Reserve | aktiv (Diagnose) |
+| `sensor.e3dc_maestro_debug_log` | Debug-Log | Letzte 5 Regel-Logeinträge; nur sinnvoll wenn Debug-Logging eingeschaltet ist | deaktiviert |
 
 ---
 
@@ -1559,71 +1562,41 @@ Maestro entscheidet **jeden Tick** (Standard: 30 s) in absteigender Priorität. 
 
 ---
 
-## Dashboard importieren
+## Dashboard einrichten
 
-Das mitgelieferte Dashboard [`dashboards/maestro_dashboard.yaml`](dashboards/maestro_dashboard.yaml) bietet **10 Tabs** (inkl. **Sizing Advisor** seit v0.3.7) mit vollständiger Übersicht, Steuerung, Diagnose und What-If-Analyse.
+Das Classic-Dashboard ([`dashboards/maestro_dashboard.yaml`](dashboards/maestro_dashboard.yaml))
+bietet **10 Tabs** (inkl. **Sizing Advisor** seit v0.3.7). Mit der Community-
+Dashboard-Strategie entfällt der YAML-Copy-Paste-Schritt.
 
 ### Voraussetzungen
-
-Das Dashboard nutzt folgende Custom Cards aus HACS:
 
 | Card | Installation |
 |---|---|
 | [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) | HACS → Frontend |
 | [ApexCharts Card](https://github.com/RomRider/apexcharts-card) | HACS → Frontend |
 
-### Import-Methode A: Neues Dashboard
+Zusätzlich: **Home Assistant ≥ 2026.5** für *Community dashboards* (sonst Fallback unten).
 
-1. **Einstellungen → Dashboards → Dashboard hinzufügen**
-2. *Mit einer leeren Seite beginnen* oder *Mit YAML beginnen*
-3. Drei-Punkte-Menü des neuen Dashboards → **In YAML bearbeiten**
-4. Gesamten Inhalt von `maestro_dashboard.yaml` einfügen → Speichern
+### Empfohlen: Community-Dashboard
 
-### Import-Methode B: In bestehendes Dashboard
+1. Integration einrichten bzw. HA neu starten
+2. Browser hart neu laden
+3. **Einstellungen → Dashboards → Dashboard hinzufügen**
+4. Unter **Community dashboards** **E3DC Maestro** wählen
+5. Titel **E3DC Maestro** bestätigen (Slug `e3dc-maestro`)
 
-1. Drei-Punkte-Menü des Dashboards → **Dashboard bearbeiten**
-2. Drei-Punkte-Menü oben rechts → **Raw-Konfigurationseditor**
-3. Inhalt durch den Inhalt von `maestro_dashboard.yaml` ersetzen → Speichern
+### Fallback: Manueller YAML-Import
 
-### Variante: Modernes Dashboard (alternative Version)
+1. Dashboard mit Titel **E3DC Maestro** anlegen
+2. In YAML bearbeiten → Inhalt von `maestro_dashboard.yaml` einfügen
 
-Zusätzlich zum klassischen Dashboard steht eine **zweite, wählbare**
-Variante [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
-zur Verfügung — mit modernem Look: Live-Energiefluss, mini-graph-Verläufe
-und Standard-HA-Karten (tile/gauge/entities). Sie enthält **alle Funktionen
-und alle Hilfe-Seiten** des Classic-Dashboards. Die Classic-Datei bleibt
-unverändert.
+### Variante: Modernes Dashboard (manuell)
 
-**Zusätzliche Custom Cards (HACS → Frontend):**
-
-| Card | Installation |
-|---|---|
-| [button-card](https://github.com/custom-cards/button-card) | HACS → Frontend |
-| [mini-graph-card](https://github.com/kalkih/mini-graph-card) | HACS → Frontend |
-| [apexcharts-card](https://github.com/RomRider/apexcharts-card) | HACS → Frontend |
-| [power-flow-card-plus](https://github.com/flixlix/power-flow-card-plus) | HACS → Frontend |
-
-> Die **Übersicht** ist vollständig mit `custom:button-card` und
-> wiederverwendbaren JavaScript-Templates aufgebaut (definiert im
-> Top-Level-Block `button_card_templates` der YAML). Sie liefert einen
-> State-of-the-Art-Look: Gradient-Phase-Hero, SoC-Ring,
-> vorzeichenabhängige Power-Tiles, animierte aktive Eingriffe und reiche
-> €-Karten.
-
-> **Wichtig:** Das moderne Dashboard verwendet fest codierte Hilfe-Link-Pfade
-> (z. B. `/e3dc-maestro-modern/help-...`). Diese funktionieren nur, wenn der
-> URL-Slug exakt `e3dc-maestro-modern` lautet. Beim Import daher den Titel
-> **E3DC Maestro Modern** verwenden.
-
-**Vor dem Import** öffne `dashboards/maestro_dashboard_modern.yaml` und
-passe die Platzhalter-Entity-IDs am Datei-Anfang
-(`sensor.e3dc_pv_power`, `sensor.e3dc_house_power`,
-`sensor.e3dc_grid_power`, `sensor.e3dc_battery_power`,
-`sensor.e3dc_soc`) an deine tatsächlichen E3DC-Sensoren an. Sie werden
-von der Power-Flow-Karte und der Live-Leistungs-Mini-Graph verwendet.
-
-Anschließend folge Import-Methode A oder B mit dem modernen YAML und
-dem Titel **E3DC Maestro Modern**.
+[`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
+wird **nicht** automatisch angeboten (installationsabhängige Roh-Entity-IDs).
+Vor dem Import Platzhalter anpassen und Titel **E3DC Maestro Modern** verwenden
+(Slug `e3dc-maestro-modern`). Zusätzliche HACS-Karten: button-card, mini-graph-card,
+apexcharts-card, power-flow-card-plus.
 
 ### Tab-Übersicht
 

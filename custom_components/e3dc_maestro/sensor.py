@@ -13,8 +13,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfEnergy, UnitOfPower
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfPower
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
@@ -22,6 +22,7 @@ from homeassistant.util import dt as dt_util
 from .const import ALL_PHASES, DOMAIN
 from .coordinator import E3DCMaestroCoordinator
 from .explanation import decision_explanation as _decision_explanation
+from .sensor_device import device_info as _device_info
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -229,6 +230,8 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         key="debug_log",
         name="Debug-Log",
         icon="mdi:text-box-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value_fn=lambda coord: "\n".join(list(coord.debug_log)[-5:]) if coord.debug_log else "",
     ),
     # C1: Autonomy time
@@ -236,6 +239,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         key="autonomy_time",
         name="Autonomiezeit",
         icon="mdi:timer-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.autonomy_str,
     ),
     # B1: Seasonal reserve SoC
@@ -245,6 +249,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         icon="mdi:battery-alert",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.seasonal_reserve_soc,
     ),
     # Phase D: adaptive emergency reserve SoC
@@ -254,6 +259,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         icon="mdi:battery-charging-medium",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.adaptive_reserve_soc,
     ),
     # Phase D: adaptive HT reserve SoC
@@ -263,6 +269,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         icon="mdi:battery-charging-medium",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.adaptive_ht_reserve_soc,
     ),
     # F1+: Forward-Looking diagnostics
@@ -272,6 +279,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         icon="mdi:battery-charging-high",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.forward_looking_target_soc,
     ),
     MaestroSensorDescription(
@@ -286,6 +294,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         name="Morgen Energiedefizit",
         icon="mdi:weather-cloudy-alert",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.tomorrow_deficit_kwh,
     ),
     # Schwacher-PV-Tag: Tagesprognose + Referenz + Verhältnis
@@ -301,12 +310,14 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         name="PV-Referenz-Ertrag",
         icon="mdi:solar-power-variant",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.low_yield_reference_kwh,
     ),
     MaestroSensorDescription(
         key="low_yield_ratio",
         name="PV-Tag Quote",
         icon="mdi:percent-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.low_yield_ratio,
     ),
     # E3/Phase 1: Curtailment avoided today (Diagnose; kombiniert in pv_saved_today)
@@ -317,6 +328,8 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value_fn=lambda coord: round(coord.stats.get("feed_in_avoided_today_kwh", 0), 3),
     ),
     # Phase 5: Seasonal charge-end hour
@@ -324,6 +337,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         key="seasonal_charge_end",
         name="Saisonales Ladeende (Uhrzeit)",
         icon="mdi:clock-end",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.seasonal_charge_end_str,
     ),
     # Phase 7: Astro charge-start (sunrise + offset)
@@ -331,6 +345,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         key="astro_charge_start",
         name="Astro-Ladestart (Uhrzeit)",
         icon="mdi:clock-start",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.astro_charge_start_str,
     ),
     # Prognose: Ladeende und Ladestart morgen
@@ -338,12 +353,14 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         key="tomorrow_charge_end",
         name="Ladeende morgen (Prognose)",
         icon="mdi:clock-end",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.tomorrow_charge_end_str,
     ),
     MaestroSensorDescription(
         key="tomorrow_charge_start",
         name="Ladestart morgen (Prognose)",
         icon="mdi:clock-start",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.tomorrow_charge_start_str,
     ),
     # PV-Verzögerung: voraussichtlicher Ladestart heute
@@ -351,6 +368,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         key="pv_delay_charge_start",
         name="Verzögerter Ladestart heute",
         icon="mdi:clock-alert-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.pv_delay_charge_start_str,
     ),
     # F1: 24h Forecast sensors (enabled by default; return unknown until ≥7d history available)
@@ -393,6 +411,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         name="Forecast: SoC-Trajektorie 24h",
         icon="mdi:chart-line",
         native_unit_of_measurement="%",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.forecast.min_soc if coord.forecast else None,
     ),
     # F2: Diagnose-Sensor für Forecast-Datenqualität
@@ -400,6 +419,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         key="forecast_data_quality",
         name="Forecast: Datenqualit\u00e4t",
         icon="mdi:database-check",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: _forecast_quality_state(coord),
     ),
     # F3: Auto-Optimierungs-Modus
@@ -430,6 +450,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: (
             int(coord.last_decision.charge_power_limit)
             if coord.last_decision and coord.last_decision.charge_power_limit is not None
@@ -443,6 +464,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.effective_discharge_limit,
     ),
     # Tatsächlich per e3dc_rscp gesendete Caps. Unterscheiden sich vom Soll
@@ -455,6 +477,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.last_sent_charge_limit,
     ),
     MaestroSensorDescription(
@@ -464,6 +487,7 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda coord: coord.last_sent_discharge_limit,
     ),
     # Wallbox / Verbrauchsaufteilung
@@ -680,12 +704,51 @@ async def async_setup_entry(
 class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
     entity_description: MaestroSensorDescription
     _attr_has_entity_name = True
+    # Heavy attribute payloads — suppress writes when value+attrs fingerprint unchanged.
+    _HEAVY_KEYS = frozenset({
+        "forecast_trajectory",
+        "auto_active_strategy",
+        "decision_explanation",
+        "forecast_data_quality",
+        "debug_log",
+    })
 
     def __init__(self, coordinator: E3DCMaestroCoordinator, description: MaestroSensorDescription) -> None:
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
         self._attr_device_info = _device_info(coordinator)
+        self._last_write_fp: Any = None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Suppress redundant HA state writes for heavy / unchanged sensors."""
+        key = self.entity_description.key
+        if key in self._HEAVY_KEYS:
+            value = self.native_value
+            attrs = self.extra_state_attributes
+            if key == "forecast_trajectory" and isinstance(attrs, dict):
+                fp = (
+                    value,
+                    attrs.get("min_soc"),
+                    attrs.get("max_soc"),
+                    attrs.get("grid_draw_kwh"),
+                    tuple(attrs.get("trajectory_soc") or ()),
+                )
+            elif key == "auto_active_strategy" and isinstance(attrs, dict):
+                fp = (
+                    value,
+                    attrs.get("last_run"),
+                    attrs.get("horizon_h"),
+                    attrs.get("estimated_savings_pct"),
+                    repr(attrs.get("overrides")),
+                )
+            else:
+                fp = (value, repr(attrs))
+            if fp == self._last_write_fp:
+                return
+            self._last_write_fp = fp
+        super()._handle_coordinator_update()
 
     @property
     def native_value(self) -> Any:
@@ -798,6 +861,7 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
                 "pv_profile_max_w": round(max(pv_profile), 1) if pv_profile else 0,
                 "pv_profile_avg_w": round(sum(pv_profile) / 24, 1) if pv_profile else 0,
                 "pv_profile_nonzero_hours": sum(1 for v in pv_profile if v > 0),
+                "forecast_pv_source": getattr(self.coordinator, "_forecast_pv_source", None),
                 "hint": (
                     "PV-Profil leer – Solcast/Forecast.Solar-Sensor empfehlenswert"
                     if not pv_profile or max(pv_profile) == 0
@@ -1041,10 +1105,28 @@ class MaestroSizingScenarioSensor(CoordinatorEntity["E3DCMaestroCoordinator"], S
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_sizing_scenario"
         self._attr_device_info = _device_info(coordinator)
+        self._interp_cache_key: tuple[Any, ...] | None = None
+        self._interp_cache: Any = None
+
+    def _cached_interp(self):
+        coord = self.coordinator
+        key = (
+            id(coord.sizing_analysis),
+            getattr(coord, "sizing_hypothetical_kwh", None),
+            getattr(coord, "sizing_hypothetical_pv_kwp", None),
+            getattr(coord, "sizing_price_battery_kwh", None),
+            getattr(coord, "sizing_price_pv_kwp", None),
+            getattr(coord, "sizing_price_inverter", None),
+            getattr(coord, "sizing_price_extra", None),
+        )
+        if key != self._interp_cache_key:
+            self._interp_cache_key = key
+            self._interp_cache = _sizing_interpolate(coord)
+        return self._interp_cache
 
     @property
     def native_value(self) -> float | None:
-        interp = _sizing_interpolate(self.coordinator)
+        interp = self._cached_interp()
         if interp is None:
             return None
         import math
@@ -1063,7 +1145,7 @@ class MaestroSizingScenarioSensor(CoordinatorEntity["E3DCMaestroCoordinator"], S
                 "slider_pv_kwp": coord.sizing_hypothetical_pv_kwp,
             }
         import math
-        interp = _sizing_interpolate(coord)
+        interp = self._cached_interp()
         # Live-Investitionsberechnung: aus den (dashboard-editierbaren)
         # Preis-Eingaben + dem WR-Upgrade-Flag der interpolierten Zelle.
         battery_kwh = float(coord.sizing_hypothetical_kwh or 0.0)
@@ -1102,13 +1184,3 @@ class MaestroSizingScenarioSensor(CoordinatorEntity["E3DCMaestroCoordinator"], S
             "scenario_monthly_baseline_grid_in": interp.monthly_baseline_grid_in if interp else None,
         }
 
-
-
-def _device_info(coordinator: E3DCMaestroCoordinator) -> dict:
-    return {
-        "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-        "name": "E3DC Maestro",
-        "manufacturer": "E3DC Maestro",
-        "model": "Charge Orchestrator",
-        "sw_version": "0.1.5",
-    }

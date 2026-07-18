@@ -9,15 +9,25 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+- **Community-Dashboard-Strategie:** Classic-Dashboard erscheint unter
+  *Einstellungen → Dashboards → Dashboard hinzufügen → Community dashboards*
+  (Home Assistant ≥ 2026.5). Kein YAML-Copy-Paste mehr nötig; Modern bleibt
+  manueller Import (installationsabhängige Roh-Entity-IDs)
 - **Bugfix Auto-Optimizer 48 h:** Tag-2 ist Kalender-**morgen** (nicht Solcast
   „Tag 3“/Übermorgen). Fallback auf den konfigurierten Morgen-Sensor; Labels/Doku
-  korrigiert
+  korrigiert. `ignore_date`-Fallback nur noch bei eintägigen Sensoren
+- Forecast nutzt aktive Auto-Parameter, Solcast-Tagesprofil (wenn verfügbar) und
+  läuft im Executor; Optimizer-Fehler werden stündlich erneut versucht
+- RSCP-/Aktor-Aufrufe laufen serialisiert im Hintergrund (Polling blockiert nicht)
+- Diagnose-Entitäten als `EntityCategory.DIAGNOSTIC`; Debug-Log und Abregelungs-
+  Detail standardmäßig deaktiviert; Geräte-`sw_version` folgt dem Manifest
+- HA Diagnostics-Plattform, CI (pytest/ruff/hassfest), Dashboard-Validator
 - **Modernes Dashboard** als zweite Variante:
   [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
   (Live-Energiefluss, Graphen, Hilfe-Seiten wie im Classic-Dashboard)
 - Auto-Optimierung bewertet Akku-Verschleiß realistischer (über den
   tatsächlichen Durchsatz) und zeigt Einsparungen verständlicher
-- interne Code-Struktur aufgeräumt (kein Verhaltenswechsel für den Alltag)
+- interne Code-Struktur aufgeräumt (Tarif-Modul, Selector-Helpers, PV-Parser)
 
 ---
 

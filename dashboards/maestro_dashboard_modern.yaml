@@ -2803,14 +2803,16 @@ views:
             content: |
               ## Inhaltsverzeichnis
 
-              **Regellogik & Phasen** — alle Phasen sind unten als Glossar erklärt.
+              **Regellogik & Phasen** — alle Engine-Phasen sind unten im Glossar
+              (Priorität wie in `decide()`).
 
               **Feature-Hilfen (Detail-Seiten)**
 
               | Bereich | Hilfe-Seite |
               |---|---|
-              | Ladekorridor (SoC-Rampe, Ladeende) | [→ Ladekorridor](/e3dc-maestro-modern/help-ladekorridor) |
+              | Ladekorridor (SoC-Rampe, Ladeende, Hard-SoC) | [→ Ladekorridor](/e3dc-maestro-modern/help-ladekorridor) |
               | Ladeverteilung (Spreading) | [→ Spreading](/e3dc-maestro-modern/help-spreading) |
+              | PV-Verzögerung & Vorausschauende Ladung | [→ PV-Verzögerung](/e3dc-maestro-modern/help-pv-delay) |
               | Schwacher-PV-Tag (Akku-Priorität) | [→ Schwacher-PV-Tag](/e3dc-maestro-modern/help-low-yield) |
               | Abregelschutz (Curtailment Guard) | [→ Abregelschutz](/e3dc-maestro-modern/help-curtailment) |
               | Spät-Ladung (Two-Tier) | [→ Two-Tier](/e3dc-maestro-modern/help-two-tier) |
@@ -2841,23 +2843,31 @@ views:
           - type: markdown
             content: |
               Maestro wählt in jedem Zyklus genau **eine** aktive Phase. Die
-              Phasen sind nach Priorität geordnet — eine höher priorisierte
-              Phase übersteuert alle nachfolgenden.
+              Reihenfolge entspricht der Priorität in der Engine (`decide()`):
+              höhere Einträge übersteuern alle darunter.
 
-              | Priorität | Phase | Chip-Farbe | Bedeutung |
-              |---|---|---|---|
-              | 1 | **off** | grau | Regelung deaktiviert (Master-Switch aus) |
-              | 2 | **emergency** | 🔴 rot | SoC unter Ladeschwelle → Notfallladung mit voller Leistung |
-              | 3 | **feed_in_limit** | 🟠 orange | Netzeinspeisung überschreitet Limit → Akku muss Überschuss aufnehmen |
-              | 4 | **force_discharge** | 🟠 tiefes Orange | Erzwungene Entladung manuell aktiv |
-              | 5 | **reserve_protection** | 🔵 blau | Notstromreserve schützt Mindest-SoC → kein Entladen darunter |
-              | 6 | **evcc_pause** | 🟣 lila | EVCC im Sofortlade-Modus → Akku-Entladesperre aktiv |
-              | 7 | **ht_protection** | 🟤 tiefes Orange | Hochtarif-Fenster → kein Entladen |
-              | 8 | **corridor** | 🟢 grün | Saisonaler Ladekorridor → lineare SoC-Rampe bis Ladeende |
-              | 9 | **pv_delay** | 💚 hellgrün | PV-Prognose gut genug → Korridor-Ladung bewusst verzögert |
-              | 10 | **spreading** | 🩵 türkis | Ladeverteilung → Rate gleichmäßig auf Restzeit verteilt |
-              | 11 | **curtailment_guard** | 🟡 amber | Abregelschutz → erzwingt Mindest-Ladung gegen PV-Verlust |
-              | 12 | **idle** | grau | Kein Ladebedarf / außerhalb der Zeitfenster |
+              | Priorität | Phase | Bedeutung |
+              |---|---|---|
+              | 1 | **off** | Regelung deaktiviert (Master-Switch aus) |
+              | 2 | **force_discharge** | Manuelle Entladung (Dashboard-Schalter) – vor Emergency |
+              | 3 | **emergency** | SoC unter Ladeschwelle → Notfallladung mit voller Leistung |
+              | 4 | **feed_in_limit** | Netzeinspeisung über Limit → Ladeleistung anheben |
+              | 5 | **reserve_protection** | Notstromreserve → Entladung gesperrt |
+              | 6 | **evcc_pause** | EVCC Sofortladen → Akku-Entladegrenze |
+              | 7 | **ht_protection** | Hochtarif-Fenster → kein Entladen über Reserve |
+              | 8 | **morning_discharge** | Morgen-Vorentladung (Kapazität für Tages-PV schaffen) |
+              | 9 | **morning_cap** | SoC-Deckel morgens bis konfigurierte Uhrzeit |
+              | 10 | **astro_wait** | Warten auf Sonnenaufgang + Offset (kein Laden) |
+              | 11 | **hard_soc_limit** | Harter Max-SoC-Deckel (Akku-Schonung) |
+              | 12 | **fast_floor** | Schnelllade-Boden: voller PV-Überschuss bis Floor-SoC |
+              | 13 | **pv_delay** | Gute PV-Prognose → Korridor-Ladung verzögert |
+              | 14 | **corridor** | Saisonaler Ladekorridor / Schwacher-PV-Tag-Überschuss |
+              | 15 | **spreading** | Ladeverteilung über Restzeit bis Ladeende |
+              | 16 | **curtailment_guard** | Abregelschutz – Mindestladung gegen PV-Verlust |
+              | 17 | **idle** | Kein Ladebedarf / Korridor-Pause / außerhalb Fenster |
+
+              Hinweis: Die Entity-Option `manual` existiert nur als Anzeige-Label
+              und wird von der Engine derzeit nicht gesetzt.
 
       - type: grid
         cards:
@@ -2869,9 +2879,8 @@ views:
             content: |
               Die erzwungene Entladung wird **manuell** über den Switch
               *Erzwungene Entladung* oder die zugehörige Number-Entity
-              ausgelöst. Maestro entlädt den Akku dann aktiv ins Netz oder in
-              den Hausverbrauch — unabhängig von Tarif, Korridor oder anderen
-              Phasen.
+              ausgelöst. Maestro entlädt den Akku dann aktiv — **direkt nach
+              dem Master-Switch**, noch vor Emergency und allen anderen Phasen.
 
               **Wann sinnvoll?**
               - Vor einem günstigen Nachtstrom-Ladefenster (Tibber): Akku
@@ -2880,15 +2889,67 @@ views:
               - Test der E3DC-Entladefunktion.
 
               **Grenzen:**
-              - Maestro entlädt nie unter die aktive Notstromreserve.
+              - Maestro entlädt nie unter die aktive Notstromreserve /
+                Ladeschwelle (Floor). Darunter wechselt die Phase in Pause
+                (`IDLE`), bleibt aber `force_discharge`.
               - Die Entladeleistung ist durch die Number-Entity (W) begrenzt.
-              - Emergency-Ladung (Phase 2) hat immer Vorrang — wenn der SoC
-                gleichzeitig unter die Ladeschwelle fällt, stoppt Maestro die
-                erzwungene Entladung sofort.
+              - Solange der Schalter an ist, wird **keine** Emergency-Phase
+                erreicht — der Floor ersetzt die Notfalllogik.
 
               **Sicherheit:** Die erzwungene Entladung schaltet sich **nicht
               automatisch ab**. Sie muss manuell deaktiviert oder durch eine
               Automatisierung zeitlich begrenzt werden.
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Schnelllade-Boden (fast_floor)
+            icon: mdi:battery-fast
+
+          - type: markdown
+            content: |
+              Unter dem konfigurierten Floor-SoC lädt Maestro mit **voller
+              max_charge_power** (kein Korridor-Cap), damit die Mindestreserve
+              schnell aus PV-Überschuss aufgebaut wird. Sobald der Floor
+              erreicht ist, greifen wieder Korridor, Spreading oder Idle.
+
+              Abregelschutz kann den Floor übersteuern. Schalter und SoC-Ziel
+              liegen unter *Steuerverhalten*.
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Entscheidungserklärung
+            icon: mdi:comment-question-outline
+
+          - type: markdown
+            content: |
+              Im Cockpit erklärt der Block *Warum diese Entscheidung?* die
+              aktuelle Phase in Klartext. Die Texte kommen aus der
+              Engine-Erklärung und spiegeln denselben Prioritätsbaum wie das
+              Glossar oben.
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Anti-Flapping
+            icon: mdi:wave
+
+          - type: markdown
+            content: |
+              Maestro dämpft Phasen- und Leistungsflackern an mehreren Stellen:
+
+              - **SoC-Hysterese:** Der Regel-SoC folgt dem Rohwert erst ab einer
+                Totzone (`soc_hysteresis_percent`).
+              - **EWMA-Glättung:** PV-, Haus- und Wallbox-Leistung werden
+                geglättet, bevor Korridor/Abregelung daraus ableiten.
+              - **Curtailment-Hysterese:** Ein-/Ausschaltschwellen verhindern
+                Pendeln am Abregelungsrand.
+              - **Feed-in-Limit-Hysterese:** Verhindert schnelles An/Aus der
+                Einspeise-Limit-Phase.
+
+              Detail-Parameter:
+              [→ Steuerverhalten](/e3dc-maestro-modern/help-steuerverhalten)
 
       - type: grid
         cards:
@@ -4170,13 +4231,13 @@ views:
           |------------------------|----------------------------------------|
           | Morning-Cap SoC        | 20 / 30 / 40 / 50 / 60 / 70 / 80 %     |
           | Morning-Cap bis (lokal)| 7 / 8 / 9 / 10 / 11 / 12 h             |
-          | Schonlade-Faktor       | 0.20 / 0.35 / 0.50 / 0.70 / 1.00       |
 
-          → **210 Kombinationen** pro Tag (Attribut `grid_size`).
+          → **bis zu 42 Kombinationen** pro Tag (7 × 6; Attribut `grid_size`).
+          Cap-Werte unter der aktiven Reserve werden übersprungen — dann ist
+          `grid_size` kleiner.
 
           Höhere Cap-SoC + spätere Until-Stunde halten den Akku im Sommer
           länger leer und verhindern Mittags-Curtailment auf hohen PV-Tagen.
-          Schonlade-Faktor 1.0 deaktiviert die Schonladung effektiv.
 
           ---
 
@@ -4212,7 +4273,7 @@ views:
           | `last_run` | Zeitpunkt der letzten Optimierung |
           | `fallback_reason` | Grund, falls Fallback aktiv |
           | `overrides` | Welche Parameter überschrieben sind und mit welchen Werten |
-          | `grid_size` | Anzahl ausgewerteter Kombinationen (210) |
+          | `grid_size` | Anzahl ausgewerteter Kombinationen (≤ 42) |
           | `estimated_savings_pct` | Geschätzter Vorteil ggü. Basis (in %) |
 
           ---

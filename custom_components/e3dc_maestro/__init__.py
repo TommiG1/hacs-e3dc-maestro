@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -21,6 +22,15 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.BUTTON,
 ]
+
+
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+    """Set up the integration domain (once) and register the dashboard strategy."""
+    del config  # unused – config-entry only
+    from .dashboard_frontend import async_setup_frontend
+
+    await async_setup_frontend(hass)
+    return True
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -62,6 +72,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             f"E3DC Maestro requires the '{E3DC_RSCP_DOMAIN}' integration to be "
             "configured first. Please add the E3DC RSCP integration and restart."
         )
+
+    # Ensure strategy is available even if async_setup was skipped (edge cases).
+    from .dashboard_frontend import async_setup_frontend
+
+    await async_setup_frontend(hass)
 
     coordinator = E3DCMaestroCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()

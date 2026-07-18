@@ -688,6 +688,7 @@ class MaestroNumber(CoordinatorEntity[E3DCMaestroCoordinator], NumberEntity):
     async def async_set_native_value(self, value: float) -> None:
         self.coordinator.update_param(self.entity_description.param_key, value)
         self.async_write_ha_state()
+        self.coordinator.async_update_listeners()
 
 
 class MaestroSizingNumber(CoordinatorEntity[E3DCMaestroCoordinator], NumberEntity):

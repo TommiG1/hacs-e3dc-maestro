@@ -2,30 +2,23 @@
 """Generates dashboards/maestro_dashboard.yaml.
 
 ================================================================================
-⚠️  WARNUNG — GENERATOR IST OUT OF SYNC (Stand: 2026-05-12)
+⚠️  WARNUNG — GENERATOR IST OUT OF SYNC
 ================================================================================
-Die **Source of Truth** ist `dashboards/maestro_dashboard.yaml` (manuell gepflegt).
-Dieser Generator hinkt mehrere produktiv genutzte Sektionen hinterher:
+Die **Source of Truth** sind die YAML-Dateien unter `dashboards/`:
 
-  - Card „💶 Erträge & Kosten heute" (12+ Entities + help-kostenmodul Button)
-  - Markdown-Card „🔍 Was wurde optimiert?" (Auto-Strategie-Details)
-  - Hilfe-Subview `help-kostenmodul`
-  - `switch.e3dc_maestro_pv_prognose_verzogerung` im PV-Delay-Block
-  - `switch.e3dc_maestro_hard_soc_limit_akku_deckel` + Number im Korridor
-  - Help-Blöcke: Hard-SoC-Limit, Korridor-Bypass (Phase 7d),
-    Status-Hinweis für `summer_maximum_hour`
-  - Tabellenzeile „Kostenmodul" im Hilfe-Index
-  - Veraltete Referenz auf `gentle_charge_factor` im Auto-Strategie-Template
+  - dashboards/maestro_dashboard.yaml
+  - dashboards/maestro_dashboard_modern.yaml
 
-Ausführen würde ca. 440 Zeilen produktiver Konfiguration **zerstören**.
+Dieser Generator darf **nicht** blind ausgeführt werden — er würde produktive
+Sektionen überschreiben. Stattdessen:
 
-NICHT ohne vorherigen Sync mit dem YAML ausführen. Vor jedem Lauf:
-  1. `git diff dashboards/maestro_dashboard.yaml` nach erstem Probelauf prüfen
-  2. Generator entsprechend nachziehen
-  3. Erst dann committen
+  1. YAML manuell pflegen (oder gezielt patchen)
+  2. `python scripts/sync_dashboard_strategy.py` nach Classic-Änderungen
+  3. `python scripts/validate_dashboards.py --strict-shared` nach Änderungen
+  4. Generator nur nach vollständigem Sync mit den YAMLs wieder aktivieren
 
-Alternative: YAML weiterhin manuell pflegen, Generator nur als Skelett/Boilerplate
-behalten oder entfernen.
+Gemeinsame Labels/Views müssen in beiden Dashboards konsistent bleiben;
+`scripts/validate_dashboards.py` prüft die wichtigsten gemeinsamen Titel.
 ================================================================================
 
 Usage (from project root):

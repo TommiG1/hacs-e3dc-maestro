@@ -12,6 +12,8 @@ from homeassistant.const import PERCENTAGE, UnitOfPower
 from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er, selector
 
+from .config_flow_selectors import entity_selector as _entity_selector
+from .config_flow_selectors import number_selector as _number_selector
 from .const import (
     CONF_ADDITIONAL_GENERATION_SENSOR,
     CONF_ADVANCED_CORRIDOR,
@@ -309,10 +311,7 @@ STEP_SIZING_ADVISOR_SCHEMA = vol.Schema(
 )
 
 
-def _entity_selector(domain: str = "sensor") -> selector.EntitySelector:
-    return selector.EntitySelector(
-        selector.EntitySelectorConfig(domain=domain)
-    )
+# Schemas use _entity_selector / _number_selector from config_flow_selectors.
 
 
 # RSCP-Suffix-Mapping (E3DC RSCP Integration von Torben Nehmer).
@@ -568,20 +567,6 @@ def _format_sources_detection(detected: dict[str, Any]) -> str:
             f"- _EVCC-Integration erkannt (Sofortlade-Wert: `{detected.get(CONF_EVCC_NOW_VALUE, '')}`)_"
         )
     return "\n".join(sensor_lines)
-
-
-def _number_selector(
-    min_val: float, max_val: float, step: float = 1.0, unit: str | None = None
-) -> selector.NumberSelector:
-    del unit
-    return selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=min_val,
-            max=max_val,
-            step=step,
-            mode=selector.NumberSelectorMode.BOX,
-        )
-    )
 
 
 # ──────────────────────────────────────────────────────────────────────────────

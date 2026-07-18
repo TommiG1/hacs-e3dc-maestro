@@ -7,6 +7,7 @@ Handles Watchdog / Failsafe / Master-Switch off transitions.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 from collections import deque
 from datetime import date, datetime, timedelta
@@ -177,12 +178,20 @@ class E3DCMaestroCoordinator(
         # Shutdown / background-task tracking
         self._shutting_down: bool = False
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        # Latest pending actuation payload (last-write-wins coalescing).
+        self._pending_act: tuple[Any, Any, dict, float | None] | None = None
+        self._act_lock: asyncio.Lock = asyncio.Lock()
+        self._act_task: asyncio.Task[Any] | None = None
 
         # Energy integration: actual elapsed time between ticks
         self._last_energy_tick: datetime | None = None
 
         # Forecast cache (input fingerprint → skip redundant 96-step sims)
         self._forecast_fingerprint: tuple[Any, ...] | None = None
+        self._forecast_lock: asyncio.Lock = asyncio.Lock()
+        self._forecast_generation: int = 0
+        self._forecast_pv_source: str | None = None
+        self._auto_run_failed: bool = False
 
         # Manual charge rate-limit
         self._last_manual_charge: datetime | None = None
@@ -386,6 +395,8 @@ class E3DCMaestroCoordinator(
         if self._auto_params is not None or self._auto_last_run is not None:
             self._auto_params = None
             self._auto_last_run = None
+            self._auto_run_failed = False
+            self._forecast_fingerprint = None
 
 
     @property
@@ -437,8 +448,7 @@ class E3DCMaestroCoordinator(
         elif abs(state_data.soc - self._stable_soc) >= hysteresis:
             self._stable_soc = state_data.soc
         # Feed dampened SoC to rule engine
-        import dataclasses as _dc
-        state_data = _dc.replace(state_data, soc=self._stable_soc)
+        state_data = dataclasses.replace(state_data, soc=self._stable_soc)
 
         # A3: EWMA-Glättung von PV und Hausverbrauch (anti-flapping)
         # grid_power und battery_power bleiben roh – feed_in_limit braucht
@@ -458,7 +468,7 @@ class E3DCMaestroCoordinator(
             self._ewma_wallbox, state_data.wallbox_power or 0.0,
             EWMA_TAU_S, _dt_s, EWMA_JUMP_THRESHOLD_W,
         )
-        state_data = _dc.replace(
+        state_data = dataclasses.replace(
             state_data,
             pv_power=self._ewma_pv,
             house_power=self._ewma_house,
@@ -490,7 +500,7 @@ class E3DCMaestroCoordinator(
                     self._params.adaptive_reserve_lookback_days, ht_slot
                 )
                 if self._params.adaptive_reserve_enabled:
-                    state_data = _dc.replace(
+                    state_data = dataclasses.replace(
                         state_data,
                         consumption_avg_w_24h=self._consumption_stats.avg_w_24h,
                         consumption_avg_w_ht_window=self._consumption_stats.avg_w_ht_window,
@@ -539,7 +549,7 @@ class E3DCMaestroCoordinator(
                 state_data, active, active.charge_target
             )
             if new_target != active.charge_target:
-                active = _dc.replace(active, charge_target=new_target)
+                active = dataclasses.replace(active, charge_target=new_target)
                 self._fwd_looking_target = new_target
             else:
                 self._fwd_looking_target = active.charge_target
@@ -576,8 +586,7 @@ class E3DCMaestroCoordinator(
                 bypass_ramp = True
             if not bypass_ramp and target_p > self._last_applied_charge_power + ramp:
                 ramped_p = self._last_applied_charge_power + ramp
-                import dataclasses as _dc2
-                decision = _dc2.replace(
+                decision = dataclasses.replace(
                     decision,
                     charge_power_limit=float(ramped_p),
                     target_charge_power=float(ramped_p),
@@ -599,14 +608,13 @@ class E3DCMaestroCoordinator(
             and decision.phase not in _GENTLE_SKIP
             and decision.charge_power_limit is not None
         ):
-            import dataclasses as _dc3
-            decision = _dc3.replace(
+            decision = dataclasses.replace(
                 decision,
                 charge_power_limit=decision.charge_power_limit * active.gentle_charge_factor,
                 reason=decision.reason + f" (Schonladung ×{active.gentle_charge_factor:.0%})",
             )
 
-        await self._async_act(decision, state_data, opts, current_price)
+        await self._async_schedule_act(decision, state_data, opts, current_price)
 
         previous_phase = self.last_phase
         if decision.phase != previous_phase:

@@ -3392,9 +3392,9 @@ views:
           schonendere Strategie.
 
           **Wie aktivieren?** In den Maestro-Optionen unter
-          *PV-Prognose* das Feld **„Prognose-Sensor Tag 2"** auf einen
-          Solcast-Sensor mit `detailedHourly`-Attribut für den übernächsten
-          Tag setzen (z. B. `sensor.solcast_pv_forecast_prognose_tag_3`).
+          *PV-Prognose* das Feld **„Prognose morgen (Stundenprofil)"** oder den
+          Morgen-Sensor auf einen Solcast-Sensor mit `detailedHourly` für
+          **morgen** setzen (z. B. `sensor.solcast_pv_forecast_prognose_morgen`).
           Erst dann läuft der Optimizer mit 48 h-Horizont — keine
           Auto-Erkennung, um Überraschungen zu vermeiden.
 

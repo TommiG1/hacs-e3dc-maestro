@@ -122,7 +122,7 @@ CONF_HP_MIN_PAUSE_MINUTES = "hp_min_pause_minutes"
 # Config entry keys – PV forecast (charge delay)
 CONF_PV_FORECAST_ENABLED = "pv_forecast_enabled"
 CONF_PV_FORECAST_SENSOR = "pv_forecast_sensor"        # entity_id, value = remaining kWh today
-CONF_PV_FORECAST_SENSOR_DAY2 = "pv_forecast_sensor_day2"  # optional: hourly forecast for tomorrow (Solcast: prognose_tag_3)
+CONF_PV_FORECAST_SENSOR_DAY2 = "pv_forecast_sensor_day2"  # optional: hourly forecast for tomorrow (Solcast: prognose_morgen)
 CONF_PV_FORECAST_THRESHOLD_KWH = "pv_forecast_threshold_kwh"  # min remaining kWh to delay
 CONF_BATTERY_CAPACITY_KWH = "battery_capacity_kwh"    # usable capacity for sizing
 CONF_PV_FORECAST_SAFETY_FACTOR = "pv_forecast_safety_factor"  # forecast_remaining >= required * factor

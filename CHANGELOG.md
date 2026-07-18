@@ -9,6 +9,9 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+- **Bugfix Auto-Optimizer 48 h:** Tag-2 ist Kalender-**morgen** (nicht Solcast
+  „Tag 3“/Übermorgen). Fallback auf den konfigurierten Morgen-Sensor; Labels/Doku
+  korrigiert
 - **Modernes Dashboard** als zweite Variante:
   [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
   (Live-Energiefluss, Graphen, Hilfe-Seiten wie im Classic-Dashboard)

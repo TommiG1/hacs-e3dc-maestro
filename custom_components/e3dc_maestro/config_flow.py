@@ -738,7 +738,7 @@ STEP_FAILSAFE_SCHEMA = vol.Schema(
 STEP_PV_FORECAST_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_PV_FORECAST_ENABLED, default=False): selector.BooleanSelector(),
-        # PV-Forecast-Sensoren (heute → morgen → übermorgen)
+        # PV-Forecast-Sensoren (heute → morgen für Forward-Looking / 48 h-Optimizer)
         vol.Optional(CONF_PV_FORECAST_SENSOR): _entity_selector(),
         vol.Optional(CONF_TOMORROW_PV_SENSOR): _entity_selector(),
         vol.Optional(CONF_PV_FORECAST_SENSOR_DAY2): _entity_selector(),

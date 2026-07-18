@@ -81,12 +81,12 @@
       },
       "pv_forecast": {
         "title": "PV-Prognose / Ladeverzögerung",
-        "description": "Forecast-Sensoren für heute, morgen und übermorgen. Forward-Looking nutzt den Morgen-Sensor, um den Akku vorausschauend für schlechte PV-Tage zu laden. Der Auto-Optimizer nutzt heute + übermorgen für einen 48 h-Horizont.",
+        "description": "Forecast-Sensoren für heute und morgen. Forward-Looking und der Auto-Optimizer (48 h-Horizont) nutzen die Morgen-Prognose. Für den Stundenverlauf am Folgetag denselben Solcast-„Prognose morgen“-Sensor (mit detailedHourly) konfigurieren.",
         "data": {
           "pv_forecast_enabled": "PV-Prognose-Verzögerung aktivieren",
           "pv_forecast_sensor": "Prognose heute – verbleibende kWh (z. B. Solcast: Prognose verbleibende Leistung heute)",
-          "tomorrow_pv_sensor": "Prognose morgen – Tagessumme kWh (z. B. Solcast: Prognose morgen) – wird für Forward-Looking genutzt",
-          "pv_forecast_sensor_day2": "Prognose übermorgen – optional (z. B. Solcast: Prognose Tag 3) – aktiviert 48 h-Horizont im Auto-Optimizer",
+          "tomorrow_pv_sensor": "Prognose morgen – Tagessumme kWh (z. B. Solcast: Prognose morgen) – Forward-Looking und Fallback für 48 h-Optimizer",
+          "pv_forecast_sensor_day2": "Prognose morgen (Stundenprofil) – optional (z. B. Solcast: Prognose morgen) – aktiviert 48 h-Horizont im Auto-Optimizer",
           "pv_forecast_threshold_kwh": "Mindest-Prognose (kWh)",
           "battery_capacity_kwh": "Nutzbare Batteriekapazität (kWh)",
           "pv_forecast_safety_factor": "Sicherheitsfaktor (Prognose ≥ Bedarf × Faktor)",
@@ -334,12 +334,12 @@
       },
       "pv_forecast": {
         "title": "PV-Prognose / Ladeverzögerung",
-        "description": "Forecast-Sensoren für heute, morgen und übermorgen. Forward-Looking nutzt den Morgen-Sensor, um den Akku vorausschauend für schlechte PV-Tage zu laden. Der Auto-Optimizer nutzt heute + übermorgen für einen 48 h-Horizont.",
+        "description": "Forecast-Sensoren für heute und morgen. Forward-Looking und der Auto-Optimizer (48 h-Horizont) nutzen die Morgen-Prognose. Für den Stundenverlauf am Folgetag denselben Solcast-„Prognose morgen“-Sensor (mit detailedHourly) konfigurieren.",
         "data": {
           "pv_forecast_enabled": "PV-Prognose-Verzögerung aktivieren",
           "pv_forecast_sensor": "Prognose heute – verbleibende kWh (z. B. Solcast: Prognose verbleibende Leistung heute)",
-          "tomorrow_pv_sensor": "Prognose morgen – Tagessumme kWh (z. B. Solcast: Prognose morgen) – wird für Forward-Looking genutzt",
-          "pv_forecast_sensor_day2": "Prognose übermorgen – optional (z. B. Solcast: Prognose Tag 3) – aktiviert 48 h-Horizont im Auto-Optimizer",
+          "tomorrow_pv_sensor": "Prognose morgen – Tagessumme kWh (z. B. Solcast: Prognose morgen) – Forward-Looking und Fallback für 48 h-Optimizer",
+          "pv_forecast_sensor_day2": "Prognose morgen (Stundenprofil) – optional (z. B. Solcast: Prognose morgen) – aktiviert 48 h-Horizont im Auto-Optimizer",
           "pv_forecast_threshold_kwh": "Mindest-Prognose (kWh)",
           "battery_capacity_kwh": "Nutzbare Batteriekapazität (kWh)",
           "pv_forecast_safety_factor": "Sicherheitsfaktor (Prognose ≥ Bedarf × Faktor)",

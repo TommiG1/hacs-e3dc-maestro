@@ -63,7 +63,7 @@ Diese Datei dokumentiert die **tatsächliche Produktiv-Konfiguration** des Maest
 |-----------|------|
 | PV-Prognose-Verzögerung | **an** |
 | Prognose-Sensor (heute) | `sensor.solcast_pv_forecast_prognose_verbleibende_leistung_heute` |
-| Tag-2 / morgen | Solcast Tag 3 / Morgen |
+| Tag-2 / morgen | Solcast Prognose morgen |
 | Mindest-Prognose | 50 kWh |
 | Sicherheitsfaktor | **1,5** |
 | **delay_min_soc** (Floor unter pv_delay) | **30 %** |

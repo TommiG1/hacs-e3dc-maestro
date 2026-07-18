@@ -10,6 +10,7 @@ from .const import (
     CONF_PV_FORECAST_ENABLED,
     CONF_PV_FORECAST_SENSOR,
     CONF_PV_FORECAST_SENSOR_DAY2,
+    CONF_TOMORROW_PV_SENSOR,
 )
 from .coordinator_helpers import (
     forecast_input_fingerprint as _forecast_input_fingerprint,
@@ -341,24 +342,40 @@ class CoordinatorForecastMixin:
         if not opts.get(CONF_PV_FORECAST_ENABLED):
             return None
 
-        # 1. Try configured sensor first
-        # For tomorrow (days_ahead=1), prefer the dedicated day-2 sensor if configured
-        # (e.g. Solcast: prognose_tag_3). Falls back to main forecast sensor.
+        # 1. Try configured sensors (first match with data for target_date wins).
+        # Tag-2 of the 48 h horizon is calendar tomorrow (days_ahead=1), not
+        # Solcast "Tag 3"/übermorgen. Prefer the Forward-Looking tomorrow
+        # sensor (same day), then an explicit day-2 override, then the main
+        # forecast sensor.
         if days_ahead >= 1:
-            sensor_id = opts.get(CONF_PV_FORECAST_SENSOR_DAY2) or opts.get(CONF_PV_FORECAST_SENSOR)
+            candidate_ids = [
+                opts.get(CONF_TOMORROW_PV_SENSOR),
+                opts.get(CONF_PV_FORECAST_SENSOR_DAY2),
+                opts.get(CONF_PV_FORECAST_SENSOR),
+            ]
         else:
-            sensor_id = opts.get(CONF_PV_FORECAST_SENSOR)
-        if sensor_id:
+            candidate_ids = [opts.get(CONF_PV_FORECAST_SENSOR)]
+
+        seen: set[str] = set()
+        for sensor_id in candidate_ids:
+            if not sensor_id or sensor_id in seen:
+                continue
+            seen.add(sensor_id)
             state = self.hass.states.get(sensor_id)
-            if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-                profile = _try_extract(state.attributes)
-                if profile is not None:
-                    return profile
+            if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                continue
+            profile = _try_extract(state.attributes)
+            if profile is not None:
+                if days_ahead >= 1:
+                    _LOGGER.debug(
+                        "PV-Profil Tag+%s aus '%s' (target=%s)",
+                        days_ahead, sensor_id, target_date,
+                    )
+                return profile
 
         # 2. Auto-detect: scan all sensor.* states for one with detailedHourly/forecast/watt_hours
-        # Only for days_ahead=0 — for tomorrow we require the configured sensor to provide the data
-        # explicitly, otherwise integrations like Solcast (which auto-creates prognose_tag_3..7)
-        # would silently extend the horizon to 48 h without the user's awareness.
+        # Only for days_ahead=0 — for tomorrow we require configured sensors so
+        # Solcast Tag-3..7 entities cannot silently extend the horizon to 48 h.
         if days_ahead != 0:
             return None
 

@@ -1249,7 +1249,7 @@ class E3DCMaestroConfigFlow(_TariffSlotsMixin, ConfigFlow, domain=DOMAIN):
                 if not user_input.get(k):
                     user_input.pop(k, None)
             self._data.update(user_input)
-            return self.async_create_entry(title="E3DC Maestro", data={}, options=self._data)
+            return await self.async_step_dashboard()
         detected = await _autodetect_sizing_sensors(self.hass)
         # Normalize legacy string PV value to list (schema now uses multiple=True)
         cur = dict(self._data)
@@ -1263,6 +1263,38 @@ class E3DCMaestroConfigFlow(_TariffSlotsMixin, ConfigFlow, domain=DOMAIN):
                 suggested[k] = v
         schema = self.add_suggested_values_to_schema(STEP_SIZING_ADVISOR_SCHEMA, suggested)
         return self.async_show_form(step_id="sizing_advisor", data_schema=schema)
+
+    async def async_step_dashboard(
+        self, user_input: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Show dashboard setup instructions before finishing the initial flow."""
+        if user_input is not None:
+            from homeassistant.components import persistent_notification
+
+            persistent_notification.async_create(
+                self.hass,
+                (
+                    "## Classic-Dashboard hinzufügen\n\n"
+                    "1. Browser **hart neu laden** (Cmd/Ctrl+Shift+R)\n"
+                    "2. **Einstellungen → Dashboards → Dashboard hinzufügen**\n"
+                    "3. Unter **Community dashboards** **E3DC Maestro** wählen\n"
+                    "4. Titel **E3DC Maestro** bestätigen\n\n"
+                    "Voraussetzungen: Home Assistant ≥ 2026.5 sowie "
+                    "Mushroom Cards und ApexCharts Card aus HACS.\n\n"
+                    "Der URL-Pfad muss `e3dc-maestro` sein, damit die "
+                    "Hilfe-Links funktionieren. Bei älteren HA-Versionen "
+                    "kann das Classic-Dashboard weiter manuell als YAML "
+                    "importiert werden."
+                ),
+                title="E3DC Maestro: Dashboard hinzufügen",
+                notification_id="e3dc_maestro_dashboard_setup",
+            )
+            return self.async_create_entry(title="E3DC Maestro", data={}, options=self._data)
+
+        return self.async_show_form(
+            step_id="dashboard",
+            data_schema=vol.Schema({}),
+        )
 
     @staticmethod
     @callback

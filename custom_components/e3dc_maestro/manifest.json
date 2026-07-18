@@ -6,7 +6,7 @@
   "documentation": "https://github.com/TommiG1/hacs-e3dc-maestro",
   "issue_tracker": "https://github.com/TommiG1/hacs-e3dc-maestro/issues",
   "dependencies": ["e3dc_rscp", "frontend", "http"],
-  "after_dependencies": ["e3dc_rscp", "lovelace"],
+  "after_dependencies": ["e3dc_rscp", "lovelace", "energy", "recorder"],
   "codeowners": ["@TommiG1"],
   "requirements": [],
   "iot_class": "local_polling",

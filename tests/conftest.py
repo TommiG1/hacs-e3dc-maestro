@@ -39,6 +39,10 @@ _HA_STUBS = [
     ("homeassistant.core", {"callback": lambda f: f}),
     ("homeassistant.exceptions", {"ConfigEntryNotReady": Exception}),
     ("homeassistant.helpers", {}),
+    (
+        "homeassistant.helpers.config_validation",
+        {"config_entry_only_config_schema": lambda _domain: {}},
+    ),
     ("homeassistant.helpers.entity", {}),
     ("homeassistant.helpers.entity_platform", {}),
     ("homeassistant.helpers.entity_registry", {}),
@@ -100,3 +104,6 @@ for _name in (
 # goes through the homeassistant.util module object, not sys.modules directly.
 # Explicitly wire the submodule as an attribute so the import resolves correctly.
 sys.modules["homeassistant.util"].dt = sys.modules["homeassistant.util.dt"]  # type: ignore[attr-defined]
+sys.modules["homeassistant.helpers"].config_validation = sys.modules[  # type: ignore[attr-defined]
+    "homeassistant.helpers.config_validation"
+]

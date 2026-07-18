@@ -238,17 +238,24 @@ class CoordinatorForecastMixin:
         # Profiles are indexed by UTC hour-of-day (matching consumption/pv stats).
         _UTC = _dt.timezone.utc
 
-        def _to_utc_slot(ts: _dt.datetime) -> tuple[_dt.date, int, int]:
-            """Return (date, hour, minute) in UTC."""
+        def _to_utc_slot(ts: _dt.datetime) -> tuple[int, int]:
+            """Return (hour, minute) in UTC."""
             if ts.tzinfo is not None:
                 ts_utc = ts.astimezone(_UTC)
             else:
                 ts_utc = ts.replace(tzinfo=_UTC)
-            return ts_utc.date(), ts_utc.hour, ts_utc.minute
+            return ts_utc.hour, ts_utc.minute
 
-        def _try_extract(attrs) -> list[float] | None:
+        def _period_calendar_date(ts: _dt.datetime) -> _dt.date:
+            """Wall-clock calendar date of the forecast period (Solcast day label)."""
+            # Keep the date as labeled in the ISO string / sensor (local day),
+            # not the UTC date — otherwise CEST midnight→01:59 falls on "yesterday".
+            return ts.date()
+
+        def _try_extract(attrs, *, ignore_date: bool = False) -> list[float] | None:
             # Shape 1: list of dicts with period_start + pv_estimate (kW)
-            for key in ("detailedHourly", "forecast", "hourly_data", "forecasts"):
+            # Prefer detailedForecast (30-min) when present — higher resolution.
+            for key in ("detailedForecast", "detailedHourly", "forecast", "hourly_data", "forecasts"):
                 raw = attrs.get(key)
                 if isinstance(raw, list) and raw and isinstance(raw[0], dict):
                     # Collect into 48 half-hour buckets to preserve sub-hour peaks.
@@ -264,9 +271,9 @@ class CoordinatorForecastMixin:
                         ts = _parse_iso(str(ts_str))
                         if ts is None:
                             continue
-                        utc_date, utc_hour, utc_minute = _to_utc_slot(ts)
-                        if utc_date != target_date:
+                        if not ignore_date and _period_calendar_date(ts) != target_date:
                             continue
+                        utc_hour, utc_minute = _to_utc_slot(ts)
                         val = (
                             item.get("pv_estimate")
                             or item.get("value")
@@ -326,9 +333,9 @@ class CoordinatorForecastMixin:
                     ts = _parse_iso(str(k))
                     if ts is None:
                         continue
-                    utc_date, utc_hour, _ = _to_utc_slot(ts)
-                    if utc_date != target_date:
+                    if not ignore_date and _period_calendar_date(ts) != target_date:
                         continue
+                    utc_hour, _ = _to_utc_slot(ts)
                     try:
                         buckets[utc_hour].append(float(v))
                     except (TypeError, ValueError):
@@ -365,13 +372,28 @@ class CoordinatorForecastMixin:
             if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 continue
             profile = _try_extract(state.attributes)
+            # Solcast day entities (prognose_morgen / tag_N) only contain one
+            # calendar day — if the strict date filter missed (UTC vs local),
+            # accept the sensor's full profile for Tag-2 candidates.
+            if profile is None and days_ahead >= 1:
+                profile = _try_extract(state.attributes, ignore_date=True)
             if profile is not None:
                 if days_ahead >= 1:
-                    _LOGGER.debug(
-                        "PV-Profil Tag+%s aus '%s' (target=%s)",
-                        days_ahead, sensor_id, target_date,
+                    _LOGGER.info(
+                        "Auto-Optimizer: Tag-%s-Profil aus '%s' (target=%s, sum≈%.1f kWh)",
+                        days_ahead + 1,
+                        sensor_id,
+                        target_date,
+                        sum(profile) / 1000.0 / max(1, len(profile) // 24),
                     )
                 return profile
+
+        if days_ahead >= 1:
+            _LOGGER.info(
+                "Auto-Optimizer: kein Tag-2-PV-Profil (target=%s, tried=%s)",
+                target_date,
+                [s for s in candidate_ids if s],
+            )
 
         # 2. Auto-detect: scan all sensor.* states for one with detailedHourly/forecast/watt_hours
         # Only for days_ahead=0 — for tomorrow we require configured sensors so

@@ -2313,7 +2313,7 @@ views:
         column_span: 2
         cards:
           - type: heading
-            heading: Live-Vergleich Override vs. Basis (24 h-Forecast)
+            heading: Live-Vergleich Override vs. Basis
             icon: mdi:scale-balance
 
           - type: entities
@@ -2322,8 +2322,8 @@ views:
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: estimated_savings_eur
-                name: Geschätzte Einsparung
-                suffix: " €/Tag"
+                name: Geschätzte Einsparung (Gesamt)
+                suffix: " € / Horizont"
                 icon: mdi:piggy-bank
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
@@ -2333,7 +2333,7 @@ views:
                 icon: mdi:trending-up
               - type: divider
               - type: section
-                label: Energie-Deltas (Override − Basis)
+                label: Energie-Deltas (Override − Basis, Gesamt)
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: delta_grid_draw_kwh
@@ -2400,29 +2400,34 @@ views:
             content: |
               {% set s = 'sensor.e3dc_maestro_auto_aktive_strategie' %}
               {% set h = state_attr(s, 'horizon_h') or 24 %}
-              **Horizont: {{ h }} h**
-              {% if h == 48 %}_(Tag 1 + Tag 2 — der konfigurierte Forecast-Sensor liefert Daten für beide Tage)_{% else %}_(nur Tag 1 — kein Tag-2-Forecast verfügbar)_{% endif %}
+              {% if h == 48 %}
+              **48-h-Prognose: heute + morgen**
 
-              Alle „Horizont"-Werte unten sind **Summen über die {{ h }} h** ab Optimizer-Lauf.
+              **Alle kWh- und €-Werte unten sind Gesamtwerte für beide Tage** – sie sind keine Tageswerte.
+              {% else %}
+              **24-h-Prognose: heute**
+
+              Alle kWh- und €-Werte unten sind Gesamtwerte für diesen einen Forecast-Tag.
+              {% endif %}
 
           - type: entities
             entities:
               - type: section
-                label: Override-Strategie (best)
+                label: Override-Strategie (Gesamt über Forecast-Zeitraum)
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: sim_grid_draw_kwh
-                name: Netzbezug (Horizont)
+                name: Netzbezug (Gesamt)
                 suffix: " kWh"
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: sim_grid_feed_in_kwh
-                name: Einspeisung (Horizont)
+                name: Einspeisung (Gesamt)
                 suffix: " kWh"
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: sim_curtailed_kwh
-                name: PV-Curtailment (Horizont)
+                name: PV-Curtailment (Gesamt)
                 suffix: " kWh"
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
@@ -2435,21 +2440,21 @@ views:
                 suffix: " %"
               - type: divider
               - type: section
-                label: Basis-Strategie (ohne Auto)
+                label: Basis-Strategie ohne Auto (Gesamt über Forecast-Zeitraum)
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: baseline_grid_draw_kwh
-                name: Netzbezug (Horizont)
+                name: Netzbezug (Gesamt)
                 suffix: " kWh"
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: baseline_grid_feed_in_kwh
-                name: Einspeisung (Horizont)
+                name: Einspeisung (Gesamt)
                 suffix: " kWh"
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie
                 attribute: baseline_curtailed_kwh
-                name: PV-Curtailment (Horizont)
+                name: PV-Curtailment (Gesamt)
                 suffix: " kWh"
               - type: attribute
                 entity: sensor.e3dc_maestro_auto_aktive_strategie

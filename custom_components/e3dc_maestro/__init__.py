@@ -31,9 +31,36 @@ _ENTITY_ID_RENAMES: dict[str, str] = {
     "feed_in_avoided_today": "dc_abregelung_verhindert_heute",
 }
 
+# Removing `entity_registry_enabled_default=False` from a description only
+# affects new installations: existing ones keep `disabled_by = "integration"` in
+# the registry and the entity stays gone forever. That left dashboard cards
+# permanently empty (GitHub-Issue #3, "Debug-Log" and "Einspeiselimit
+# gesichert"). No description carries the flag anymore, so every entity the
+# integration disabled should be handed back.
+#
+# INVARIANT: add a key here whenever a description gets
+# `entity_registry_enabled_default=False`, otherwise this migration would
+# immediately re-enable it again on the next restart.
+_KEYS_INTENTIONALLY_DISABLED: frozenset[str] = frozenset()
+
+
+def _is_disabled_by_integration(entity_entry: Any) -> bool:
+    """True when HA disabled the entity via `entity_registry_enabled_default`."""
+    disabled_by = entity_entry.disabled_by
+    if disabled_by is None:
+        return False
+    # RegistryEntryDisabler is a StrEnum; compare on the raw value so this also
+    # works when the enum is unavailable (tests/stubs).
+    return getattr(disabled_by, "value", disabled_by) == "integration"
+
 
 async def _async_migrate_entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Rename stale entity_ids left behind by past `name=` renames in sensor.py."""
+    """Repair registry entries that code changes alone cannot fix.
+
+    Two things happen here, both only relevant for existing installations:
+    renaming entity_ids left behind by past `name=` renames, and re-enabling
+    sensors that used to ship with `entity_registry_enabled_default=False`.
+    """
     ent_reg = er.async_get(hass)
     for entity_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
         if entity_entry.platform != DOMAIN:
@@ -42,6 +69,17 @@ async def _async_migrate_entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
         if not entity_entry.unique_id.startswith(prefix):
             continue
         key = entity_entry.unique_id[len(prefix):]
+
+        if key not in _KEYS_INTENTIONALLY_DISABLED and _is_disabled_by_integration(
+            entity_entry
+        ):
+            _LOGGER.info(
+                "E3DC Maestro: aktiviere %s wieder – die Integration liefert "
+                "diese Entity inzwischen standardmäßig aktiviert aus",
+                entity_entry.entity_id,
+            )
+            ent_reg.async_update_entity(entity_entry.entity_id, disabled_by=None)
+
         new_object_id = _ENTITY_ID_RENAMES.get(key)
         if new_object_id is None:
             continue

@@ -231,7 +231,6 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         name="Debug-Log",
         icon="mdi:text-box-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
         value_fn=lambda coord: "\n".join(list(coord.debug_log)[-5:]) if coord.debug_log else "",
     ),
     # C1: Autonomy time
@@ -345,7 +344,6 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
         value_fn=lambda coord: round(coord.stats.get("feed_in_avoided_today_kwh", 0), 3),
     ),
     # Phase 5: Seasonal charge-end hour

@@ -360,7 +360,7 @@ kannst du den Powersensor einbinden, um saubere Statistiken zu erhalten.
 | **Phasenanzahl** | 3 | 1 oder 3 Phasen |
 | **Mindest-PV-Überschuss (W)** | 1 400 | Erst ab diesem Überschuss wird die Wallbox aktiviert |
 
-**Neue Sensoren:** `sensor.e3dc_maestro_wallbox_leistung` (W), `sensor.e3dc_maestro_gesamtlast_leistung` (W = Haus + Wallbox), `sensor.e3dc_maestro_wallbox_energie_heute` (kWh, Energy-Dashboard-tauglich).
+**Neue Sensoren:** `sensor.e3dc_maestro_wallbox_leistung` (W), `sensor.e3dc_maestro_gesamtlast_haus_wallbox` (W = Haus + Wallbox), `sensor.e3dc_maestro_wallbox_energie_heute` (kWh, Energy-Dashboard-tauglich).
 
 ---
 
@@ -510,8 +510,8 @@ Diese Sensoren sind nach der Installation direkt sichtbar und nutzbar.
 | `sensor.e3dc_maestro_forecast_datenqualitat` | Forecast: Datenqualität | – | Zeigt ob Verbrauchs- und PV-Profil ausreichend Daten haben |
 | `sensor.e3dc_maestro_auto_aktive_strategie` | Auto: Aktive Strategie | – | Zeigt ob Auto-Optimierung aktiv und welches Ziel gewählt wurde |
 | `sensor.e3dc_maestro_auto_geschatzte_einsparung` | Auto: Geschätzte Einsparung | % | Simulierte Verbesserung gegenüber Baseline |
-| `sensor.e3dc_maestro_aktives_lade_limit` | Aktives Lade-Limit | W | Aktuell von Maestro gesetztes Ladelimit (z. B. 0 W bei Ladesperre, 3000 W bei Curtailment Guard); `unknown` wenn kein Limit aktiv |
-| `sensor.e3dc_maestro_aktives_entlade_limit` | Aktives Entlade-Limit | W | Aktuell von Maestro gesetztes Entladelimit (z. B. 0 W bei EVCC-Pause); `unknown` wenn kein Limit aktiv |
+| `sensor.e3dc_maestro_soll_lade_limit` | Soll-Lade-Limit | W | Aktuell von Maestro gesetztes Ladelimit (z. B. 0 W bei Ladesperre, 3000 W bei Curtailment Guard); `unknown` wenn kein Limit aktiv |
+| `sensor.e3dc_maestro_soll_entlade_limit` | Soll-Entlade-Limit | W | Aktuell von Maestro gesetztes Entladelimit (z. B. 0 W bei EVCC-Pause); `unknown` wenn kein Limit aktiv |
 
 #### Sizing-Advisor-Sensoren (v0.3.7)
 
@@ -520,22 +520,21 @@ Statische Analyseergebnisse (gefüllt nach „Analyse starten“):
 | Entity-ID | Name | Einheit | Beschreibung |
 |---|---|---|---|
 | `sensor.e3dc_maestro_advisor_status` | Advisor-Status | – | `idle` / `running` / `ready` |
-| `sensor.e3dc_maestro_advisor_baseline_netzbezug` | Baseline-Netzbezug | kWh | Historischer Ist-Netzbezug (Basis-Szenario) |
-| `sensor.e3dc_maestro_advisor_empfehlung_wirtschaftlich` | Empfehlung wirtschaftlich | – | Kombination mit minimaler Amortisationszeit (Details als Attribute) |
-| `sensor.e3dc_maestro_advisor_empfehlung_technisch` | Empfehlung technisch | – | Kombination mit maximaler Autarkie |
-| `sensor.e3dc_maestro_advisor_empfehlung_ausgewogen` | Empfehlung ausgewogen | – | Pareto-Knie der Kosten/Nutzen-Kurve |
-| `sensor.e3dc_maestro_advisor_anomalierate` | Anomalierate | % | Anteil Stunden mit Energiebilanz-Anomalien (>5 % Hauslast) |
+| `sensor.e3dc_maestro_advisor_netzbezug_baseline_jahr` | Baseline-Netzbezug | kWh | Historischer Ist-Netzbezug (Basis-Szenario) |
+| `sensor.e3dc_maestro_advisor_wirtschaftl_empfehlung_amortisation` | Empfehlung wirtschaftlich | – | Kombination mit minimaler Amortisationszeit (Details als Attribute) |
+| `sensor.e3dc_maestro_advisor_techn_empfehlung_autarkie` | Empfehlung technisch | – | Kombination mit maximaler Autarkie |
+| `sensor.e3dc_maestro_advisor_energiebilanz_anomalierate` | Anomalierate | % | Anteil Stunden mit Energiebilanz-Anomalien (>5 % Hauslast) |
 
 Szenario-Sensoren (live, folgen den beiden Slidern):
 
 | Entity-ID | Name | Einheit | Beschreibung |
 |---|---|---|---|
-| `sensor.e3dc_maestro_advisor_autarkie` | Szenario-Autarkie | % | Für die aktuellen Slider-Werte |
-| `sensor.e3dc_maestro_advisor_vermiedener_netzbezug` | Vermiedener Netzbezug (Szenario) | kWh | Pro Jahr |
-| `sensor.e3dc_maestro_advisor_einsparung` | Jahreseinsparung (Szenario) | EUR | Pro Jahr |
+| `sensor.e3dc_maestro_advisor_autarkie_szenario` | Szenario-Autarkie | % | Für die aktuellen Slider-Werte |
+| `sensor.e3dc_maestro_advisor_vermiedener_netzbezug_jahr` | Vermiedener Netzbezug (Szenario) | kWh | Pro Jahr |
+| `sensor.e3dc_maestro_advisor_ersparnis_jahr` | Jahreseinsparung (Szenario) | EUR | Pro Jahr |
 | `sensor.e3dc_maestro_advisor_investition` | Investition (Szenario) | EUR | Live aus den Preisfeldern |
 | `sensor.e3dc_maestro_advisor_amortisationszeit` | Amortisationszeit (Szenario) | Jahre | Live aus den Preisfeldern |
-| `sensor.e3dc_maestro_advisor_zyklen_pro_jahr` | Zyklen pro Jahr (Szenario) | – | Verschleiß-Indikator |
+| `sensor.e3dc_maestro_advisor_zyklen_jahr_virt_akku` | Zyklen pro Jahr (Szenario) | – | Verschleiß-Indikator |
 
 ---
 

@@ -9,11 +9,62 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN, E3DC_RSCP_DOMAIN
 from .coordinator import E3DCMaestroCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+# Entity-ID-Migration: `sensor.py` hat den Anzeigenamen dieser Sensoren mehrfach
+# umbenannt (z. B. "Aktives Lade-Limit" -> "Soll-Lade-Limit"). Home Assistant
+# ändert die entity_id dabei NIE automatisch mit – nur der Anzeigename und die
+# unique_id (die am `key=` hängt) folgen dem Code. Bestandsinstallationen
+# bleiben also auf der alten entity_id sitzen, während Neuinstallationen die
+# neue bekommen. Dashboards können immer nur eine der beiden ID referenzieren
+# (siehe GitHub-Issue #3). Diese Migration zieht bestehende Installationen auf
+# die ID nach, die auch eine Neuinstallation heute bekommen würde.
+_ENTITY_ID_RENAMES: dict[str, str] = {
+    # unique_id-Suffix (== SensorEntityDescription.key) -> Ziel-Object-ID
+    "charge_power_limit": "soll_lade_limit",
+    "discharge_power_limit": "soll_entlade_limit",
+    "feed_in_avoided_today": "dc_abregelung_verhindert_heute",
+}
+
+
+async def _async_migrate_entity_ids(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Rename stale entity_ids left behind by past `name=` renames in sensor.py."""
+    ent_reg = er.async_get(hass)
+    for entity_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if entity_entry.platform != DOMAIN:
+            continue
+        prefix = f"{entry.entry_id}_"
+        if not entity_entry.unique_id.startswith(prefix):
+            continue
+        key = entity_entry.unique_id[len(prefix):]
+        new_object_id = _ENTITY_ID_RENAMES.get(key)
+        if new_object_id is None:
+            continue
+
+        domain = entity_entry.entity_id.split(".", 1)[0]
+        new_entity_id = f"{domain}.e3dc_maestro_{new_object_id}"
+        if entity_entry.entity_id == new_entity_id:
+            continue
+        if ent_reg.async_get(new_entity_id) is not None:
+            _LOGGER.warning(
+                "E3DC Maestro: kann %s nicht nach %s migrieren – Ziel-entity_id "
+                "ist bereits belegt",
+                entity_entry.entity_id,
+                new_entity_id,
+            )
+            continue
+
+        _LOGGER.info(
+            "E3DC Maestro: migriere entity_id %s -> %s (Dashboard-Rename-Nachzug)",
+            entity_entry.entity_id,
+            new_entity_id,
+        )
+        ent_reg.async_update_entity(entity_entry.entity_id, new_entity_id=new_entity_id)
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -81,6 +132,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from .dashboard_frontend import async_setup_frontend
 
     await async_setup_frontend(hass)
+    await _async_migrate_entity_ids(hass, entry)
 
     coordinator = E3DCMaestroCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()

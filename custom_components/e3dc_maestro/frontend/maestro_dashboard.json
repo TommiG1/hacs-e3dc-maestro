@@ -89,7 +89,7 @@
             },
             {
               "type": "template",
-              "content": "{% set soll = states('sensor.e3dc_maestro_aktives_lade_limit') %} {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {%- if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') -%}\n  {%- if sent not in ('unknown','unavailable','none','') -%}\n    Ladesperre {{ sent }} W\n  {%- elif soll not in ('unknown','unavailable','none','') -%}\n    Ladesperre {{ soll }} W\n  {%- else -%}\n    Ladesperre\n  {%- endif -%}\n{%- else -%}\n  Ladesperre\n{%- endif %}",
+              "content": "{% set soll = states('sensor.e3dc_maestro_soll_lade_limit') %} {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {%- if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') -%}\n  {%- if sent not in ('unknown','unavailable','none','') -%}\n    Ladesperre {{ sent }} W\n  {%- elif soll not in ('unknown','unavailable','none','') -%}\n    Ladesperre {{ soll }} W\n  {%- else -%}\n    Ladesperre\n  {%- endif -%}\n{%- else -%}\n  Ladesperre\n{%- endif %}",
               "icon": "mdi:battery-lock",
               "icon_color": "{{ 'red' if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') else 'grey' }}",
               "entity": "binary_sensor.e3dc_maestro_ladesperre_aktiv",
@@ -99,7 +99,7 @@
             },
             {
               "type": "template",
-              "content": "{% set soll = states('sensor.e3dc_maestro_aktives_entlade_limit') %} {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {%- if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') -%}\n  {%- if sent not in ('unknown','unavailable','none','') -%}\n    Entladesperre {{ sent }} W\n  {%- elif soll not in ('unknown','unavailable','none','') -%}\n    Entladesperre {{ soll }} W\n  {%- else -%}\n    Entladesperre\n  {%- endif -%}\n{%- else -%}\n  Entladesperre\n{%- endif %}",
+              "content": "{% set soll = states('sensor.e3dc_maestro_soll_entlade_limit') %} {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {%- if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') -%}\n  {%- if sent not in ('unknown','unavailable','none','') -%}\n    Entladesperre {{ sent }} W\n  {%- elif soll not in ('unknown','unavailable','none','') -%}\n    Entladesperre {{ soll }} W\n  {%- else -%}\n    Entladesperre\n  {%- endif -%}\n{%- else -%}\n  Entladesperre\n{%- endif %}",
               "icon": "mdi:battery-off-outline",
               "icon_color": "{{ 'red' if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') else 'grey' }}",
               "entity": "binary_sensor.e3dc_maestro_entladesperre_aktiv",
@@ -271,12 +271,12 @@
           "cards": [
             {
               "type": "custom:mushroom-template-card",
-              "primary": "{% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
+              "primary": "{% set v = states('sensor.e3dc_maestro_soll_lade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
               "secondary": "Soll-Lade-Limit",
               "icon": "mdi:battery-lock",
-              "icon_color": "{% set v = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %} {% if v <= 0 %} disabled {% elif v < 3000 %} blue {% elif v < 7000 %} green {% else %} amber {% endif %}",
+              "icon_color": "{% set v = states('sensor.e3dc_maestro_soll_lade_limit') | float(0) %} {% if v <= 0 %} disabled {% elif v < 3000 %} blue {% elif v < 7000 %} green {% else %} amber {% endif %}",
               "fill_container": true,
-              "entity": "sensor.e3dc_maestro_aktives_lade_limit",
+              "entity": "sensor.e3dc_maestro_soll_lade_limit",
               "tap_action": {
                 "action": "more-info"
               }
@@ -286,7 +286,7 @@
               "primary": "{% set v = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
               "secondary": "Gesendetes Lade-Limit",
               "icon": "mdi:battery-arrow-up",
-              "icon_color": "{% set soll = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} disabled {% elif sent < 3000 %} blue {% elif sent < 7000 %} green {% else %} amber {% endif %}",
+              "icon_color": "{% set soll = states('sensor.e3dc_maestro_soll_lade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} disabled {% elif sent < 3000 %} blue {% elif sent < 7000 %} green {% else %} amber {% endif %}",
               "fill_container": true,
               "entity": "sensor.e3dc_maestro_gesendetes_lade_limit",
               "tap_action": {
@@ -295,12 +295,12 @@
             },
             {
               "type": "custom:mushroom-template-card",
-              "primary": "{% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
+              "primary": "{% set v = states('sensor.e3dc_maestro_soll_entlade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
               "secondary": "Soll-Entlade-Limit",
               "icon": "mdi:battery-off-outline",
-              "icon_color": "{% set raw = states('sensor.e3dc_maestro_aktives_entlade_limit') %} {% set v = raw | float(0) %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif v <= 0 %} grey {% elif v < 3000 %} green {% elif v < 7000 %} amber {% else %} red {% endif %}",
+              "icon_color": "{% set raw = states('sensor.e3dc_maestro_soll_entlade_limit') %} {% set v = raw | float(0) %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif v <= 0 %} grey {% elif v < 3000 %} green {% elif v < 7000 %} amber {% else %} red {% endif %}",
               "fill_container": true,
-              "entity": "sensor.e3dc_maestro_aktives_entlade_limit",
+              "entity": "sensor.e3dc_maestro_soll_entlade_limit",
               "tap_action": {
                 "action": "more-info"
               }
@@ -310,7 +310,7 @@
               "primary": "{% set v = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
               "secondary": "Gesendetes Entlade-Limit",
               "icon": "mdi:battery-arrow-down",
-              "icon_color": "{% set soll = states('sensor.e3dc_maestro_aktives_entlade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} grey {% elif sent < 3000 %} green {% elif sent < 7000 %} amber {% else %} red {% endif %}",
+              "icon_color": "{% set soll = states('sensor.e3dc_maestro_soll_entlade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} grey {% elif sent < 3000 %} green {% elif sent < 7000 %} amber {% else %} red {% endif %}",
               "fill_container": true,
               "entity": "sensor.e3dc_maestro_gesendetes_entlade_limit",
               "tap_action": {
@@ -696,12 +696,12 @@
               "cards": [
                 {
                   "type": "custom:mushroom-template-card",
-                  "primary": "{% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}",
+                  "primary": "{% set v = states('sensor.e3dc_maestro_soll_lade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}",
                   "secondary": "Soll-Lade-Limit",
                   "icon": "mdi:battery-lock",
-                  "icon_color": "{% set v = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %} {% if v <= 0 %} disabled {% elif v < 3000 %} blue {% elif v < 7000 %} green {% else %} amber {% endif %}",
+                  "icon_color": "{% set v = states('sensor.e3dc_maestro_soll_lade_limit') | float(0) %} {% if v <= 0 %} disabled {% elif v < 3000 %} blue {% elif v < 7000 %} green {% else %} amber {% endif %}",
                   "fill_container": true,
-                  "entity": "sensor.e3dc_maestro_aktives_lade_limit",
+                  "entity": "sensor.e3dc_maestro_soll_lade_limit",
                   "tap_action": {
                     "action": "more-info"
                   }
@@ -711,7 +711,7 @@
                   "primary": "{% set v = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
                   "secondary": "Gesendetes Lade-Limit",
                   "icon": "mdi:battery-arrow-up",
-                  "icon_color": "{% set soll = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} disabled {% elif sent < 3000 %} blue {% elif sent < 7000 %} green {% else %} amber {% endif %}",
+                  "icon_color": "{% set soll = states('sensor.e3dc_maestro_soll_lade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_lade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_lade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} disabled {% elif sent < 3000 %} blue {% elif sent < 7000 %} green {% else %} amber {% endif %}",
                   "fill_container": true,
                   "entity": "sensor.e3dc_maestro_gesendetes_lade_limit",
                   "tap_action": {
@@ -720,12 +720,12 @@
                 },
                 {
                   "type": "custom:mushroom-template-card",
-                  "primary": "{% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}",
+                  "primary": "{% set v = states('sensor.e3dc_maestro_soll_entlade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}",
                   "secondary": "Soll-Entlade-Limit",
                   "icon": "mdi:battery-off-outline",
-                  "icon_color": "{% set raw = states('sensor.e3dc_maestro_aktives_entlade_limit') %} {% set v = raw | float(0) %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif v <= 0 %} grey {% elif v < 3000 %} green {% elif v < 7000 %} amber {% else %} red {% endif %}",
+                  "icon_color": "{% set raw = states('sensor.e3dc_maestro_soll_entlade_limit') %} {% set v = raw | float(0) %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif v <= 0 %} grey {% elif v < 3000 %} green {% elif v < 7000 %} amber {% else %} red {% endif %}",
                   "fill_container": true,
-                  "entity": "sensor.e3dc_maestro_aktives_entlade_limit",
+                  "entity": "sensor.e3dc_maestro_soll_entlade_limit",
                   "tap_action": {
                     "action": "more-info"
                   }
@@ -735,7 +735,7 @@
                   "primary": "{% set v = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else '—' }}",
                   "secondary": "Gesendetes Entlade-Limit",
                   "icon": "mdi:battery-arrow-down",
-                  "icon_color": "{% set soll = states('sensor.e3dc_maestro_aktives_entlade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} grey {% elif sent < 3000 %} green {% elif sent < 7000 %} amber {% else %} red {% endif %}",
+                  "icon_color": "{% set soll = states('sensor.e3dc_maestro_soll_entlade_limit') | float(0) %} {% set sent = states('sensor.e3dc_maestro_gesendetes_entlade_limit') | float(0) %} {% set raw = states('sensor.e3dc_maestro_gesendetes_entlade_limit') %} {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled {% elif (soll - sent) | abs > 50 %} orange {% elif sent <= 0 %} grey {% elif sent < 3000 %} green {% elif sent < 7000 %} amber {% else %} red {% endif %}",
                   "fill_container": true,
                   "entity": "sensor.e3dc_maestro_gesendetes_entlade_limit",
                   "tap_action": {
@@ -1083,7 +1083,7 @@
               "name": "Letzte Aktion"
             },
             {
-              "entity": "sensor.e3dc_maestro_aktives_lade_limit",
+              "entity": "sensor.e3dc_maestro_soll_lade_limit",
               "name": "Soll-Lade-Limit"
             },
             {
@@ -1091,7 +1091,7 @@
               "name": "Gesendetes Lade-Limit"
             },
             {
-              "entity": "sensor.e3dc_maestro_aktives_entlade_limit",
+              "entity": "sensor.e3dc_maestro_soll_entlade_limit",
               "name": "Soll-Entlade-Limit"
             },
             {
@@ -2276,7 +2276,7 @@
           "title": "Diagnose-Sensoren",
           "entities": [
             {
-              "entity": "sensor.e3dc_maestro_aktives_lade_limit",
+              "entity": "sensor.e3dc_maestro_soll_lade_limit",
               "name": "Soll-Lade-Limit"
             },
             {
@@ -2284,7 +2284,7 @@
               "name": "Gesendetes Lade-Limit"
             },
             {
-              "entity": "sensor.e3dc_maestro_aktives_entlade_limit",
+              "entity": "sensor.e3dc_maestro_soll_entlade_limit",
               "name": "Soll-Entlade-Limit"
             },
             {
@@ -2745,7 +2745,7 @@
       "cards": [
         {
           "type": "markdown",
-          "content": "## Wallbox-Überschussregelung – Parameter\n\nMaestro steuert den Ladestrom der Wallbox in Abstimmung mit dem PV-Überschuss.\nDie Parameter begrenzen den Betriebsbereich und schützen vor ungültigen Befehlen.\n\n> Diese Funktion ist **unabhängig von der EVCC-Akku-Entladesperre**. Beide\n> Schalter können separat aktiviert werden.\n\n> **Verbrauchstrennung (seit v0.3.1):** Wird im Konfigurations-Wizard ein\n> **Wallbox-Powersensor** hinterlegt (E3DC-RSCP-Wallbox oder\n> `sensor.openwb_chargepoint_*_ladeleistung`), trennt Maestro den\n> EV-Verbrauch sauber vom Hausverbrauch ab — EWMA-Glättung, PV-Forecast und\n> Optimizer werden nicht mehr durch Ladespitzen verfälscht. Sichtbar über\n> `sensor.e3dc_maestro_wallbox_leistung` und\n> `sensor.e3dc_maestro_gesamtlast_leistung`. Diese Trennung greift auch\n> **ohne** aktive Wallbox-Regelung.\n\n---\n\n### Min-Strom (A)\n\n**Wirkung:** Minimaler Ladestrom in Ampere. Fällt der berechnete Sollstrom darunter,\nstoppt Maestro die Wallbox vollständig.\n\n**Empfehlung:** 6 A (IEC-61851-Minimum). Manche Fahrzeuge erst ab 8 A.\n\n**Standard:** 6 A\n\n---\n\n### Max-Strom (A)\n\n**Wirkung:** Maximaler Ladestrom, auf den Maestro die Wallbox begrenzt. Darf nicht\ngrößer als das physische Maximum der Wallbox oder des Fahrzeugs sein.\n\n**Empfehlung:** Hausanschluss-Limit und Wallbox-Maximum beachten. Typisch 16 A\n(einphasig) oder 11/22 A (dreiphasig).\n\n**Standard:** 16 A\n\n---\n\n### Mindest-Überschuss (W)\n\n**Wirkung:** PV-Überschuss in Watt, ab dem Maestro die Wallbox einschaltet.\nUnterschreitet der Überschuss diesen Wert, pausiert die Wallbox.\n\n**Empfehlung:** 6 A × 230 V ≈ 1380 W (einphasig). Verhindert Netzladung.\n\n**Standard:** 1380 W\n"
+          "content": "## Wallbox-Überschussregelung – Parameter\n\nMaestro steuert den Ladestrom der Wallbox in Abstimmung mit dem PV-Überschuss.\nDie Parameter begrenzen den Betriebsbereich und schützen vor ungültigen Befehlen.\n\n> Diese Funktion ist **unabhängig von der EVCC-Akku-Entladesperre**. Beide\n> Schalter können separat aktiviert werden.\n\n> **Verbrauchstrennung (seit v0.3.1):** Wird im Konfigurations-Wizard ein\n> **Wallbox-Powersensor** hinterlegt (E3DC-RSCP-Wallbox oder\n> `sensor.openwb_chargepoint_*_ladeleistung`), trennt Maestro den\n> EV-Verbrauch sauber vom Hausverbrauch ab — EWMA-Glättung, PV-Forecast und\n> Optimizer werden nicht mehr durch Ladespitzen verfälscht. Sichtbar über\n> `sensor.e3dc_maestro_wallbox_leistung` und\n> `sensor.e3dc_maestro_gesamtlast_haus_wallbox`. Diese Trennung greift auch\n> **ohne** aktive Wallbox-Regelung.\n\n---\n\n### Min-Strom (A)\n\n**Wirkung:** Minimaler Ladestrom in Ampere. Fällt der berechnete Sollstrom darunter,\nstoppt Maestro die Wallbox vollständig.\n\n**Empfehlung:** 6 A (IEC-61851-Minimum). Manche Fahrzeuge erst ab 8 A.\n\n**Standard:** 6 A\n\n---\n\n### Max-Strom (A)\n\n**Wirkung:** Maximaler Ladestrom, auf den Maestro die Wallbox begrenzt. Darf nicht\ngrößer als das physische Maximum der Wallbox oder des Fahrzeugs sein.\n\n**Empfehlung:** Hausanschluss-Limit und Wallbox-Maximum beachten. Typisch 16 A\n(einphasig) oder 11/22 A (dreiphasig).\n\n**Standard:** 16 A\n\n---\n\n### Mindest-Überschuss (W)\n\n**Wirkung:** PV-Überschuss in Watt, ab dem Maestro die Wallbox einschaltet.\nUnterschreitet der Überschuss diesen Wert, pausiert die Wallbox.\n\n**Empfehlung:** 6 A × 230 V ≈ 1380 W (einphasig). Verhindert Netzladung.\n\n**Standard:** 1380 W\n"
         }
       ]
     },
@@ -2800,7 +2800,7 @@
       "cards": [
         {
           "type": "markdown",
-          "content": "## Steuerverhalten – Parameter\n\nDiese Parameter steuern die Stabilitätsmechanismen des Regelzyklus. Zu kleine\nWerte führen zu Flackern, zu große zu träger Reaktion.\n\n---\n\n### SoC-Hysterese (%)\n\n**Wirkung:** Prozentualer Puffer um SoC-Schwellen, um Flackern zu vermeiden.\nBeispiel: Ladeende SoC = 95 %, Hysterese = 2 % → Maestro stoppt bei 95 %,\nstartet erst wieder bei < 93 %.\n\n**Empfehlung:** 1–3 %. Zu groß → SoC-Schwellen werden ungenau eingehalten.\n\n**Standard:** 2 %\n\n---\n\n### Ladeleistungs-Anlauf (W/Zyklus)\n\n**Wirkung:** Maximale Änderung der Ladeleistung pro Regelzyklus in Watt.\nVerhindert abrupte Leistungssprünge, die den Wechselrichter destabilisieren.\n\nBeispiel: Anlauf = 200 W, Zyklus = 30 s → 200 W alle 30 s bis zur Sollleistung.\n\n**Empfehlung:** 100–500 W. Zu groß → ruckartige Regelung.\n\n**Standard:** 200 W/Zyklus\n\n---\n\n### Aktualisierungsintervall (s)\n\n**Wirkung:** Zeitabstand zwischen zwei Regelzyklen in Sekunden.\nKürzeres Intervall = reaktionsschnellere Regelung, aber höhere Last auf HA und E3DC.\n\n**Empfehlung:** 20–60 s. Unter 15 s kann die E3DC-Modbus-Verbindung überlastet werden.\n\n**Standard:** 30 s\n\n---\n\n### Watchdog-Timeout (min)\n\n**Wirkung:** Wenn Maestro für diese Zeitspanne keine Daten von HA erhält\n(z. B. HA-Neustart), wechselt es in einen sicheren Standby-Modus und\nsetzt die Ladeleistung auf 0 W.\n\n**Empfehlung:** 5–15 min. Zu kurz → Fehlalarm bei kurzen HA-Pausen.\n\n**Standard:** 10 min\n\n---\n\n### Soll- vs. Gesendet-Lade-Limit\n\nMaestro berechnet pro Zyklus ein **Soll-Lade-Limit** (interne Regelung).\nNur wenn sich der Wert genug vom zuletzt an die E3DC gesendeten Cap\nunterscheidet (Debounce ≥ 50 W), wird ein neuer Befehl übertragen.\n\n- **Soll-Lade-Limit** (`sensor.e3dc_maestro_aktives_lade_limit`):\n  Was Maestro gerade anstrebt (inkl. Anlauf-Rampe).\n- **Gesendetes Lade-Limit** (`sensor.e3dc_maestro_gesendetes_lade_limit`):\n  Was tatsächlich per e3dc_rscp an die Hardware ging.\n\nWeichen Soll und Gesendet dauerhaft auseinander (z. B. Soll 2 kW,\nGesendet 51 W), hängt die E3DC am alten Cap — genau der Bug, den\nv0.3.11 behoben hat. Orange Markierung im Dashboard signalisiert\neine Drift > 50 W.\n\n**Entlade-Limit:** Ist kein explizites Cap gesetzt (Entladung frei),\nsendet Maestro ``max_discharge = Max. Ladeleistung`` (nicht\nWR-Nennleistung). Die WR-Nennleistung kann höher sein als die\ntatsächliche Akku-Grenze (z. B. 18 kW WR vs. 9 kW Akku).\n"
+          "content": "## Steuerverhalten – Parameter\n\nDiese Parameter steuern die Stabilitätsmechanismen des Regelzyklus. Zu kleine\nWerte führen zu Flackern, zu große zu träger Reaktion.\n\n---\n\n### SoC-Hysterese (%)\n\n**Wirkung:** Prozentualer Puffer um SoC-Schwellen, um Flackern zu vermeiden.\nBeispiel: Ladeende SoC = 95 %, Hysterese = 2 % → Maestro stoppt bei 95 %,\nstartet erst wieder bei < 93 %.\n\n**Empfehlung:** 1–3 %. Zu groß → SoC-Schwellen werden ungenau eingehalten.\n\n**Standard:** 2 %\n\n---\n\n### Ladeleistungs-Anlauf (W/Zyklus)\n\n**Wirkung:** Maximale Änderung der Ladeleistung pro Regelzyklus in Watt.\nVerhindert abrupte Leistungssprünge, die den Wechselrichter destabilisieren.\n\nBeispiel: Anlauf = 200 W, Zyklus = 30 s → 200 W alle 30 s bis zur Sollleistung.\n\n**Empfehlung:** 100–500 W. Zu groß → ruckartige Regelung.\n\n**Standard:** 200 W/Zyklus\n\n---\n\n### Aktualisierungsintervall (s)\n\n**Wirkung:** Zeitabstand zwischen zwei Regelzyklen in Sekunden.\nKürzeres Intervall = reaktionsschnellere Regelung, aber höhere Last auf HA und E3DC.\n\n**Empfehlung:** 20–60 s. Unter 15 s kann die E3DC-Modbus-Verbindung überlastet werden.\n\n**Standard:** 30 s\n\n---\n\n### Watchdog-Timeout (min)\n\n**Wirkung:** Wenn Maestro für diese Zeitspanne keine Daten von HA erhält\n(z. B. HA-Neustart), wechselt es in einen sicheren Standby-Modus und\nsetzt die Ladeleistung auf 0 W.\n\n**Empfehlung:** 5–15 min. Zu kurz → Fehlalarm bei kurzen HA-Pausen.\n\n**Standard:** 10 min\n\n---\n\n### Soll- vs. Gesendet-Lade-Limit\n\nMaestro berechnet pro Zyklus ein **Soll-Lade-Limit** (interne Regelung).\nNur wenn sich der Wert genug vom zuletzt an die E3DC gesendeten Cap\nunterscheidet (Debounce ≥ 50 W), wird ein neuer Befehl übertragen.\n\n- **Soll-Lade-Limit** (`sensor.e3dc_maestro_soll_lade_limit`):\n  Was Maestro gerade anstrebt (inkl. Anlauf-Rampe).\n- **Gesendetes Lade-Limit** (`sensor.e3dc_maestro_gesendetes_lade_limit`):\n  Was tatsächlich per e3dc_rscp an die Hardware ging.\n\nWeichen Soll und Gesendet dauerhaft auseinander (z. B. Soll 2 kW,\nGesendet 51 W), hängt die E3DC am alten Cap — genau der Bug, den\nv0.3.11 behoben hat. Orange Markierung im Dashboard signalisiert\neine Drift > 50 W.\n\n**Entlade-Limit:** Ist kein explizites Cap gesetzt (Entladung frei),\nsendet Maestro ``max_discharge = Max. Ladeleistung`` (nicht\nWR-Nennleistung). Die WR-Nennleistung kann höher sein als die\ntatsächliche Akku-Grenze (z. B. 18 kW WR vs. 9 kW Akku).\n"
         }
       ]
     },

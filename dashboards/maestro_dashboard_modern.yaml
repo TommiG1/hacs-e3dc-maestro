@@ -1199,7 +1199,7 @@ views:
             icon: mdi:swap-horizontal
 
           - type: tile
-            entity: sensor.e3dc_maestro_aktives_lade_limit
+            entity: sensor.e3dc_maestro_soll_lade_limit
             name: Soll-Lade-Limit
             icon: mdi:battery-lock
             color: blue
@@ -1211,7 +1211,7 @@ views:
             color: green
 
           - type: tile
-            entity: sensor.e3dc_maestro_aktives_entlade_limit
+            entity: sensor.e3dc_maestro_soll_entlade_limit
             name: Soll-Entlade-Limit
             icon: mdi:battery-off-outline
             color: amber
@@ -1224,9 +1224,9 @@ views:
 
           - type: markdown
             content: >-
-              {% set s1 = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %}
+              {% set s1 = states('sensor.e3dc_maestro_soll_lade_limit') | float(0) %}
               {% set s2 = states('sensor.e3dc_maestro_gesendetes_lade_limit') | float(0) %}
-              {% set d1 = states('sensor.e3dc_maestro_aktives_entlade_limit') | float(0) %}
+              {% set d1 = states('sensor.e3dc_maestro_soll_entlade_limit') | float(0) %}
               {% set d2 = states('sensor.e3dc_maestro_gesendetes_entlade_limit') | float(0) %}
               {% set drift_c = (s1 - s2) | abs %}
               {% set drift_d = (d1 - d2) | abs %}
@@ -2201,11 +2201,11 @@ views:
 
           - type: entities
             entities:
-              - entity: sensor.e3dc_maestro_aktives_lade_limit
+              - entity: sensor.e3dc_maestro_soll_lade_limit
                 name: Soll-Lade-Limit
               - entity: sensor.e3dc_maestro_gesendetes_lade_limit
                 name: Gesendetes Lade-Limit
-              - entity: sensor.e3dc_maestro_aktives_entlade_limit
+              - entity: sensor.e3dc_maestro_soll_entlade_limit
                 name: Soll-Entlade-Limit
               - entity: sensor.e3dc_maestro_gesendetes_entlade_limit
                 name: Gesendetes Entlade-Limit
@@ -3569,7 +3569,7 @@ views:
           > EV-Verbrauch sauber vom Hausverbrauch ab — EWMA-Glättung, PV-Forecast und
           > Optimizer werden nicht mehr durch Ladespitzen verfälscht. Sichtbar über
           > `sensor.e3dc_maestro_wallbox_leistung` und
-          > `sensor.e3dc_maestro_gesamtlast_leistung`. Diese Trennung greift auch
+          > `sensor.e3dc_maestro_gesamtlast_haus_wallbox`. Diese Trennung greift auch
           > **ohne** aktive Wallbox-Regelung.
           
           ---
@@ -3919,7 +3919,7 @@ views:
           Nur wenn sich der Wert genug vom zuletzt an die E3DC gesendeten Cap
           unterscheidet (Debounce ≥ 50 W), wird ein neuer Befehl übertragen.
           
-          - **Soll-Lade-Limit** (`sensor.e3dc_maestro_aktives_lade_limit`):
+          - **Soll-Lade-Limit** (`sensor.e3dc_maestro_soll_lade_limit`):
             Was Maestro gerade anstrebt (inkl. Anlauf-Rampe).
           - **Gesendetes Lade-Limit** (`sensor.e3dc_maestro_gesendetes_lade_limit`):
             Was tatsächlich per e3dc_rscp an die Hardware ging.

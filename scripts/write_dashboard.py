@@ -148,7 +148,7 @@ TAB_1 = """\
               action: more-info
           - type: template
             content: >-
-              {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %}
+              {% set v = states('sensor.e3dc_maestro_soll_lade_limit') %}
               {%- if is_state('binary_sensor.e3dc_maestro_ladesperre_aktiv', 'on') and v not in ('unknown','unavailable') -%}
                 Ladesperre {{ v }} W
               {%- else -%}
@@ -161,7 +161,7 @@ TAB_1 = """\
               action: more-info
           - type: template
             content: >-
-              {% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+              {% set v = states('sensor.e3dc_maestro_soll_entlade_limit') %}
               {%- if is_state('binary_sensor.e3dc_maestro_entladesperre_aktiv', 'on') and v not in ('unknown','unavailable') -%}
                 Entladesperre {{ v }} W
               {%- else -%}
@@ -264,7 +264,7 @@ TAB_1 = """\
             tap_action:
               action: more-info
           - type: custom:mushroom-entity-card
-            entity: sensor.e3dc_maestro_saisonales_ladeende_stunde
+            entity: sensor.e3dc_maestro_saisonales_ladeende_uhrzeit
             name: Ladeende heute
             icon: mdi:clock-end
             icon_color: purple
@@ -546,27 +546,27 @@ TAB_COCKPIT = """\
             cards:
               - type: custom:mushroom-template-card
                 primary: >-
-                  {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') %}
+                  {% set v = states('sensor.e3dc_maestro_soll_lade_limit') %}
                   {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}
                 secondary: Lade-Limit
                 icon: mdi:battery-charging
                 icon_color: >-
-                  {% set v = states('sensor.e3dc_maestro_aktives_lade_limit') | float(0) %}
+                  {% set v = states('sensor.e3dc_maestro_soll_lade_limit') | float(0) %}
                   {% if v <= 0 %} disabled
                   {% elif v < 3000 %} blue
                   {% elif v < 7000 %} green
                   {% else %} amber {% endif %}
                 fill_container: true
-                entity: sensor.e3dc_maestro_aktives_lade_limit
+                entity: sensor.e3dc_maestro_soll_lade_limit
                 tap_action: { action: more-info }
               - type: custom:mushroom-template-card
                 primary: >-
-                  {% set v = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+                  {% set v = states('sensor.e3dc_maestro_soll_entlade_limit') %}
                   {{ v ~ ' W' if v not in ['unknown', 'unavailable', 'none', ''] else 'kein Limit' }}
                 secondary: Entlade-Limit
                 icon: mdi:battery-arrow-down
                 icon_color: >-
-                  {% set raw = states('sensor.e3dc_maestro_aktives_entlade_limit') %}
+                  {% set raw = states('sensor.e3dc_maestro_soll_entlade_limit') %}
                   {% set v = raw | float(0) %}
                   {% if raw in ['unknown', 'unavailable', 'none', ''] %} disabled
                   {% elif v <= 0 %} grey
@@ -574,7 +574,7 @@ TAB_COCKPIT = """\
                   {% elif v < 7000 %} amber
                   {% else %} red {% endif %}
                 fill_container: true
-                entity: sensor.e3dc_maestro_aktives_entlade_limit
+                entity: sensor.e3dc_maestro_soll_entlade_limit
                 tap_action: { action: more-info }
               - type: custom:mushroom-template-card
                 primary: >-
@@ -880,7 +880,7 @@ TAB_COCKPIT = """\
                 name: "Morning-Cap aktiv"
               - entity: number.e3dc_maestro_morning_cap_soc_grenze
                 name: "Morning-Cap SoC-Grenze"
-              - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_gmt
+              - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_lokal
                 name: "Morning-Cap bis Uhr"
 """ + _ind(help_btn("help-flat-curve"), 4) + """\
 
@@ -1003,7 +1003,7 @@ TAB_3 = (
         square: false
         cards:
           - type: custom:mushroom-entity-card
-            entity: sensor.e3dc_maestro_saisonales_ladeende_stunde
+            entity: sensor.e3dc_maestro_saisonales_ladeende_uhrzeit
             name: Ladeende heute
             icon: mdi:clock-end
             icon_color: purple
@@ -1306,7 +1306,7 @@ TAB_6 = (
             name: Morning-Cap aktivieren
           - entity: number.e3dc_maestro_morning_cap_soc_grenze
             name: "SoC-Deckel (%)"
-          - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_gmt
+          - entity: number.e3dc_maestro_morning_cap_aktiv_bis_uhr_lokal
             name: "Aktiv bis (Uhr, lokal)"
           - entity: switch.e3dc_maestro_schonladung_reduzierte_ladeleistung
             name: Schonladung aktivieren
@@ -1387,7 +1387,7 @@ TAB_7 = """\
         entities:
           - entity: sensor.e3dc_maestro_notstromreserve_aktuell
             name: Notstromreserve (aktuell, %)
-          - entity: sensor.e3dc_maestro_saisonales_ladeende_stunde
+          - entity: sensor.e3dc_maestro_saisonales_ladeende_uhrzeit
             name: Saisonales Ladeende (Uhrzeit)
           - entity: sensor.e3dc_maestro_abregelung_verhindert_heute
             name: Einspeiselimit gesichert (kWh heute)

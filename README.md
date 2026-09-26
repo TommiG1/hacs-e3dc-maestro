@@ -340,7 +340,7 @@ switch — you can wire up the sensor purely for clean statistics.
 | **Phases** | 3 | 1 or 3 phases |
 | **Min. PV surplus (W)** | 1 400 | Wallbox activates only above this surplus |
 
-**New sensors:** `sensor.e3dc_maestro_wallbox_power` (W), `sensor.e3dc_maestro_total_load_power` (W = house + wallbox), `sensor.e3dc_maestro_wallbox_energy_today` (kWh, Energy-Dashboard compatible).
+**New sensors:** `sensor.e3dc_maestro_wallbox_leistung` (W), `sensor.e3dc_maestro_gesamtlast_haus_wallbox` (W = house + wallbox), `sensor.e3dc_maestro_wallbox_energie_heute` (kWh, Energy-Dashboard compatible).
 
 ---
 
@@ -474,8 +474,8 @@ All entities appear under the device **E3DC Maestro** in *Settings → Devices &
 | `sensor.e3dc_maestro_forecast_datenqualitat` | Forecast: Data quality | – | Shows whether consumption and PV profiles have sufficient data |
 | `sensor.e3dc_maestro_auto_aktive_strategie` | Auto: Active strategy | – | Shows whether auto-optimisation is active and which objective was chosen |
 | `sensor.e3dc_maestro_auto_geschatzte_einsparung` | Auto: Estimated savings | % | Simulated improvement vs. baseline |
-| `sensor.e3dc_maestro_aktives_lade_limit` | Active charge limit | W | Currently set charge limit (e.g. 0 W when blocked, 3000 W during curtailment guard); `unknown` if no limit active |
-| `sensor.e3dc_maestro_aktives_entlade_limit` | Active discharge limit | W | Currently set discharge limit (e.g. 0 W during EVCC pause); `unknown` if no limit active |
+| `sensor.e3dc_maestro_soll_lade_limit` | Target charge limit | W | Currently set charge limit (e.g. 0 W when blocked, 3000 W during curtailment guard); `unknown` if no limit active |
+| `sensor.e3dc_maestro_soll_entlade_limit` | Target discharge limit | W | Currently set discharge limit (e.g. 0 W during EVCC pause); `unknown` if no limit active |
 
 #### Sizing Advisor sensors (v0.3.7)
 
@@ -484,22 +484,21 @@ Static analysis results (filled after pressing **Start analysis**):
 | Entity ID | Name | Unit | Description |
 |---|---|---|---|
 | `sensor.e3dc_maestro_advisor_status` | Advisor status | – | `idle` / `running` / `ready` |
-| `sensor.e3dc_maestro_advisor_baseline_netzbezug` | Baseline grid import | kWh | Historic actual grid import (baseline scenario) |
-| `sensor.e3dc_maestro_advisor_empfehlung_wirtschaftlich` | Recommendation – economic | – | Combination with min. payback time (attributes: full breakdown) |
-| `sensor.e3dc_maestro_advisor_empfehlung_technisch` | Recommendation – technical | – | Combination with max. self-sufficiency |
-| `sensor.e3dc_maestro_advisor_empfehlung_ausgewogen` | Recommendation – balanced | – | Pareto-knee of cost/benefit curve |
-| `sensor.e3dc_maestro_advisor_anomalierate` | Anomaly rate | % | Share of hours with energy-balance anomalies (>5 % house load) |
+| `sensor.e3dc_maestro_advisor_netzbezug_baseline_jahr` | Baseline grid import | kWh | Historic actual grid import (baseline scenario) |
+| `sensor.e3dc_maestro_advisor_wirtschaftl_empfehlung_amortisation` | Recommendation – economic | – | Combination with min. payback time (attributes: full breakdown) |
+| `sensor.e3dc_maestro_advisor_techn_empfehlung_autarkie` | Recommendation – technical | – | Combination with max. self-sufficiency |
+| `sensor.e3dc_maestro_advisor_energiebilanz_anomalierate` | Anomaly rate | % | Share of hours with energy-balance anomalies (>5 % house load) |
 
 Scenario sensors (live, follow the two sliders):
 
 | Entity ID | Name | Unit | Description |
 |---|---|---|---|
-| `sensor.e3dc_maestro_advisor_autarkie` | Scenario self-sufficiency | % | For the current slider values |
-| `sensor.e3dc_maestro_advisor_vermiedener_netzbezug` | Avoided grid import (scenario) | kWh | Per year |
-| `sensor.e3dc_maestro_advisor_einsparung` | Annual savings (scenario) | EUR | Per year |
+| `sensor.e3dc_maestro_advisor_autarkie_szenario` | Scenario self-sufficiency | % | For the current slider values |
+| `sensor.e3dc_maestro_advisor_vermiedener_netzbezug_jahr` | Avoided grid import (scenario) | kWh | Per year |
+| `sensor.e3dc_maestro_advisor_ersparnis_jahr` | Annual savings (scenario) | EUR | Per year |
 | `sensor.e3dc_maestro_advisor_investition` | Investment (scenario) | EUR | Live from price entities |
 | `sensor.e3dc_maestro_advisor_amortisationszeit` | Payback time (scenario) | years | Live from price entities |
-| `sensor.e3dc_maestro_advisor_zyklen_pro_jahr` | Cycles per year (scenario) | – | Battery wear indicator |
+| `sensor.e3dc_maestro_advisor_zyklen_jahr_virt_akku` | Cycles per year (scenario) | – | Battery wear indicator |
 
 ---
 
@@ -1370,8 +1369,8 @@ Diese Sensoren sind nach der Installation direkt sichtbar und nutzbar.
 | `sensor.e3dc_maestro_forecast_datenqualitat` | Forecast: Datenqualität | – | Zeigt ob Verbrauchs- und PV-Profil ausreichend Daten haben |
 | `sensor.e3dc_maestro_auto_aktive_strategie` | Auto: Aktive Strategie | – | Zeigt ob Auto-Optimierung aktiv und welches Ziel gewählt wurde |
 | `sensor.e3dc_maestro_auto_geschatzte_einsparung` | Auto: Geschätzte Einsparung | % | Simulierte Verbesserung gegenüber Baseline |
-| `sensor.e3dc_maestro_aktives_lade_limit` | Aktives Lade-Limit | W | Aktuell von Maestro gesetztes Ladelimit (z. B. 0 W bei Ladesperre, 3000 W bei Curtailment Guard); `unknown` wenn kein Limit aktiv |
-| `sensor.e3dc_maestro_aktives_entlade_limit` | Aktives Entlade-Limit | W | Aktuell von Maestro gesetztes Entladelimit (z. B. 0 W bei EVCC-Pause); `unknown` wenn kein Limit aktiv |
+| `sensor.e3dc_maestro_soll_lade_limit` | Soll-Lade-Limit | W | Aktuell von Maestro gesetztes Ladelimit (z. B. 0 W bei Ladesperre, 3000 W bei Curtailment Guard); `unknown` wenn kein Limit aktiv |
+| `sensor.e3dc_maestro_soll_entlade_limit` | Soll-Entlade-Limit | W | Aktuell von Maestro gesetztes Entladelimit (z. B. 0 W bei EVCC-Pause); `unknown` wenn kein Limit aktiv |
 
 #### Sizing-Advisor-Sensoren (v0.3.7)
 

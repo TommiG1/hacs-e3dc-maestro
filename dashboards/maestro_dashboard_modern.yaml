@@ -25,11 +25,11 @@
 # Power-Flow-Karte (Übersicht) und in der Live-Leistungs-Mini-Graph (Cockpit)
 # verwendet.
 #
-#   sensor.e3dc_pv_power           # PV-Leistung    (W, ≥ 0)
-#   sensor.e3dc_house_power        # Hausverbrauch  (W, ≥ 0)
-#   sensor.e3dc_grid_power         # Netz           (W, + = Einspeisung, − = Bezug)
-#   sensor.e3dc_battery_power      # Akku           (W, + = laden, − = entladen)
-#   sensor.e3dc_soc                # Akku-Ladestand (%)
+#   sensor.s10e_solar_production_w                                                            # PV-Leistung    (W, ≥ 0)
+#   sensor.s10e_house_consumption                                                             # Hausverbrauch  (W, ≥ 0)
+#   sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power      # Netz           (W, + = Einspeisung, − = Bezug)
+#   sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power       # Akku           (W, + = laden, − = entladen)
+#   sensor.s10e_state_of_charge                                                               # Akku-Ladestand (%)
 #
 # Falls deine Sensoren andere Namen haben, ersetze sie unten in den
 # Karten dieses Dashboards (Suche & Ersetzen über die ganze Datei).
@@ -390,7 +390,7 @@ button_card_templates:
           - place-items: center
           - background: |
               [[[
-                const soc = parseFloat(states['sensor.e3dc_soc'] ? states['sensor.e3dc_soc'].state : 0) || 0;
+                const soc = parseFloat(states['sensor.s10e_state_of_charge'] ? states['sensor.s10e_state_of_charge'].state : 0) || 0;
                 const target = parseFloat(states['sensor.e3dc_maestro_ziel_soc'] ? states['sensor.e3dc_maestro_ziel_soc'].state : 0) || 0;
                 const deg = (Math.max(0, Math.min(100, soc)) / 100) * 360;
                 const color = soc < 25 ? '#e53935' : (soc < 50 ? '#fb8c00' : '#43a047');
@@ -437,7 +437,7 @@ button_card_templates:
       inner: " "
       soc_text: |
         [[[
-          const s = parseFloat(states['sensor.e3dc_soc'] ? states['sensor.e3dc_soc'].state : NaN);
+          const s = parseFloat(states['sensor.s10e_state_of_charge'] ? states['sensor.s10e_state_of_charge'].state : NaN);
           return isNaN(s) ? '—' : Math.round(s);
         ]]]
       soc_unit: "%"
@@ -451,7 +451,7 @@ button_card_templates:
         ]]]
     tap_action:
       action: more-info
-      entity: sensor.e3dc_soc
+      entity: sensor.s10e_state_of_charge
 
   # ── Money-Tile: Wert wird farbig (rot < 0, grün > 0) ─────────────────────
   money_tile:
@@ -560,18 +560,18 @@ views:
           - type: custom:power-flow-card-plus
             entities:
               grid:
-                entity: sensor.e3dc_grid_power
+                entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
                 invert_state: false
                 color_icon: true
               solar:
-                entity: sensor.e3dc_pv_power
+                entity: sensor.s10e_solar_production_w
                 color_icon: true
               battery:
-                entity: sensor.e3dc_battery_power
-                state_of_charge: sensor.e3dc_soc
+                entity: sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power
+                state_of_charge: sensor.s10e_state_of_charge
                 color_icon: true
               home:
-                entity: sensor.e3dc_house_power
+                entity: sensor.s10e_house_consumption
                 color_icon: true
             clickable_entities: true
             display_zero_lines:
@@ -592,7 +592,7 @@ views:
 
           - type: custom:button-card
             template: pv_tile
-            entity: sensor.e3dc_pv_power
+            entity: sensor.s10e_solar_production_w
             name: PV-Erzeugung
             icon: mdi:weather-sunny
             tap_action:
@@ -600,7 +600,7 @@ views:
 
           - type: custom:button-card
             template: house_tile
-            entity: sensor.e3dc_house_power
+            entity: sensor.s10e_house_consumption
             name: Hausverbrauch
             icon: mdi:home-lightning-bolt
             tap_action:
@@ -608,7 +608,7 @@ views:
 
           - type: custom:button-card
             template: power_tile
-            entity: sensor.e3dc_grid_power
+            entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
             name: Netz
             icon: mdi:transmission-tower
             tap_action:
@@ -616,7 +616,7 @@ views:
 
           - type: custom:button-card
             template: power_tile
-            entity: sensor.e3dc_battery_power
+            entity: sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power
             name: Akku
             icon: mdi:battery
             tap_action:
@@ -824,7 +824,7 @@ views:
               extrema: true
               fill: fade
             entities:
-              - entity: sensor.e3dc_soc
+              - entity: sensor.s10e_state_of_charge
                 name: Ist-SoC
                 color: var(--success-color)
               - entity: sensor.e3dc_maestro_ziel_soc
@@ -853,16 +853,16 @@ views:
               legend: true
               fill: fade
             entities:
-              - entity: sensor.e3dc_pv_power
+              - entity: sensor.s10e_solar_production_w
                 name: PV
                 color: "#f9a825"
-              - entity: sensor.e3dc_house_power
+              - entity: sensor.s10e_house_consumption
                 name: Haus
                 color: "#6d4c41"
-              - entity: sensor.e3dc_grid_power
+              - entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
                 name: Netz
                 color: "#1976d2"
-              - entity: sensor.e3dc_battery_power
+              - entity: sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power
                 name: Akku
                 color: "#2e7d32"
 
@@ -1206,16 +1206,16 @@ views:
               fill: fade
               extrema: false
             entities:
-              - entity: sensor.e3dc_pv_power
+              - entity: sensor.s10e_solar_production_w
                 name: PV
                 color: "#f9a825"
-              - entity: sensor.e3dc_house_power
+              - entity: sensor.s10e_house_consumption
                 name: Haus
                 color: "#6d4c41"
-              - entity: sensor.e3dc_grid_power
+              - entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
                 name: Netz
                 color: "#1976d2"
-              - entity: sensor.e3dc_battery_power
+              - entity: sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power
                 name: Akku
                 color: "#2e7d32"
 

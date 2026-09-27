@@ -250,6 +250,11 @@ button_card_templates:
         - box-shadow: 0 10px 30px rgba(0,0,0,0.22)
         - overflow: hidden
         - position: relative
+      grid:
+        - grid-template-areas: '"title" "subtitle" "badge"'
+        - grid-template-columns: 1fr
+        - grid-template-rows: min-content min-content min-content
+        - row-gap: 0
       custom_fields:
         icon:
           - position: absolute
@@ -257,28 +262,50 @@ button_card_templates:
           - right: 22px
           - font-size: 64px
           - opacity: 0.18
+          - pointer-events: none
+          - z-index: 0
         title:
+          - grid-area: title
+          - position: relative
+          - z-index: 1
           - font-size: 28px
           - font-weight: 800
-          - line-height: 1.1
+          - line-height: 1.15
           - letter-spacing: -0.5px
+          - padding-right: 72px
         subtitle:
+          - grid-area: subtitle
+          - position: relative
+          - z-index: 1
           - font-size: 13px
           - opacity: 0.85
           - margin-top: 10px
           - line-height: 1.4
-          - max-width: 88%
+          - padding-right: 16px
+          - max-width: 100%
+          - white-space: normal
+          - overflow: visible
+          - text-overflow: unset
+          - overflow-wrap: break-word
         badge:
+          - grid-area: badge
+          - position: relative
+          - z-index: 1
+          - justify-self: start
+          - width: auto
+          - max-width: min(100%, 220px)
           - margin-top: 14px
-          - display: inline-block
-          - padding: 4px 12px
-          - border-radius: 999px
+          - padding: 6px 12px
+          - border-radius: 12px
           - background: rgba(255,255,255,0.18)
-          - backdrop-filter: blur(4px)
           - font-size: 11px
           - font-weight: 600
           - letter-spacing: 0.5px
           - text-transform: uppercase
+          - white-space: normal
+          - overflow-wrap: anywhere
+          - line-height: 1.35
+          - text-align: left
     custom_fields:
       icon: |
         [[[
@@ -319,15 +346,16 @@ button_card_templates:
           const txt = (exp && !['unknown','unavailable','none',''].includes(exp.state)) ? exp.state
                     : (a && !['unknown','unavailable','none',''].includes(a.state)) ? a.state
                     : 'Noch keine Regelentscheidung verfügbar';
-          return txt.length > 180 ? txt.slice(0, 180) + '…' : txt;
+          return txt;
         ]]]
       badge: |
         [[[
           const r = states['switch.e3dc_maestro_regelung_aktiv'];
           const e = states['binary_sensor.e3dc_maestro_e3dc_erreichbar'];
-          if (!r || r.state !== 'on') return '⏸ Regelung pausiert';
-          if (!e || e.state !== 'on')  return '⚠ E3DC offline';
-          return '● Live · ' + (e.last_changed ? new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '');
+          if (!r || r.state !== 'on') return '⏸ Regelung<br>pausiert';
+          if (!e || e.state !== 'on')  return '⚠ E3DC<br>offline';
+          const t = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+          return '● Live<br>' + t;
         ]]]
     tap_action:
       action: more-info
@@ -549,10 +577,10 @@ views:
             display_zero_lines:
               mode: show
               transparency: 50
-            kw_decimals: 2
+            kilo_decimals: 2
             min_flow_rate: 0.4
             max_flow_rate: 6
-            watt_threshold: 1000
+            kilo_threshold: 1000
 
       # ── Live-Leistungen (button-card, Vorzeichen → Farbe) ────────────
       - type: grid

@@ -11,6 +11,17 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.3.22] – Schwacher PV-Tag: keine Lade-Verzögerung mehr (2026-09-30)
+
+### Behoben
+- **Schwacher PV-Tag: Ladung wurde morgens weiter verzögert.** Nach v0.3.19
+  wich nur der Morning-Cap dem gelatchten schwachen PV-Tag. `pv_delay`
+  („Ladung verzögert, Sonne kommt noch“) und die Korridor-Pause hingen weiter
+  an der Restprognose-Freigabe der Akku-Priorität. Beide weichen jetzt ebenfalls
+  am gelatchten schwachen PV-Tag; sonnige Tage bleiben unverändert.
+
+---
+
 ## [0.3.19] – Morning-Cap weicht auch am gelatchten schwachen PV-Tag (2026-09-23)
 
 ### Behoben

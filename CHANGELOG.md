@@ -19,6 +19,10 @@ einen eigenen Versionsabschnitt verschieben.
   („Ladung verzögert, Sonne kommt noch“) und die Korridor-Pause hingen weiter
   an der Restprognose-Freigabe der Akku-Priorität. Beide weichen jetzt ebenfalls
   am gelatchten schwachen PV-Tag; sonnige Tage bleiben unverändert.
+- **Englische Oberfläche (#5, #6, #8):** Config-Flow und Optionen haben
+  vollständige englische Übersetzungen (`strings.json`, `translations/en.json`).
+- **Modern-Dashboard (#5, #6, #8):** Power-Flow-Card-Plus-Felder auf das
+  aktuelle Schema migriert; Überlappung und Umbruch im Phase-Hero behoben.
 
 ---
 

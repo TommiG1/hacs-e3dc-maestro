@@ -4,7 +4,7 @@
 
 Eine Home Assistant Custom Integration für die **intelligente, vollautomatische Lade- und Entladeregelung** von E3DC Heimspeichersystemen.
 
-E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänzt die `e3dc_rscp`-Integration um eine regelbasierte Steuerung mit 17 priorisierten Phasen, vorausschauendem Laden, Abregelschutz, PV-Prognose, Tarifspreizung, Wallbox- und Wärmepumpenregelung sowie einem Auto-Optimierungsmodus.
+E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänzt die `e3dc_rscp`-Integration um eine regelbasierte Steuerung mit 19 priorisierten Phasen, vorausschauendem Laden, Abregelschutz, PV-Prognose, Tarifspreizung, Wallbox- und Wärmepumpenregelung sowie einem Auto-Optimierungsmodus.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=for-the-badge)](LICENSE)
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue?style=for-the-badge&logo=paypal)](https://www.paypal.com/paypalme/tommigraf)
@@ -28,14 +28,14 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
    - [Zahlenwerte (Numbers)](#zahlenwerte-numbers)
    - [Auswahlen (Selects)](#auswahlen-selects)
    - [Schaltflächen (Buttons)](#schaltflächen-buttons)
-7. [Regellogik & Phasenpriorität](#regellogik--phasenpriorität)
-8. [Dashboard einrichten](#dashboard-einrichten)
-9. [Sensor-Vorzeichen-Konventionen](#sensor-vorzeichen-konventionen)
-10. [Fehlerbehebung & FAQ](#fehlerbehebung--faq)
-11. [Bekannte Kompatibilität](#bekannte-kompatibilität)
-12. [Danksagung](#danksagung)
-13. [Changelog](CHANGELOG.md)
-14. [Lizenz](#lizenz)
+8. [Regellogik & Phasenpriorität](#regellogik--phasenpriorität)
+9. [Dashboard einrichten](#dashboard-einrichten)
+10. [Sensor-Vorzeichen-Konventionen](#sensor-vorzeichen-konventionen)
+11. [Fehlerbehebung & FAQ](#fehlerbehebung--faq)
+12. [Bekannte Kompatibilität](#bekannte-kompatibilität)
+13. [Danksagung](#danksagung)
+14. [Changelog](CHANGELOG.md)
+15. [Lizenz](#lizenz)
 
 ---
 
@@ -55,15 +55,17 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 | **Astro-Modus** | Ladeende/Ladestart dynamisch an Sonnenuntergang/Sonnenaufgang koppeln |
 | **Morning-Cap** | SoC-Deckel morgens, damit der Akku nicht zu früh voll ist |
 | **Hard-SoC-Limit** | Fester Lade-Deckel für Akkuschonung (unabhängig von allen anderen Phasen) |
+| **Schnelllade-Boden** | Voller PV-Überschuss bis zu einem konfigurierbaren SoC-Floor (Phase `fast_floor`) |
+| **Schwacher-PV-Tag (Akku-Priorität)** | An ertragsschwachen Tagen den Akku vor Spreading/Korridor-Pause füllen; Gate über Restprognose vs. Restbedarf |
 | **Auto-Optimierung** | Grid-Search-Optimizer wählt täglich die beste Strategie automatisch |
-| **24h Forecast-Simulation** | Vorausberechnete SoC-Trajektorie als ApexCharts-Sensor |
+| **24h Forecast-Simulation** | Vorausberechnete SoC-Trajektorie plus Live-Chart PV / Haus / Netz / Akku (letzte + nächste 24 h) |
 | **Dynamische Tarife** | Netzladung bei günstigem Börsenstrompreis (Tibber, aWATTar) |
 | **Tarif-Slots** | Feste Zeitfenster mit abweichenden Lade-/Entladeregeln |
 | **Wallbox-Regelung** | Strombegrenzung für Fremdwallboxen via EVCC/generisch; bei nativer E3DC-Wallbox nur sinnvoll für phasenübergreifende Koordination |
 | **Wärmepumpen-Regelung** | Ein/Aus nach PV-Überschuss mit Mindestlaufzeit und Mindestpause |
 | **Erzwungene Entladung** | Dashboard-Schalter für manuelle Entladung, z. B. um vor einem Tibber-Niedrigpreisfenster Kapazität zu schaffen |
 | **Regelungs-Cockpit** | Live Command Center mit Hero-Status, KPI-Kacheln, „Aktiv jetzt"-Chips, 24 h Phasenverlauf und „Warum diese Entscheidung?" |
-| **Entscheidungs-Erklärung** | Sensor `decision_explanation` mit vollständigem deutschen Erklärungssatz pro Regelphase (alle 17 Phasen) |
+| **Entscheidungs-Erklärung** | Sensor `sensor.e3dc_maestro_entscheidungserklarung` mit vollständigem Erklärungssatz pro Regelphase |
 | **Anti-Flapping** | EWMA-Glättung von PV/Last (τ = 60 s, Jump-Reset bei 2 kW) + Feed-in-Limit-Hysterese + pv_delay-Cooldown verhindern schnelles Phasen-Pendeln |
 | **Battery & PV Sizing Advisor (v0.3.7)** | 2D-Simulation (Zusatz-Akku × Zusatz-PV) auf historischen Stundendaten — berechnet Einsparung, Amortisation, Autarkie und drei Empfehlungen (wirtschaftlich / technisch / ausgewogen) |
 | **Automatisierte Tests + CI** | Control-Engine, Forecast/PV-Parser, Optimizer und Sizing Advisor abgedeckt; GitHub Actions mit pytest, Ruff und hassfest |
@@ -72,38 +74,33 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 
 ## Screenshots
 
-### Tab 1 – Dashboard & Echtzeit-Übersicht
-![Dashboard Übersicht](Screenshots/01_dashboard_uebersicht.png)
+Aktuelle Live-Oberfläche (v0.3.24). Modernes Dashboard: vier Ansichten. Classic: drei.
 
-### Tab 2 – Laden & Ladestrategie
-![Laden & Ladestrategie](Screenshots/02_laden_ladestrategie.png)
+### Modernes Dashboard
 
-### Tab 3 – Zeitplanung & Astro-Modus
-![Zeitplanung & Astro-Modus](Screenshots/03_zeitplanung_astro.png)
+SoC-Ring, Sollwert-KPIs und Live-Energiefluss:
 
-### Tab 4 – Netz & Tarif
-![Netz & Tarif](Screenshots/04_netz_tarif.png)
+![Modern Übersicht](Screenshots/modern_01_uebersicht.png)
 
-### Tab 5 – Flexibilität (Wallbox, Wärmepumpe, Vorentladung)
-![Flexibilität Wallbox Wärmepumpe](Screenshots/05_flexibilitaet_wallbox.png)
+Regelungs-Cockpit mit aktiver Phase (`fast_floor`), Gauges und 12-h-Live-Graph:
 
-### Tab 6 – Einstellungen & Systemparameter
-![Einstellungen Systemparameter](Screenshots/06_einstellungen_system.png)
+![Modern Cockpit](Screenshots/modern_02_cockpit.png)
 
-### Tab 7 – Diagnose & Debug
-![Diagnose & Debug](Screenshots/07_diagnose.png)
+Ladestrategien, Lade-/Entladeverlauf sowie Korridor- und Schnelllade-Boden-Einstellungen:
 
-### Tab 8 – Hilfe & Glossar
-![Hilfe & Glossar](Screenshots/08_hilfe_glossar.png)
+![Modern Laden](Screenshots/modern_03_laden.png)
 
-### Tab 9 – Auto-Optimierung
-![Auto-Optimierung](Screenshots/09_auto_optimierung.png)
+Leistungen – 24 h, ApexCharts Verlauf + Prognose (PV / Haus / Netz / Akku / SoC) und Tagesstatistik:
 
-### Tab 10 – Battery & PV Sizing Advisor (v0.3.7)
+![Modern 24h-Charts](Screenshots/modern_04_charts.png)
 
-Neuer Tab: 2D historische Simulation, Szenario-Slider (zusätzlicher Akku / PV),
-Live-KPIs (Autarkie, vermiedener Netzbezug, Einsparung, Investition, Amortisation),
-drei Empfehlungs-Strategien und editierbare Preisfelder.
+### Classic-Dashboard
+
+![Classic Übersicht](Screenshots/01_dashboard_uebersicht.png)
+
+![Classic Cockpit](Screenshots/10_cockpit.png)
+
+![Classic Laden](Screenshots/02_laden_ladestrategie.png)
 
 ---
 
@@ -280,7 +277,7 @@ HT-Fenster nicht entladen.
 | Parameter | Standard | Erläuterung |
 |---|---|---|
 | **HT/NT-Schutz aktivieren** | aus | Aktiviert die gesamte HT-Logik |
-| **Hochtarif Beginn (h)** | 6 | Ortszeit (MEZ/MESZ automatisch) |
+| **Hochtarif Beginn (h)** | 5 | Ortszeit (MEZ/MESZ automatisch) |
 | **Hochtarif Ende (h)** | 21 | Ortszeit |
 | **Speicherreserve Winter (%)** | 50 | Mindest-SoC der im HT-Fenster erhalten bleibt (Winter) – Akku wird nicht darunter entladen |
 | **Speicherreserve Äquinoktium (%)** | 10 | Mindest-SoC zur Tagundnachtgleiche |
@@ -492,6 +489,7 @@ Diese Sensoren sind nach der Installation direkt sichtbar und nutzbar.
 | `sensor.e3dc_maestro_ziel_ladeleistung` | Ziel-Ladeleistung | W | Berechnete Soll-Ladeleistung (0 wenn inaktiv) |
 | `sensor.e3dc_maestro_ziel_soc` | Ziel-SoC | % | Aktuelles Tages-Ladeziel |
 | `sensor.e3dc_maestro_letzte_aktion` | Letzte Aktion | – | Phase + Grund + Parameter der letzten Regelaktion (als Attribute) |
+| `sensor.e3dc_maestro_entscheidungserklarung` | Entscheidungs-Erklärung | – | Klartext „Warum diese Entscheidung?“ zur aktuellen Phase |
 | `sensor.e3dc_maestro_geladen_heute` | Geladen heute | kWh | Geladene Energie heute |
 | `sensor.e3dc_maestro_entladen_heute` | Entladen heute | kWh | Entladene Energie heute |
 | `sensor.e3dc_maestro_einspeise_eingriffe_heute` | Einspeise-Eingriffe heute | – | Anzahl Eingriffe wegen Einspeisegrenze |
@@ -506,7 +504,7 @@ Diese Sensoren sind nach der Installation direkt sichtbar und nutzbar.
 | `sensor.e3dc_maestro_forecast_max_soc_nachste_24h` | Forecast: Max-SoC nächste 24h | % | Simulierter maximaler SoC |
 | `sensor.e3dc_maestro_forecast_netzbezug_nachste_24h` | Forecast: Netzbezug nächste 24h | kWh | Simulierter Netzbezug |
 | `sensor.e3dc_maestro_forecast_autarkie_nachste_24h` | Forecast: Autarkie nächste 24h | % | Simulierte Autarkiequote |
-| `sensor.e3dc_maestro_forecast_soc_trajektorie_24h` | Forecast: SoC-Trajektorie 24h | % | ApexCharts-Sensor mit stündlichen SoC-Punkten (Attribute) |
+| `sensor.e3dc_maestro_forecast_soc_trajektorie_24h` | Forecast: SoC-Trajektorie 24h | % | ApexCharts-Sensor mit SoC- und Leistungs-Punkten (`trajectory_points`, `pv_points`, `house_points`, `grid_points`, `battery_points`) |
 | `sensor.e3dc_maestro_forecast_datenqualitat` | Forecast: Datenqualität | – | Zeigt ob Verbrauchs- und PV-Profil ausreichend Daten haben |
 | `sensor.e3dc_maestro_auto_aktive_strategie` | Auto: Aktive Strategie | – | Zeigt ob Auto-Optimierung aktiv und welches Ziel gewählt wurde |
 | `sensor.e3dc_maestro_auto_geschatzte_einsparung` | Auto: Geschätzte Einsparung | % | Simulierte Verbesserung gegenüber Baseline |
@@ -577,6 +575,9 @@ Alternativ über *Einstellungen → Entitäten* suchen: Filter auf „E3DC Maest
 | `binary_sensor.e3dc_maestro_ht_schutz_aktiv` | HT-Schutz aktiv | Phase `ht_protection` aktiv |
 | `binary_sensor.e3dc_maestro_notfallladung_aktiv` | Notfallladung aktiv | Phase `emergency` aktiv |
 | `binary_sensor.e3dc_maestro_abregelschutz_aktiv` | Abregelschutz aktiv | Phase `curtailment_guard` aktiv |
+| `binary_sensor.e3dc_maestro_netzladung_aktiv` | Netzladung aktiv | Phase `grid_charge` aktiv |
+| `binary_sensor.e3dc_maestro_schwacher_pv_tag` | Schwacher PV-Tag | Heute als PV-schwach erkannt (Ganztags-Flag) |
+| `binary_sensor.e3dc_maestro_akku_prioritat_aktiv` | Akku-Priorität aktiv | Bedarfs-Gate erzwingt aktuell Akku-zuerst |
 | `binary_sensor.e3dc_maestro_ladesperre_aktiv` | Ladesperre aktiv | `on` wenn Maestro ein Ladelimit ≤ 0 W gesetzt hat (Akku wird nicht geladen) |
 | `binary_sensor.e3dc_maestro_entladesperre_aktiv` | Entladesperre aktiv | `on` wenn Maestro ein Entladelimit ≤ 0 W gesetzt hat (z. B. bei EVCC-Pause) |
 | `binary_sensor.e3dc_maestro_advisor_wr_upgrade_empfohlen` | WR-Upgrade empfohlen (Advisor) | `on` wenn das aktuelle Slider-Szenario **oder** die wirtschaftliche Empfehlung einen WR-Upgrade erfordert |
@@ -595,6 +596,7 @@ Alle Switches können im Dashboard, in Automationen und über die UI bedient wer
 | `switch.e3dc_maestro_ht_samstag` | HT Samstag | HT-Schutz auch samstags |
 | `switch.e3dc_maestro_ht_sonntag` | HT Sonntag | HT-Schutz auch sonntags |
 | `switch.e3dc_maestro_wallbox_regelung` | Wallbox-Regelung | Wallbox-Steuerung ein/aus |
+| `switch.e3dc_maestro_wallbox_entladeschutz` | Wallbox-Entladeschutz | Entladung offen halten, solange das Auto lädt |
 | `switch.e3dc_maestro_warmepumpen_regelung` | Wärmepumpen-Regelung | WP-Steuerung ein/aus |
 | `switch.e3dc_maestro_debug_logging` | Debug-Logging | Aktiviert ausführliche Log-Einträge im Debug-Sensor |
 | `switch.e3dc_maestro_saisonale_notstromreserve` | Saisonale Notstromreserve | Saisonal interpolierte Reserve ein/aus |
@@ -611,6 +613,8 @@ Alle Switches können im Dashboard, in Automationen und über die UI bedient wer
 | `switch.e3dc_maestro_auto_optimierung` | Auto-Optimierung | Grid-Search-Optimizer ein/aus |
 | `switch.e3dc_maestro_hard_soc_limit_akku_deckel` | Hard-SoC-Limit | Fester Lade-Deckel ein/aus |
 | `switch.e3dc_maestro_vorausschauende_ladung` | Vorausschauende Ladung | Hebt das heutige Ladeziel an, wenn morgen wenig PV erwartet wird |
+| `switch.e3dc_maestro_schwacher_pv_tag_prioritat` | Schwacher-PV-Tag-Priorität | Akku-zuerst an ertragsschwachen Tagen |
+| `switch.e3dc_maestro_schnelllade_boden` | Schnelllade-Boden | Voller PV-Überschuss bis Floor-SoC |
 
 ---
 
@@ -726,11 +730,13 @@ Maestro entscheidet **jeden Tick** (Standard: 30 s) in absteigender Priorität. 
 | 10 | `astro_wait` | Vor Astro-Ladestart-Zeitpunkt | Laden noch nicht starten |
 | 11 | `morning_cap` | SoC > Morning-Cap und vor Cap-Uhrzeit | Laden blockieren |
 | 12 | `hard_soc_limit` | SoC ≥ Hard-SoC-Limit | Laden blockieren (1 W Sentinel) |
-| 13 | `corridor` | SoC < Tagesziel | Saisonal laden |
-| 14 | `pv_delay` | Korridor aktiv, aber PV-Prognose ausreichend | Warten auf PV |
-| 15 | `spreading` | Korridor aktiv + Spreading ein (Default ON) | Ladeleistung zeitlich verteilen, sanfte Ladekurve |
-| 16 | `curtailment_guard` | Abregelschutz-Flag aktiv | Mindest-Ladeleistung halten |
-| 17 | `idle` | Kein Handlungsbedarf | clear_power_limits (E3DC übernimmt) |
+| 13 | `fast_floor` | SoC unter Schnelllade-Boden | Voller PV-Überschuss laden |
+| 14 | `grid_charge` | Aktive Netzladung im `low`-Slot | Aus dem Netz bis Slot-Ziel laden |
+| 15 | `corridor` | SoC < Tagesziel | Saisonal laden |
+| 16 | `pv_delay` | Korridor aktiv, aber PV-Prognose ausreichend | Warten auf PV |
+| 17 | `spreading` | Korridor aktiv + Spreading ein (Default ON) | Ladeleistung zeitlich verteilen, sanfte Ladekurve |
+| 18 | `curtailment_guard` | Abregelschutz-Flag aktiv | Mindest-Ladeleistung halten |
+| 19 | `idle` | Kein Handlungsbedarf | clear_power_limits (E3DC übernimmt) |
 
 > **Hinweis zu `idle`:** Im Idle-Zustand sendet Maestro `clear_power_limits`. Der E3DC lädt danach eigenständig PV-Überschuss in den Akku, auch wenn der Ziel-SoC bereits erreicht ist. Das ist beabsichtigt — der Akku wird dabei nicht durch Maestro gestoppt.
 
@@ -739,8 +745,9 @@ Maestro entscheidet **jeden Tick** (Standard: 30 s) in absteigender Priorität. 
 ## Dashboard einrichten
 
 Das Classic-Dashboard ([`dashboards/maestro_dashboard.yaml`](dashboards/maestro_dashboard.yaml))
-bietet **10 Tabs** (inkl. **Sizing Advisor** seit v0.3.7) mit Übersicht, Steuerung,
-Diagnose und What-If-Analyse. Seit der Community-Dashboard-Strategie muss es **nicht
+bietet **11 Haupt-Tabs** (Dashboard, Cockpit, Laden, Zeitplanung, Netz & Tarif,
+Flexibilität, System, Diagnose, Hilfe, Auto-Optimierung, Sizing Advisor) plus
+themenspezifische Hilfe-Seiten. Seit der Community-Dashboard-Strategie muss es **nicht
 mehr per YAML eingefügt** werden.
 
 ### Voraussetzungen
@@ -814,14 +821,17 @@ Fallback importieren.
 
 | Tab | Inhalt |
 |---|---|
-| Übersicht | SoC-Gauge, Tagesstatistik, PV-Verlust verhindert, Letzte Aktion, Regelphase-Verlauf |
-| Lade-Strategie | Alle Ladeparameter, Korridor-Einstellungen, manuelle Ladung |
-| Intelligenz | Vorausschauendes Laden, Auto-Optimierung, Abregelschutz, Spreading, Hard-SoC-Limit |
-| Tarife & Netz | Dynamische Tarife, Tarif-Slots, Vorentladung |
-| Geräte | Wallbox, Wärmepumpe, EVCC |
-| Schutz & Limits | Notstromreserve, HT/NT, Hard-SoC, Morning-Cap |
-| System | Systemparameter, Watchdog, Intervall |
-| Diagnose | 24h Forecast-Trajektorie, Debug-Log, Sensor-Rohdaten |
+| Dashboard | Status-Chips, Prognose-Chart (PV/Haus/Netz/Akku/SoC), Kosten heute, manuelle Steuerung |
+| Cockpit | Hero-Status, „Warum diese Entscheidung?", Live-Tuning |
+| Laden | Korridor, Spreading, Schwacher-PV-Tag, Abregelschutz, Two-Tier, Schnelllade-Boden |
+| Zeitplanung | Saisonales Ladeende, Astro-Modus |
+| Netz & Tarif | HT/NT, dynamischer Tarif, Tarif-Slots |
+| Flexibilität | Wallbox, EVCC, Wärmepumpe, Vorentladung |
+| System | Hardware, Watchdog, Notstromreserve, Morning-Cap |
+| Diagnose | Sensor-Rohdaten, Debug-Log, Forecast-Qualität |
+| Hilfe | Glossar und verlinkte Hilfeseiten |
+| Auto-Optimierung | Optimizer-Ziel, Override vs. Basis |
+| Akku & PV Advisor | 2D-Simulation, Slider, Empfehlungen |
 
 ---
 

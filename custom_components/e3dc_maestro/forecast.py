@@ -10,7 +10,7 @@ so it can be called from both the coordinator and the F3 optimizer.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
@@ -57,6 +57,13 @@ class ForecastResult:
     # Absolute battery energy moved (|charge| + |discharge|) over the horizon
     battery_throughput_kwh: float = 0.0
 
+    # Per-step power traces in W (same length as trajectory_soc).
+    # Sign convention as MaestroState: grid + = feed-in, battery + = charging.
+    trajectory_pv_w: list[float] = field(default_factory=list)
+    trajectory_house_w: list[float] = field(default_factory=list)
+    trajectory_grid_w: list[float] = field(default_factory=list)
+    trajectory_battery_w: list[float] = field(default_factory=list)
+
 
 def simulate_next_24h(
     *,
@@ -72,6 +79,9 @@ def simulate_next_24h(
     pv_h_day2: list[float] | None = None,        # 24/48/96 W for the day after
     consumption_h_day2: list[float] | None = None,  # 24 hourly W for the day after
     horizon_h: int = 24,                          # 24 or 48
+    day2_from_calendar: bool = False,
+    consumption_anchor_w: float | None = None,
+    anchor_tau_h: float = 2.0,
 ) -> ForecastResult:
     """Simulate the next 24 hours in 15-minute steps (96 quarters) starting from *soc* %.
 
@@ -100,6 +110,14 @@ def simulate_next_24h(
         all in UTC).  Used only for cost accounting; rule engine still uses
         tariff_class from MaestroParams tariff_slots as before.
         If None, ``params.fixed_buy_price`` is used for every quarter.
+    day2_from_calendar:
+        Switch to the ``*_day2`` arrays at the next local calendar day instead
+        of after 24 h, and allow this with ``horizon_h=24`` (display forecast
+        that runs past midnight).
+    consumption_anchor_w:
+        Current measured house load (W).  The difference to the profile value at
+        *now* is added to the profile and decays exponentially with
+        ``anchor_tau_h`` hours, so a big load running right now is not ignored.
     """
     _STEP_MINUTES = 15
     _STEP_H = _STEP_MINUTES / 60.0  # 0.25 h per step
@@ -107,7 +125,7 @@ def simulate_next_24h(
         horizon_h = 24
     _STEPS = horizon_h * 4  # quarters
     _have_day2 = (
-        horizon_h == 48
+        (horizon_h == 48 or day2_from_calendar)
         and pv_h_day2 is not None
         and consumption_h_day2 is not None
     )
@@ -129,6 +147,10 @@ def simulate_next_24h(
     trajectory_soc: list[float] = []
     trajectory_hours: list[int] = []
     trajectory_phases: list[str] = []
+    traj_pv_w: list[float] = []
+    traj_house_w: list[float] = []
+    traj_grid_w: list[float] = []
+    traj_battery_w: list[float] = []
     total_consumption_wh = 0.0
     grid_draw_wh = 0.0
     grid_feed_wh = 0.0
@@ -145,6 +167,7 @@ def simulate_next_24h(
     )
 
     current_soc = float(soc)
+    anchor_delta_w = 0.0  # set after _cons_lookup is defined
 
     def _pv_lookup(arr: list[float], hour: int, minute: int) -> float:
         """Look up PV value at (hour, minute) for variable-resolution arrays.
@@ -188,6 +211,12 @@ def simulate_next_24h(
         b = float(arr[(hour + 1) % 24])
         return a + (b - a) * frac
 
+    if consumption_anchor_w is not None:
+        _b_utc = base.astimezone(timezone.utc)
+        anchor_delta_w = float(consumption_anchor_w) - max(
+            0.0, _cons_lookup(consumption_h, _b_utc.hour, _b_utc.minute)
+        )
+
     for q in range(_STEPS):
         sim_now = base + timedelta(minutes=_STEP_MINUTES * (q + 1))
         # Lookup-Stunde für PV-/Verbrauchs-Profile: diese Arrays sind in
@@ -210,7 +239,10 @@ def simulate_next_24h(
 
         # Day-1 vs day-2 lookup based on elapsed hours from base
         elapsed_h = (sim_now - base).total_seconds() / 3600.0
-        if _have_day2 and elapsed_h >= 24.0:
+        _use_day2 = (
+            sim_now.date() > base.date() if day2_from_calendar else elapsed_h >= 24.0
+        )
+        if _have_day2 and _use_day2:
             cons_arr = consumption_h_day2
             pv_arr = pv_h_day2
         else:
@@ -221,6 +253,10 @@ def simulate_next_24h(
         quarter_idx = hour_idx * 4 + sim_now.minute // _STEP_MINUTES
 
         cons_w = max(0.0, _cons_lookup(cons_arr, lookup_hour, lookup_minute))
+        if anchor_delta_w:
+            cons_w = max(
+                0.0, cons_w + anchor_delta_w * math.exp(-elapsed_h / anchor_tau_h)
+            )
         pv_w = max(0.0, _pv_lookup(pv_arr, lookup_hour, lookup_minute))
 
         # Approximate grid for state construction (grid balances the system)
@@ -318,6 +354,11 @@ def simulate_next_24h(
         trajectory_soc.append(round(current_soc, 1))
         trajectory_hours.append(hour_idx)
         trajectory_phases.append(phase)
+        traj_pv_w.append(round(pv_w))
+        traj_house_w.append(round(cons_w))
+        # Feed-in is capped by the feed-in limit (rest is curtailed)
+        traj_grid_w.append(round(min(grid_net_w, feed_in_limit_w)))
+        traj_battery_w.append(round(bat_net_w))
 
     min_soc = min(trajectory_soc) if trajectory_soc else current_soc
     max_soc = max(trajectory_soc) if trajectory_soc else current_soc
@@ -340,4 +381,8 @@ def simulate_next_24h(
         cost_eur=round(cost_eur, 4),
         revenue_eur=round(revenue_eur, 4),
         battery_throughput_kwh=round(battery_throughput_wh / 1000.0, 3),
+        trajectory_pv_w=traj_pv_w,
+        trajectory_house_w=traj_house_w,
+        trajectory_grid_w=traj_grid_w,
+        trajectory_battery_w=traj_battery_w,
     )

@@ -12,6 +12,7 @@ from .const import (
     CONF_PV_FORECAST_ENABLED,
     CONF_PV_FORECAST_SENSOR,
     CONF_PV_FORECAST_SENSOR_DAY2,
+    CONF_PV_FORECAST_TODAY_SENSOR,
     CONF_TOMORROW_PV_SENSOR,
 )
 from .coordinator_helpers import (
@@ -62,10 +63,18 @@ class CoordinatorForecastMixin:
             # Prefer today's Solcast/Forecast.Solar profile when available so the
             # dashboard forecast matches the optimizer PV basis.
             pv_source = "historic_mean"
-            pv_forecast = self._read_pv_forecast_profile(now, days_ahead=0)
+            # Display-only: use the configured Solcast/Forecast.Solar sensors even
+            # when the (control-relevant) PV-forecast delay switch is off.
+            pv_forecast = self._read_pv_forecast_profile(
+                now, days_ahead=0, ignore_enabled=True
+            )
+            pv_day2 = None
             if pv_forecast is not None:
                 pv_used = pv_forecast
                 pv_source = "day_forecast"
+                pv_day2 = self._read_pv_forecast_profile(
+                    now, days_ahead=1, ignore_enabled=True
+                )
             elif pv_h is not None:
                 pv_used = pv_h
             else:
@@ -73,8 +82,13 @@ class CoordinatorForecastMixin:
                 pv_source = "instant"
 
             active = self._active_params
-            params_key = forecast_params_key(active) + profile_source_tag(
-                pv_source, pv_used if pv_source == "day_forecast" else None
+            params_key = (
+                forecast_params_key(active)
+                + profile_source_tag(
+                    pv_source, pv_used if pv_source == "day_forecast" else None
+                )
+                + profile_source_tag("day2", pv_day2)
+                + (round(state.house_power / 250.0),)
             )
             fingerprint = _forecast_input_fingerprint(
                 soc=state.soc,
@@ -110,6 +124,8 @@ class CoordinatorForecastMixin:
                     _now=now,
                     _cap=active.battery_capacity_kwh,
                     _active=self.regelung_aktiv,
+                    _pv2=pv_day2,
+                    _anchor=state.house_power,
                 ):
                     return simulate_next_24h(
                         soc=_soc,
@@ -119,6 +135,10 @@ class CoordinatorForecastMixin:
                         now=_now,
                         battery_capacity_kwh=_cap,
                         regelung_aktiv=_active,
+                        pv_h_day2=_pv2,
+                        consumption_h_day2=_cons if _pv2 is not None else None,
+                        day2_from_calendar=_pv2 is not None,
+                        consumption_anchor_w=_anchor,
                     )
 
                 result = await self.hass.async_add_executor_job(_run_sim)
@@ -265,7 +285,7 @@ class CoordinatorForecastMixin:
 
 
     def _read_pv_forecast_profile(
-        self, now: datetime, days_ahead: int = 0
+        self, now: datetime, days_ahead: int = 0, *, ignore_enabled: bool = False
     ) -> list[float] | None:
         """Try to read a 24h PV forecast (W) from a Solcast/Forecast.Solar sensor.
 
@@ -278,12 +298,16 @@ class CoordinatorForecastMixin:
 
         ``days_ahead`` selects which forecast day to extract:
         ``0`` = today (local date of ``now``), ``1`` = tomorrow.
+
+        ``ignore_enabled`` reads the configured sensors even when the PV-forecast
+        delay switch is off (display forecast only; no auto-detection then).
         """
         import datetime as _dt
 
         target_date = (now + _dt.timedelta(days=days_ahead)).date()
         opts = self.entry.options
-        if not opts.get(CONF_PV_FORECAST_ENABLED):
+        enabled = bool(opts.get(CONF_PV_FORECAST_ENABLED))
+        if not enabled and not ignore_enabled:
             return None
 
         # Tag-2 of the 48 h horizon is calendar tomorrow (days_ahead=1), not
@@ -297,7 +321,10 @@ class CoordinatorForecastMixin:
                 opts.get(CONF_PV_FORECAST_SENSOR),
             ]
         else:
-            candidate_ids = [opts.get(CONF_PV_FORECAST_SENSOR)]
+            candidate_ids = [
+                opts.get(CONF_PV_FORECAST_TODAY_SENSOR),
+                opts.get(CONF_PV_FORECAST_SENSOR),
+            ]
 
         seen: set[str] = set()
         for sensor_id in candidate_ids:
@@ -338,7 +365,7 @@ class CoordinatorForecastMixin:
 
         # Auto-detect: only for days_ahead=0 — for tomorrow we require configured
         # sensors so Solcast Tag-3..7 entities cannot silently extend the horizon.
-        if days_ahead != 0:
+        if days_ahead != 0 or not enabled:
             return None
 
         if self._autodetected_pv_sensor is not None:

@@ -500,6 +500,26 @@ class TestPvForecastDelay:
         from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
         assert decision.phase == PHASE_PV_DELAY
 
+    def test_pv_delay_yields_on_latched_low_yield_day(self):
+        """Gelatchter Schwacher-PV-Tag: kein Warten auf spätere Sonne, auch wenn
+        die Restprognose-Deckung die Akku-Priorität freigibt."""
+        from custom_components.e3dc_maestro.const import PHASE_PV_DELAY
+        params = _params_with_forecast(threshold=5.0, capacity=10.0, factor=1.2)
+        params.low_yield_priority_enabled = True
+        params.low_yield_reference_kwh = 100.0
+        state = MaestroState(
+            soc=30, pv_power=0, house_power=500, grid_power=0, battery_power=0,
+            pv_forecast_remaining_kwh=8.0,
+            pv_forecast_today_kwh=30.0,  # 30 % der Referenz → schwacher Tag
+        )
+        decision = decide(state, params, _now(6, 15, 9))
+        assert decision.phase != PHASE_PV_DELAY
+
+        # Gegenprobe: sonniger Tag → pv_delay wie bisher
+        state.pv_forecast_today_kwh = 90.0
+        decision = decide(state, params, _now(6, 15, 9))
+        assert decision.phase == PHASE_PV_DELAY
+
     def test_pv_delay_suppressed_within_cooldown_after_feed_in_limit(self):
         """pv_delay must NOT fire within 60 s after previous feed_in_limit phase."""
         params = _params_with_forecast(threshold=5.0, capacity=10.0, factor=1.2)

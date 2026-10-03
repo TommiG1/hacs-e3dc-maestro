@@ -11,6 +11,41 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.3.23] – Prognose-Chart bis Tagesende (Issue #9) (2026-10-03)
+
+### Added
+- Classic- und Modern-Dashboard: neue Karte „Leistungen & SoC – Verlauf und Prognose" (Issue #9).
+  Zeigt Ist-Verlauf (durchgezogen) und Maestro-Prognose (gepunktet) für PV, Haus,
+  Netz, Akku und SoC. Der Sensor `forecast_trajectory` liefert dafür die neuen
+  Attribute `pv_points`, `house_points`, `grid_points`, `battery_points`.
+
+### Changed
+- 24-h-Prognose nutzt jetzt die konfigurierte Solcast-/Forecast.Solar-Tagesprognose
+  (heute und morgen) auch dann, wenn der Schalter „PV-Prognose-Verzögerung" aus ist.
+  Die Regelung ist davon nicht betroffen (nur Anzeige-Prognose).
+- Der aktuell gemessene Hausverbrauch wird in die Prognose eingeblendet und klingt
+  innerhalb von ca. 2 h auf das Durchschnittsprofil ab (`consumption_anchor_w`).
+- Die Prognose wechselt zum Folgetag-Profil bei lokaler Mitternacht
+  (`day2_from_calendar`).
+- Der Prognose-Chart zeigt einen Hinweis, auf welcher Datenbasis die Prognose beruht.
+
+---
+
+## [0.3.22] – Schwacher PV-Tag: keine Lade-Verzögerung mehr (2026-09-30)
+
+### Behoben
+- **Schwacher PV-Tag: Ladung wurde morgens weiter verzögert.** Nach v0.3.19
+  wich nur der Morning-Cap dem gelatchten schwachen PV-Tag. `pv_delay`
+  („Ladung verzögert, Sonne kommt noch“) und die Korridor-Pause hingen weiter
+  an der Restprognose-Freigabe der Akku-Priorität. Beide weichen jetzt ebenfalls
+  am gelatchten schwachen PV-Tag; sonnige Tage bleiben unverändert.
+- **Englische Oberfläche (#5, #6, #8):** Config-Flow und Optionen haben
+  vollständige englische Übersetzungen (`strings.json`, `translations/en.json`).
+- **Modern-Dashboard (#5, #6, #8):** Power-Flow-Card-Plus-Felder auf das
+  aktuelle Schema migriert; Überlappung und Umbruch im Phase-Hero behoben.
+
+---
+
 ## [0.3.19] – Morning-Cap weicht auch am gelatchten schwachen PV-Tag (2026-09-23)
 
 ### Behoben

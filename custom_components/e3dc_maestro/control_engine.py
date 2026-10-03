@@ -1587,6 +1587,10 @@ def _decide_core(
                 and state.soc >= params.delay_min_soc
                 and _pv_delay_cooldown_ok
                 and not _spreading_blocks_pv_delay
+                # Gelatchter Schwacher-PV-Tag: nicht auf spätere Sonne warten
+                # (analog Morning-Cap), auch wenn die Restprognose-Deckung die
+                # Akku-Priorität gerade freigegeben hat.
+                and not _low_yield
             )
             if _LOGGER.isEnabledFor(logging.DEBUG):
                 _LOGGER.debug(
@@ -1641,6 +1645,7 @@ def _decide_core(
             and charge_power < params.lower_corridor
             and not curtailment_guard_active
             and not _battery_priority
+            and not _low_yield  # gelatchter Schwacher-PV-Tag: keine Korridor-Pause
             and not (_spread_on and state.soc < BATTERY_FULL_SOC_CEILING)
         ):
             # charge_power_limit=0.0 → max_charge=0 (Ladung blockiert),

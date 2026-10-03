@@ -44,6 +44,41 @@ class TestSimulateNext24h:
         assert len(result.trajectory_hours) == 96
         assert len(result.trajectory_phases) == 96
 
+    def test_consumption_anchor_raises_early_load_and_decays(self):
+        base = _simulate(cons=500.0, pv=0.0)
+        anch = _simulate(cons=500.0, pv=0.0, consumption_anchor_w=8000.0)
+        assert anch.trajectory_house_w[0] > 4000
+        assert anch.trajectory_house_w[-1] < 600  # decayed back to profile
+        assert anch.trajectory_house_w[0] > base.trajectory_house_w[0]
+
+    def test_day2_arrays_used_after_local_midnight(self):
+        # now = 10:00 UTC; after UTC midnight (elapsed 14 h) day2 arrays apply
+        r = simulate_next_24h(
+            soc=50.0,
+            consumption_h=[300.0] * 24,
+            pv_h=[0.0] * 24,
+            params=_PARAMS,
+            now=_NOW,
+            battery_capacity_kwh=15.0,
+            pv_h_day2=[4000.0] * 24,
+            consumption_h_day2=[300.0] * 24,
+            day2_from_calendar=True,
+        )
+        assert r.trajectory_pv_w[0] == 0  # still today (10:15)
+        assert r.trajectory_pv_w[-1] == 4000  # tomorrow 09:45
+
+    def test_power_traces_match_trajectory_length(self):
+        result = _simulate(cons=500.0, pv=2000.0)
+        for trace in (
+            result.trajectory_pv_w,
+            result.trajectory_house_w,
+            result.trajectory_grid_w,
+            result.trajectory_battery_w,
+        ):
+            assert len(trace) == 96
+        assert all(v == 2000 for v in result.trajectory_pv_w)
+        assert all(v == 500 for v in result.trajectory_house_w)
+
     def test_soc_bounded_0_to_100(self):
         result = _simulate(soc=5.0, cons=5000.0, pv=0.0)
         for soc in result.trajectory_soc:

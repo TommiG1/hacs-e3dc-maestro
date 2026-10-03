@@ -748,6 +748,10 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
                     attrs.get("max_soc"),
                     attrs.get("grid_draw_kwh"),
                     tuple(attrs.get("trajectory_soc") or ()),
+                    repr(attrs.get("pv_points")),
+                    repr(attrs.get("house_points")),
+                    repr(attrs.get("grid_points")),
+                    repr(attrs.get("battery_points")),
                 )
             elif key == "auto_active_strategy" and isinstance(attrs, dict):
                 fp = (
@@ -860,8 +864,19 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
                 [base_ms + (i + 1) * step_ms, v]
                 for i, v in enumerate(fc.trajectory_soc)
             ]
+            def _series(vals: list[float]) -> list[list[float]]:
+                # Only first 24 h (keeps attribute size small for 48 h horizons)
+                return [
+                    [base_ms + (i + 1) * step_ms, v]
+                    for i, v in enumerate(vals[:96])
+                ]
+
             return {
                 "trajectory_points": points,
+                "pv_points": _series(fc.trajectory_pv_w),
+                "house_points": _series(fc.trajectory_house_w),
+                "grid_points": _series(fc.trajectory_grid_w),
+                "battery_points": _series(fc.trajectory_battery_w),
                 "trajectory_soc": fc.trajectory_soc,
                 "trajectory_phases": fc.trajectory_phases,
                 "min_soc": fc.min_soc,

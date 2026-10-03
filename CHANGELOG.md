@@ -19,7 +19,7 @@ einen eigenen Versionsabschnitt verschieben.
 > `docs/recorder-exclusions-example.md`.
 
 ### Added
-- Modern-Dashboard: neue Karte „Leistungen & SoC – Verlauf und Prognose" (Issue #9).
+- Classic- und Modern-Dashboard: neue Karte „Leistungen & SoC – Verlauf und Prognose" (Issue #9).
   Zeigt Ist-Verlauf (durchgezogen) und Maestro-Prognose (gepunktet) für PV, Haus,
   Netz, Akku und SoC. Der Sensor `forecast_trajectory` liefert dafür die neuen
   Attribute `pv_points`, `house_points`, `grid_points`, `battery_points`.

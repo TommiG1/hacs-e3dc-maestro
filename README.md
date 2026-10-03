@@ -74,33 +74,56 @@ E3DC Maestro runs entirely **local and without any cloud connection**. It extend
 
 ## Screenshots
 
-Current live UI (v0.3.24). Modern dashboard: four views. Classic: three.
+Current live UI (v0.3.24).
 
 ### Modern dashboard
 
-SoC ring, target KPIs and live power flow:
+Four views: overview, cockpit, charging, and 24 h charts.
 
 ![Modern overview](Screenshots/modern_01_uebersicht.png)
 
-Control cockpit with active phase (`fast_floor`), gauges and 12 h live graph:
-
 ![Modern cockpit](Screenshots/modern_02_cockpit.png)
 
-Charging strategies, charge/discharge history and corridor / fast-floor settings:
-
 ![Modern charging](Screenshots/modern_03_laden.png)
-
-24 h power mini-graph, ApexCharts history + forecast (PV / house / grid / battery / SoC), and daily statistics:
 
 ![Modern 24h charts](Screenshots/modern_04_charts.png)
 
 ### Classic dashboard
 
-![Classic overview](Screenshots/01_dashboard_uebersicht.png)
+One screenshot per main module.
 
-![Classic cockpit](Screenshots/10_cockpit.png)
+#### Tab 1 – Dashboard & Live Overview
+![Dashboard Overview](Screenshots/01_dashboard_uebersicht.png)
 
-![Classic charging](Screenshots/02_laden_ladestrategie.png)
+#### Tab 2 – Control Cockpit
+![Cockpit](Screenshots/10_cockpit.png)
+
+#### Tab 3 – Charging & Charge Strategy
+![Charging & Strategy](Screenshots/02_laden_ladestrategie.png)
+
+#### Tab 4 – Scheduling & Astro Mode
+![Scheduling & Astro](Screenshots/03_zeitplanung_astro.png)
+
+#### Tab 5 – Grid & Tariff
+![Grid & Tariff](Screenshots/04_netz_tarif.png)
+
+#### Tab 6 – Flexibility (Wallbox, Heat Pump, Pre-Discharge)
+![Flexibility](Screenshots/05_flexibilitaet_wallbox.png)
+
+#### Tab 7 – Settings & System Parameters
+![Settings](Screenshots/06_einstellungen_system.png)
+
+#### Tab 8 – Diagnostics & Debug
+![Diagnostics](Screenshots/07_diagnose.png)
+
+#### Tab 9 – Help & Glossary
+![Help](Screenshots/08_hilfe_glossar.png)
+
+#### Tab 10 – Auto-Optimisation
+![Auto-Optimisation](Screenshots/09_auto_optimierung.png)
+
+#### Tab 11 – Battery & PV Sizing Advisor
+![Sizing Advisor](Screenshots/11_sizing_advisor.png)
 
 ---
 

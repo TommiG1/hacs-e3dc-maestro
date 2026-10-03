@@ -74,33 +74,56 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 
 ## Screenshots
 
-Aktuelle Live-Oberfläche (v0.3.24). Modernes Dashboard: vier Ansichten. Classic: drei.
+Aktuelle Live-Oberfläche (v0.3.24).
 
 ### Modernes Dashboard
 
-SoC-Ring, Sollwert-KPIs und Live-Energiefluss:
+Vier Ansichten: Übersicht, Cockpit, Laden und 24-h-Charts.
 
 ![Modern Übersicht](Screenshots/modern_01_uebersicht.png)
 
-Regelungs-Cockpit mit aktiver Phase (`fast_floor`), Gauges und 12-h-Live-Graph:
-
 ![Modern Cockpit](Screenshots/modern_02_cockpit.png)
 
-Ladestrategien, Lade-/Entladeverlauf sowie Korridor- und Schnelllade-Boden-Einstellungen:
-
 ![Modern Laden](Screenshots/modern_03_laden.png)
-
-Leistungen – 24 h, ApexCharts Verlauf + Prognose (PV / Haus / Netz / Akku / SoC) und Tagesstatistik:
 
 ![Modern 24h-Charts](Screenshots/modern_04_charts.png)
 
 ### Classic-Dashboard
 
-![Classic Übersicht](Screenshots/01_dashboard_uebersicht.png)
+Ein Screenshot pro Hauptmodul.
 
-![Classic Cockpit](Screenshots/10_cockpit.png)
+#### Tab 1 – Dashboard & Echtzeit-Übersicht
+![Dashboard Übersicht](Screenshots/01_dashboard_uebersicht.png)
 
-![Classic Laden](Screenshots/02_laden_ladestrategie.png)
+#### Tab 2 – Regelungs-Cockpit
+![Cockpit](Screenshots/10_cockpit.png)
+
+#### Tab 3 – Laden & Ladestrategie
+![Laden & Ladestrategie](Screenshots/02_laden_ladestrategie.png)
+
+#### Tab 4 – Zeitplanung & Astro-Modus
+![Zeitplanung & Astro-Modus](Screenshots/03_zeitplanung_astro.png)
+
+#### Tab 5 – Netz & Tarif
+![Netz & Tarif](Screenshots/04_netz_tarif.png)
+
+#### Tab 6 – Flexibilität (Wallbox, Wärmepumpe, Vorentladung)
+![Flexibilität Wallbox Wärmepumpe](Screenshots/05_flexibilitaet_wallbox.png)
+
+#### Tab 7 – Einstellungen & Systemparameter
+![Einstellungen Systemparameter](Screenshots/06_einstellungen_system.png)
+
+#### Tab 8 – Diagnose & Debug
+![Diagnose & Debug](Screenshots/07_diagnose.png)
+
+#### Tab 9 – Hilfe & Glossar
+![Hilfe & Glossar](Screenshots/08_hilfe_glossar.png)
+
+#### Tab 10 – Auto-Optimierung
+![Auto-Optimierung](Screenshots/09_auto_optimierung.png)
+
+#### Tab 11 – Akku & PV Sizing Advisor
+![Sizing Advisor](Screenshots/11_sizing_advisor.png)
 
 ---
 

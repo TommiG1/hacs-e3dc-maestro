@@ -718,6 +718,17 @@ async def async_setup_entry(
 class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
     entity_description: MaestroSensorDescription
     _attr_has_entity_name = True
+    # Large forecast curves are only needed live (dashboard cards); keep them out
+    # of the recorder database so no user-side recorder exclusion is required.
+    _unrecorded_attributes = frozenset({
+        "trajectory_points",
+        "pv_points",
+        "house_points",
+        "grid_points",
+        "battery_points",
+        "trajectory_soc",
+        "trajectory_phases",
+    })
     # Heavy attribute payloads — suppress writes when value+attrs fingerprint unchanged.
     _HEAVY_KEYS = frozenset({
         "forecast_trajectory",

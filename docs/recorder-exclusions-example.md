@@ -3,19 +3,12 @@
 Maestro-Entitäten sollten **nicht** aus dem Recorder ausgeschlossen werden
 (Energy-Dashboard, Forecast-Qualitätsprüfung, Sizing Advisor).
 
-**Einzige Ausnahme (ab v0.3.23):** der Sensor
-`sensor.e3dc_maestro_forecast_soc_trajektorie_24h` trägt die Prognose-Kurven als
-Attribute (rund 12 KB, bei jedem Update neu). Die Karten brauchen nur den
-aktuellen Zustand, keine Historie. Bitte vom Recorder ausschließen, sonst wächst
-die Datenbank spürbar, und bei 48-h-Horizont kann das Attribut-Limit des
-Recorders (16 KB) überschritten werden:
-
-```yaml
-recorder:
-  exclude:
-    entities:
-      - sensor.e3dc_maestro_forecast_soc_trajektorie_24h
-```
+**Hinweis (ab v0.3.23):** Die großen Prognose-Kurven-Attribute des Sensors
+`sensor.e3dc_maestro_forecast_soc_trajektorie_24h` (`trajectory_points`,
+`pv_points`, `house_points`, `grid_points`, `battery_points`, `trajectory_soc`,
+`trajectory_phases`) schreibt die Integration selbst **nicht** in die
+Recorder-Datenbank (`_unrecorded_attributes`). Ein manueller Ausschluss ist nicht
+nötig.
 
 Das lokale Snippet unter `.ha-deploy/` (nicht im Produkt-Repo versioniert)
 kann Domains und hochfrequente Diagnose-Sensoren anderer Integrationen
@@ -38,6 +31,6 @@ recorder:
 
 Bewusst **nicht** ausschließen:
 
-- `sensor.e3dc_maestro_*` (außer dem oben genannten Trajektorie-Sensor)
+- `sensor.e3dc_maestro_*`
 - `sensor.s10e_pro_*` / `sensor.e3dc_*` (RSCP-Quellen)
 - Energy-/Power-Sensoren der PV-Anlage

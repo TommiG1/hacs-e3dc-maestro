@@ -13,11 +13,6 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [0.3.23] – Prognose-Chart bis Tagesende (Issue #9) (2026-10-03)
 
-> **Hinweis Recorder:** Der Sensor `sensor.e3dc_maestro_forecast_soc_trajektorie_24h`
-> speichert jetzt ca. 12 KB Attribute (vorher ca. 4 KB). Bitte vom Recorder
-> ausschließen (`recorder: exclude: entities:`), siehe
-> `docs/recorder-exclusions-example.md`.
-
 ### Added
 - Classic- und Modern-Dashboard: neue Karte „Leistungen & SoC – Verlauf und Prognose" (Issue #9).
   Zeigt Ist-Verlauf (durchgezogen) und Maestro-Prognose (gepunktet) für PV, Haus,

@@ -9,6 +9,15 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+### Changed
+- Prognose-Chart (Issue #9): letzte plus nächste 24 h statt Kalendertag,
+  Ist-Linien bis „Jetzt", Prognose-Serien nicht in der Legende (Klick blendet
+  Ist und Prognose gemeinsam aus), Haus wieder braun, feste Leistungsskala
+  (−4…16 kW) mit gemeinsamer Nulllinie zu 0 % SoC (YAML anpassbar).
+  Der Chart bleibt bei den fünf Größen aus Issue #9 (PV, Haus, Netz, Akku, SoC).
+  Extra-Verbraucher (Wallbox, Heizstab, …) bleiben in den bestehenden Karten;
+  sie würden die Hauskurve überlagern und die Legende unbrauchbar machen.
+
 ---
 
 ## [0.3.23] – Prognose-Chart bis Tagesende (Issue #9) (2026-10-03)

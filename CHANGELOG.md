@@ -9,6 +9,10 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+---
+
+## [0.3.24] – Prognose-Chart: ±24 h, Legende, Skala (#9) (2026-10-03)
+
 ### Changed
 - Prognose-Chart (Issue #9): letzte plus nächste 24 h statt Kalendertag,
   Ist-Linien bis „Jetzt", Prognose-Serien nicht in der Legende (Klick blendet

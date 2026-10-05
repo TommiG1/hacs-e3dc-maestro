@@ -11,6 +11,17 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.3.25] – Akku-Prognose ohne Sprung bei „Jetzt“ (#9) (2026-10-05)
+
+### Behoben
+- Prognose-Chart (Issue #9): Die Akku-Prognose setzt die aktuell laufende Ladung/Entladung
+  fort und klingt nach ca. 1 h auf den simulierten Wert ab, statt bei „Jetzt“ zu springen
+  (`battery_anchor_w`).
+- Prognose-Simulation: Vorzeichen von `grid_power` an die Maestro-Konvention angepasst
+  (+ = Einspeisung, − = Bezug); ein Defizit wurde zuvor als Einspeisung gewertet.
+
+---
+
 ## [0.3.24] – Prognose-Chart: ±24 h, Legende, Skala (#9) (2026-10-03)
 
 ### Changed

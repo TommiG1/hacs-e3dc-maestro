@@ -82,6 +82,8 @@ def simulate_next_24h(
     day2_from_calendar: bool = False,
     consumption_anchor_w: float | None = None,
     anchor_tau_h: float = 2.0,
+    battery_anchor_w: float | None = None,
+    battery_anchor_tau_h: float = 1.0,
 ) -> ForecastResult:
     """Simulate the next 24 hours in 15-minute steps (96 quarters) starting from *soc* %.
 
@@ -118,6 +120,11 @@ def simulate_next_24h(
         Current measured house load (W).  The difference to the profile value at
         *now* is added to the profile and decays exponentially with
         ``anchor_tau_h`` hours, so a big load running right now is not ignored.
+    battery_anchor_w:
+        Current measured battery power (W, + = charging).  The difference to
+        the simulated first step is carried through the SoC integration and
+        decays with ``battery_anchor_tau_h`` hours, so the forecast continues
+        the running charge/discharge instead of jumping at "now".
     """
     _STEP_MINUTES = 15
     _STEP_H = _STEP_MINUTES / 60.0  # 0.25 h per step
@@ -168,6 +175,7 @@ def simulate_next_24h(
 
     current_soc = float(soc)
     anchor_delta_w = 0.0  # set after _cons_lookup is defined
+    battery_anchor_delta_w = 0.0  # set on the first step
 
     def _pv_lookup(arr: list[float], hour: int, minute: int) -> float:
         """Look up PV value at (hour, minute) for variable-resolution arrays.
@@ -266,8 +274,8 @@ def simulate_next_24h(
             soc=current_soc,
             pv_power=pv_w,
             house_power=cons_w,
-            # Approximate: grid covers any deficit not yet compensated by battery
-            grid_power=max(0.0, -pv_surplus_w),
+            # MaestroState convention: + = feed-in, − = draw. Deficit → negative.
+            grid_power=min(0.0, pv_surplus_w),
             battery_power=0.0,
         )
 
@@ -304,6 +312,15 @@ def simulate_next_24h(
                 bat_net_w = min(pv_surplus_w, charge_cap)
             else:
                 bat_net_w = max(-max_disch_w, pv_surplus_w)
+
+        # ── Anchor to measured battery power (decays like the load anchor) ──
+        if battery_anchor_w is not None:
+            if q == 0:
+                battery_anchor_delta_w = float(battery_anchor_w) - bat_net_w
+            bat_net_w += battery_anchor_delta_w * math.exp(
+                -(elapsed_h - _STEP_H) / battery_anchor_tau_h
+            )
+            bat_net_w = max(-max_disch_w, min(params.max_charge_power, bat_net_w))
 
         # ── SoC update (15-min step = 0.25 h) ──────────────────────────────
         delta_wh = bat_net_w * _STEP_H

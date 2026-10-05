@@ -962,7 +962,7 @@ views:
                     borderColor: "#78909c"
                 series:
                   # Ist-Verlauf
-                  - entity: sensor.s10e_solar_production_w
+                  - entity: sensor.s10e_state_of_charge
                     name: SoC
                     yaxis_id: soc
                     color: "#e040fb"

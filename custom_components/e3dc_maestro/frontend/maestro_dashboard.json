@@ -593,9 +593,10 @@
         {
           "type": "custom:apexcharts-card",
           "chart_type": "line",
-          "graph_span": "24h",
+          "graph_span": "48h",
           "span": {
-            "start": "day"
+            "end": "minute",
+            "offset": "+24h"
           },
           "now": {
             "show": true,
@@ -603,7 +604,7 @@
           },
           "header": {
             "show": true,
-            "title": "Ist (durchgezogen) und Prognose (gepunktet)"
+            "title": "Verlauf 24 h (—) und Prognose 24 h (···)"
           },
           "all_series_config": {
             "stroke_width": 3,
@@ -615,8 +616,12 @@
           "yaxis": [
             {
               "id": "power",
+              "min": -4000,
+              "max": 16000,
               "decimals": 0,
               "apex_config": {
+                "forceNiceScale": false,
+                "tickAmount": 5,
                 "labels": {
                   "style": {
                     "colors": "#eceff1"
@@ -627,21 +632,27 @@
             {
               "id": "soc",
               "opposite": true,
-              "min": 0,
+              "min": -25,
               "max": 100,
               "decimals": 0,
               "apex_config": {
+                "forceNiceScale": false,
+                "tickAmount": 5,
                 "labels": {
                   "style": {
                     "colors": "#e040fb"
-                  }
+                  },
+                  "formatter": "EVAL:function (val) { return val < 0 ? '' : val; }\n"
                 }
               }
             }
           ],
           "apex_config": {
             "chart": {
-              "height": 320
+              "height": 320,
+              "events": {
+                "legendClick": "EVAL:function (ctx, i) { var n = ctx.w.globals.seriesNames; var j = (i + 5) % 10; if (n[j]) ctx.toggleSeries(n[j]); }\n"
+              }
             },
             "xaxis": {
               "type": "datetime",
@@ -676,7 +687,7 @@
                 "func": "avg",
                 "duration": "15min"
               },
-              "extend_to": false
+              "extend_to": "now"
             },
             {
               "entity": "sensor.e3dc_pv_power",
@@ -687,18 +698,18 @@
                 "func": "avg",
                 "duration": "15min"
               },
-              "extend_to": false
+              "extend_to": "now"
             },
             {
               "entity": "sensor.e3dc_house_power",
               "name": "Haus",
               "yaxis_id": "power",
-              "color": "#ff7043",
+              "color": "#a1887f",
               "group_by": {
                 "func": "avg",
                 "duration": "15min"
               },
-              "extend_to": false
+              "extend_to": "now"
             },
             {
               "entity": "sensor.e3dc_grid_power",
@@ -709,7 +720,7 @@
                 "func": "avg",
                 "duration": "15min"
               },
-              "extend_to": false
+              "extend_to": "now"
             },
             {
               "entity": "sensor.e3dc_battery_power",
@@ -720,7 +731,7 @@
                 "func": "avg",
                 "duration": "15min"
               },
-              "extend_to": false
+              "extend_to": "now"
             },
             {
               "entity": "sensor.e3dc_maestro_forecast_soc_trajektorie_24h",
@@ -729,7 +740,8 @@
               "color": "#e040fb",
               "stroke_dash": 2,
               "show": {
-                "in_header": false
+                "in_header": false,
+                "in_legend": false
               },
               "data_generator": "return entity.attributes.trajectory_points || [];\n"
             },
@@ -740,7 +752,8 @@
               "color": "#ffeb3b",
               "stroke_dash": 2,
               "show": {
-                "in_header": false
+                "in_header": false,
+                "in_legend": false
               },
               "data_generator": "return entity.attributes.pv_points || [];\n"
             },
@@ -748,10 +761,11 @@
               "entity": "sensor.e3dc_maestro_forecast_soc_trajektorie_24h",
               "name": "Haus Prognose",
               "yaxis_id": "power",
-              "color": "#ff7043",
+              "color": "#a1887f",
               "stroke_dash": 2,
               "show": {
-                "in_header": false
+                "in_header": false,
+                "in_legend": false
               },
               "data_generator": "return entity.attributes.house_points || [];\n"
             },
@@ -762,7 +776,8 @@
               "color": "#42a5f5",
               "stroke_dash": 2,
               "show": {
-                "in_header": false
+                "in_header": false,
+                "in_legend": false
               },
               "data_generator": "return entity.attributes.grid_points || [];\n"
             },
@@ -773,7 +788,8 @@
               "color": "#66bb6a",
               "stroke_dash": 2,
               "show": {
-                "in_header": false
+                "in_header": false,
+                "in_legend": false
               },
               "data_generator": "return entity.attributes.battery_points || [];\n"
             }

@@ -962,31 +962,31 @@ views:
                     borderColor: "#78909c"
                 series:
                   # Ist-Verlauf
-                  - entity: sensor.e3dc_soc
+                  - entity: sensor.s10e_solar_production_w
                     name: SoC
                     yaxis_id: soc
                     color: "#e040fb"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_pv_power
+                  - entity: sensor.s10e_solar_production_w
                     name: PV
                     yaxis_id: power
                     color: "#ffeb3b"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_house_power
+                  - entity: sensor.s10e_house_consumption
                     name: Haus
                     yaxis_id: power
                     color: "#a1887f"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_grid_power
+                  - entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
                     name: Netz
                     yaxis_id: power
                     color: "#42a5f5"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_battery_power
+                  - entity: sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power
                     name: Akku
                     yaxis_id: power
                     color: "#66bb6a"

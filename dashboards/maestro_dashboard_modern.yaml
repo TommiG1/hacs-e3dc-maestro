@@ -866,7 +866,7 @@ views:
                 name: Akku
                 color: "#2e7d32"
 
-      # ── Leistungen: Verlauf + Prognose bis Tagesende (ApexCharts) ────
+      # ── Leistungen: Verlauf + Prognose (letzte/nächste 24 h) (ApexCharts) ────
       - type: grid
         column_span: 2
         cards:
@@ -875,6 +875,8 @@ views:
             icon: mdi:chart-timeline-variant
 
           - type: markdown
+            grid_options:
+              columns: full
             content: >-
               {% set src = state_attr('sensor.e3dc_maestro_forecast_datenqualitat', 'forecast_pv_source') %}
               **Prognose-Basis:**
@@ -889,131 +891,151 @@ views:
               Kurven sind Modellwerte; Abweichungen durch Wetter oder große
               Verbraucher (z. B. Wallbox, Heizstab) sind möglich.
 
-          - type: custom:apexcharts-card
-            chart_type: line
-            graph_span: 24h
-            span:
-              start: day
-            now:
-              show: true
-              label: Jetzt
-            header:
-              show: true
-              title: Ist (durchgezogen) und Prognose (gepunktet)
-            all_series_config:
-              stroke_width: 3
-              curve: smooth
-              show:
-                legend_value: false
-            yaxis:
-              - id: power
-                decimals: 0
+          - type: vertical-stack
+            grid_options:
+              columns: full
+            cards:
+              - type: custom:apexcharts-card
+                chart_type: line
+                graph_span: 48h
+                span:
+                  end: minute
+                  offset: +24h
+                now:
+                  show: true
+                  label: Jetzt
+                header:
+                  show: true
+                  title: Verlauf 24 h (—) und Prognose 24 h (···)
+                all_series_config:
+                  stroke_width: 3
+                  curve: smooth
+                  show:
+                    legend_value: false
+                yaxis:
+                  # Feste Leistungsskala in W. An die eigene Anlage anpassen.
+                  # SoC-min so wählen, dass 0 W und 0 % auf einer Linie liegen:
+                  #   soc_min = -power_min / (power_max - power_min) * 100
+                  - id: power
+                    min: -4000
+                    max: 16000
+                    decimals: 0
+                    apex_config:
+                      forceNiceScale: false
+                      tickAmount: 5
+                      labels:
+                        style:
+                          colors: "#eceff1"
+                  - id: soc
+                    opposite: true
+                    min: -25
+                    max: 100
+                    decimals: 0
+                    apex_config:
+                      forceNiceScale: false
+                      tickAmount: 5
+                      labels:
+                        style:
+                          colors: "#e040fb"
+                        formatter: |
+                          EVAL:function (val) { return val < 0 ? '' : val; }
                 apex_config:
-                  labels:
-                    style:
+                  chart:
+                    height: 320
+                    events:
+                      legendClick: |
+                        EVAL:function (ctx, i) { var n = ctx.w.globals.seriesNames; var j = (i + 5) % 10; if (n[j]) ctx.toggleSeries(n[j]); }
+                  xaxis:
+                    type: datetime
+                    labels:
+                      datetimeUTC: false
+                      format: HH:mm
+                      style:
+                        colors: "#eceff1"
+                  legend:
+                    show: true
+                    labels:
                       colors: "#eceff1"
-              - id: soc
-                opposite: true
-                min: 0
-                max: 100
-                decimals: 0
-                apex_config:
-                  labels:
-                    style:
-                      colors: "#e040fb"
-            apex_config:
-              chart:
-                height: 320
-              xaxis:
-                type: datetime
-                labels:
-                  datetimeUTC: false
-                  format: HH:mm
-                  style:
-                    colors: "#eceff1"
-              legend:
-                show: true
-                labels:
-                  colors: "#eceff1"
-              tooltip:
-                theme: dark
-              grid:
-                borderColor: "#78909c"
-            series:
-              # Ist-Verlauf
-              - entity: sensor.e3dc_soc
-                name: SoC
-                yaxis_id: soc
-                color: "#e040fb"
-                group_by: { func: avg, duration: 15min }
-                extend_to: false
-              - entity: sensor.e3dc_pv_power
-                name: PV
-                yaxis_id: power
-                color: "#ffeb3b"
-                group_by: { func: avg, duration: 15min }
-                extend_to: false
-              - entity: sensor.e3dc_house_power
-                name: Haus
-                yaxis_id: power
-                color: "#ff7043"
-                group_by: { func: avg, duration: 15min }
-                extend_to: false
-              - entity: sensor.e3dc_grid_power
-                name: Netz
-                yaxis_id: power
-                color: "#42a5f5"
-                group_by: { func: avg, duration: 15min }
-                extend_to: false
-              - entity: sensor.e3dc_battery_power
-                name: Akku
-                yaxis_id: power
-                color: "#66bb6a"
-                group_by: { func: avg, duration: 15min }
-                extend_to: false
-              # Prognose (aus Maestro-Simulation)
-              - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
-                name: SoC Prognose
-                yaxis_id: soc
-                color: "#e040fb"
-                stroke_dash: 2
-                show: { in_header: false }
-                data_generator: |
-                  return entity.attributes.trajectory_points || [];
-              - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
-                name: PV Prognose
-                yaxis_id: power
-                color: "#ffeb3b"
-                stroke_dash: 2
-                show: { in_header: false }
-                data_generator: |
-                  return entity.attributes.pv_points || [];
-              - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
-                name: Haus Prognose
-                yaxis_id: power
-                color: "#ff7043"
-                stroke_dash: 2
-                show: { in_header: false }
-                data_generator: |
-                  return entity.attributes.house_points || [];
-              - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
-                name: Netz Prognose
-                yaxis_id: power
-                color: "#42a5f5"
-                stroke_dash: 2
-                show: { in_header: false }
-                data_generator: |
-                  return entity.attributes.grid_points || [];
-              - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
-                name: Akku Prognose
-                yaxis_id: power
-                color: "#66bb6a"
-                stroke_dash: 2
-                show: { in_header: false }
-                data_generator: |
-                  return entity.attributes.battery_points || [];
+                  tooltip:
+                    theme: dark
+                  grid:
+                    borderColor: "#78909c"
+                series:
+                  # Ist-Verlauf
+                  - entity: sensor.e3dc_soc
+                    name: SoC
+                    yaxis_id: soc
+                    color: "#e040fb"
+                    group_by: { func: avg, duration: 15min }
+                    extend_to: now
+                  - entity: sensor.e3dc_pv_power
+                    name: PV
+                    yaxis_id: power
+                    color: "#ffeb3b"
+                    group_by: { func: avg, duration: 15min }
+                    extend_to: now
+                  - entity: sensor.e3dc_house_power
+                    name: Haus
+                    yaxis_id: power
+                    color: "#a1887f"
+                    group_by: { func: avg, duration: 15min }
+                    extend_to: now
+                  - entity: sensor.e3dc_grid_power
+                    name: Netz
+                    yaxis_id: power
+                    color: "#42a5f5"
+                    group_by: { func: avg, duration: 15min }
+                    extend_to: now
+                  - entity: sensor.e3dc_battery_power
+                    name: Akku
+                    yaxis_id: power
+                    color: "#66bb6a"
+                    group_by: { func: avg, duration: 15min }
+                    extend_to: now
+                  # Prognose (aus Maestro-Simulation)
+                  - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
+                    name: SoC Prognose
+                    yaxis_id: soc
+                    color: "#e040fb"
+                    stroke_dash: 2
+                    show: { in_header: false, in_legend: false }
+                    data_generator: |
+                      return entity.attributes.trajectory_points || [];
+                  - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
+                    name: PV Prognose
+                    yaxis_id: power
+                    color: "#ffeb3b"
+                    stroke_dash: 2
+                    show: { in_header: false, in_legend: false }
+                    data_generator: |
+                      return entity.attributes.pv_points || [];
+                  - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
+                    name: Haus Prognose
+                    yaxis_id: power
+                    color: "#a1887f"
+                    stroke_dash: 2
+                    show: { in_header: false, in_legend: false }
+                    data_generator: |
+                      return entity.attributes.house_points || [];
+                  - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
+                    name: Netz Prognose
+                    yaxis_id: power
+                    color: "#42a5f5"
+                    stroke_dash: 2
+                    show: { in_header: false, in_legend: false }
+                    data_generator: |
+                      return entity.attributes.grid_points || [];
+                  - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
+                    name: Akku Prognose
+                    yaxis_id: power
+                    color: "#66bb6a"
+                    stroke_dash: 2
+                    show: { in_header: false, in_legend: false }
+                    data_generator: |
+                      return entity.attributes.battery_points || [];
 
-      # ── Tagesstatistik (button-card KPIs + Mini-Graph) ───────────────
+          # ── Tagesstatistik (button-card KPIs + Mini-Graph) ───────────────
+
       - type: grid
         column_span: 3
         cards:

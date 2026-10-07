@@ -291,19 +291,24 @@ button_card_templates:
               const p = states['sensor.e3dc_maestro_regelphase'] ? states['sensor.e3dc_maestro_regelphase'].state : '';
               const low = states['binary_sensor.e3dc_maestro_akku_prioritat_aktiv'] && states['binary_sensor.e3dc_maestro_akku_prioritat_aktiv'].state === 'on';
               const palette = {
+                off:                ['#455a64', '#607d8b'],
+                manual:             ['#546e7a', '#78909c'],
                 emergency:          ['#b71c1c', '#e53935'],
                 feed_in_limit:      ['#e65100', '#fb8c00'],
                 force_discharge:    ['#bf360c', '#ef6c00'],
-                curtailment:        ['#bf360c', '#ff7043'],
+                curtailment_guard:  ['#bf360c', '#ff7043'],
                 reserve_protection: ['#0d47a1', '#1976d2'],
                 evcc_pause:         ['#4a148c', '#7b1fa2'],
                 ht_protection:      ['#4e342e', '#6d4c41'],
                 pv_delay:           ['#1b5e20', '#43a047'],
                 astro_wait:         ['#f57f17', '#fbc02d'],
                 morning_cap:        ['#827717', '#afb42b'],
+                morning_discharge:  ['#bf360c', '#ff7043'],
+                hard_soc_limit:     ['#00695c', '#00897b'],
+                fast_floor:         ['#2e7d32', '#66bb6a'],
                 corridor:           ['#1565c0', '#1e88e5'],
                 spreading:          ['#00695c', '#26a69a'],
-                predischarge:       ['#bf360c', '#ff7043'],
+                grid_charge:        ['#283593', '#5c6bc0'],
                 idle:               ['#37474f', '#546e7a'],
                 normal:             ['#1b5e20', '#2e7d32']
               };
@@ -386,14 +391,16 @@ button_card_templates:
           const p = states['sensor.e3dc_maestro_regelphase'] ? states['sensor.e3dc_maestro_regelphase'].state : '';
           const low = states['binary_sensor.e3dc_maestro_akku_prioritat_aktiv'] && states['binary_sensor.e3dc_maestro_akku_prioritat_aktiv'].state === 'on';
           const iconmap = {
-            emergency: 'alert-octagon', curtailment: 'weather-sunny-alert',
+            off: 'power', manual: 'hand-back-right',
+            emergency: 'alert-octagon', curtailment_guard: 'weather-sunny-alert',
             feed_in_limit: 'transmission-tower-off', force_discharge: 'battery-arrow-down',
             pv_delay: 'clock-alert-outline', astro_wait: 'weather-sunset-up',
-            morning_cap: 'battery-clock-outline', corridor: 'battery-charging',
-            spreading: 'chart-bell-curve', predischarge: 'battery-arrow-down',
+            morning_cap: 'battery-clock-outline', morning_discharge: 'battery-arrow-down',
+            hard_soc_limit: 'battery-lock', fast_floor: 'battery-charging-high',
+            corridor: 'battery-charging', spreading: 'chart-bell-curve',
             reserve_protection: 'shield-half-full', evcc_pause: 'ev-plug-type2',
-            ht_protection: 'clock-alert', idle: 'pause-circle-outline',
-            normal: 'auto-mode'
+            ht_protection: 'clock-alert', grid_charge: 'transmission-tower-import',
+            idle: 'pause-circle-outline', normal: 'auto-mode'
           };
           const name = low ? 'weather-cloudy-clock' : (iconmap[p] || 'state-machine');
           return `<ha-icon icon="mdi:${name}" style="--mdc-icon-size:48px;width:48px;height:48px;margin:0;"></ha-icon>`;
@@ -402,11 +409,13 @@ button_card_templates:
         [[[
           const p = states['sensor.e3dc_maestro_regelphase'] ? states['sensor.e3dc_maestro_regelphase'].state : '—';
           const names = {
-            emergency: 'Notfall-Reserve', curtailment: 'Curtailment-Schutz',
+            off: 'Regelung aus', manual: 'Manuell',
+            emergency: 'Notfall-Reserve', curtailment_guard: 'Abregelschutz',
             feed_in_limit: 'Einspeisedrosselung', force_discharge: 'Erzwungene Entladung',
             pv_delay: 'PV-Verzögerung', astro_wait: 'Astro-Wartezeit',
-            morning_cap: 'Morning-Cap', corridor: 'Lade-Korridor',
-            spreading: 'Spreading', predischarge: 'Vorentladung',
+            morning_cap: 'Morning-Cap', morning_discharge: 'Morgen-Vorentladung',
+            hard_soc_limit: 'Hard-SoC-Limit', fast_floor: 'Schnelllade-Boden',
+            corridor: 'Lade-Korridor', spreading: 'Ladeverteilung',
             reserve_protection: 'Reserve-Schutz', ht_protection: 'HT-Schutz',
             grid_charge: 'Netzladung (günstig)',
             evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
@@ -415,12 +424,13 @@ button_card_templates:
         ]]]
       subtitle: |
         [[[
-          const a = states['sensor.e3dc_maestro_letzte_aktion'];
+          const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
           const exp = states['sensor.e3dc_maestro_entscheidungserklarung'];
-          const txt = (exp && !['unknown','unavailable','none',''].includes(exp.state)) ? exp.state
-                    : (a && !['unknown','unavailable','none',''].includes(a.state)) ? a.state
-                    : 'Noch keine Regelentscheidung verfügbar';
-          return txt;
+          if (exp && ok(exp.state)) return exp.state;
+          const a = states['sensor.e3dc_maestro_letzte_aktion'];
+          if (a && a.attributes && ok(a.attributes.reason)) return a.attributes.reason;
+          if (a && ok(a.state) && !/^[a-z_]+$/.test(a.state)) return a.state;
+          return 'Noch keine Regelentscheidung verfügbar';
         ]]]
       badge: |
         [[[
@@ -1365,21 +1375,24 @@ views:
             content: |
               {% set p = states('sensor.e3dc_maestro_regelphase') %}
               {% set names = {
+                'off': 'Regelung aus',
+                'manual': 'Manuell',
                 'emergency': 'Notfall-Reserve',
-                'curtailment': 'Curtailment-Schutz',
+                'curtailment_guard': 'Abregelschutz',
                 'feed_in_limit': 'Einspeisedrosselung',
                 'force_discharge': 'Erzwungene Entladung',
                 'pv_delay': 'PV-Verzögerung',
                 'astro_wait': 'Astro-Wartezeit',
                 'morning_cap': 'Morning-Cap',
+                'morning_discharge': 'Morgen-Vorentladung',
+                'hard_soc_limit': 'Hard-SoC-Limit',
+                'fast_floor': 'Schnelllade-Boden',
                 'corridor': 'Lade-Korridor',
-                'spreading': 'Spreading',
-                'predischarge': 'Vorentladung',
+                'spreading': 'Ladeverteilung',
                 'reserve_protection': 'Reserve-Schutz',
                 'ht_protection': 'HT-Schutz',
                 'grid_charge': 'Netzladung (günstig)',
                 'evcc_pause': 'EVCC-Pause',
-                'hold': 'Halten',
                 'idle': 'Leerlauf',
                 'normal': 'Normalbetrieb'
               } %}

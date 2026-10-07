@@ -32,6 +32,9 @@ einen eigenen Versionsabschnitt verschieben.
   HTML-`custom_field`.
 - Corner-Glow: abgeschnittene Icons (SoC-Ring, Aktive Eingriffe) durch sanftere Positionierung.
 - Phase-Hero: Symbol und „Live“-Badge überlappten sich nicht mehr.
+- Phase-Hero / Cockpit: fehlende Phasen-Labels ergänzt (`fast_floor` → „Schnelllade-Boden“,
+  `hard_soc_limit`, `morning_discharge`, `curtailment_guard`, …); Untertitel fällt auf
+  die lesbare `reason` zurück statt auf den Enum-Rohwert.
 
 ---
 

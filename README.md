@@ -74,7 +74,7 @@ E3DC Maestro runs entirely **local and without any cloud connection**. It extend
 
 ## Screenshots
 
-Current live UI (v0.3.25).
+Current live UI (v0.3.26).
 
 ### Modern dashboard
 

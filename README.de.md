@@ -74,7 +74,7 @@ E3DC Maestro läuft vollständig **lokal und ohne Cloud-Verbindung**. Es ergänz
 
 ## Screenshots
 
-Aktuelle Live-Oberfläche (v0.3.25).
+Aktuelle Live-Oberfläche (v0.3.26).
 
 ### Modernes Dashboard
 

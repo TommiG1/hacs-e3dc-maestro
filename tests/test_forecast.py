@@ -51,6 +51,39 @@ class TestSimulateNext24h:
         assert anch.trajectory_house_w[-1] < 600  # decayed back to profile
         assert anch.trajectory_house_w[0] > base.trajectory_house_w[0]
 
+    def test_battery_anchor_continues_running_charge_and_decays(self):
+        # Ohne Anker startet die Prognose bei ~0 W; mit Anker setzt sie die
+        # gemessene Ladung (1500 W) fort und klingt ab.
+        base = _simulate(soc=50.0, cons=300.0, pv=0.0)
+        anch = _simulate(soc=50.0, cons=300.0, pv=0.0, battery_anchor_w=1500.0)
+        assert anch.trajectory_battery_w[0] > base.trajectory_battery_w[0] + 1000
+        assert abs(anch.trajectory_battery_w[0] - 1500) < 200
+        assert abs(anch.trajectory_battery_w[-1] - base.trajectory_battery_w[-1]) < 50
+        # Anker fließt konsistent in die SoC-Integration ein.
+        assert anch.trajectory_soc[3] > base.trajectory_soc[3]
+
+    def test_deficit_is_reported_as_negative_grid_to_engine(self):
+        # Vorzeichen-Regression: State.grid_power ist + = Einspeisung. Ein
+        # Defizit darf nicht als Einspeisung über dem Limit erscheinen.
+        params = MaestroParams(
+            inverter_power=12000,
+            max_charge_power=5000,
+            min_charge_power=300,
+            installed_kwp=2.0,
+            feed_in_limit_percent=50.0,  # Limit 1000 W
+            charge_threshold=0.0,
+            battery_capacity_kwh=15.0,
+        )
+        r = simulate_next_24h(
+            soc=50.0,
+            consumption_h=[3000.0] * 24,
+            pv_h=[0.0] * 24,
+            params=params,
+            now=_NOW,
+            battery_capacity_kwh=15.0,
+        )
+        assert "feed_in_limit" not in r.trajectory_phases
+
     def test_day2_arrays_used_after_local_midnight(self):
         # now = 10:00 UTC; after UTC midnight (elapsed 14 h) day2 arrays apply
         r = simulate_next_24h(

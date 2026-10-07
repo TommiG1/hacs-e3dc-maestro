@@ -387,6 +387,7 @@ button_card_templates:
     show_state: false
     show_icon: false
     show_label: false
+    triggers_update: all
     styles:
       card:
         - border-radius: 22px
@@ -426,12 +427,14 @@ button_card_templates:
         - overflow: hidden
         - position: relative
       grid:
-        - grid-template-areas: '"title badge" "subtitle subtitle" "glow ."'
-        - grid-template-columns: 1fr auto
-        - grid-template-rows: min-content min-content 72px
+        - grid-template-areas: '"title badge" "subtitle subtitle" "forecast forecast" "glow ."'
+        # minmax(0,1fr): sonst sprengt langer Forecast-Text die Karte auf Mobile
+        - grid-template-columns: minmax(0, 1fr) auto
+        - grid-template-rows: min-content min-content min-content 72px
         - row-gap: 0
-        - column-gap: 12px
+        - column-gap: 10px
         - min-height: 168px
+        - width: 100%
       custom_fields:
         # Deko-Glow links unten — Badge bleibt oben rechts, kein Overlap.
         glow:
@@ -458,6 +461,8 @@ button_card_templates:
           - font-weight: 800
           - line-height: 1.15
           - letter-spacing: -0.5px
+          - min-width: 0
+          - overflow-wrap: anywhere
         subtitle:
           - grid-area: subtitle
           - position: relative
@@ -466,12 +471,46 @@ button_card_templates:
           - opacity: 0.85
           - margin-top: 10px
           - line-height: 1.4
-          - padding-right: 8px
+          - padding-right: 0
           - max-width: 100%
+          - min-width: 0
           - white-space: normal
-          - overflow: visible
-          - text-overflow: unset
           - overflow-wrap: break-word
+        forecast:
+          - grid-area: forecast
+          - position: relative
+          - z-index: 1
+          - margin-top: 10px
+          - padding: 8px 10px
+          - border-radius: 12px
+          - background: rgba(0,0,0,0.22)
+          - border: 1px solid rgba(255,255,255,0.22)
+          - font-size: 11px
+          - font-weight: 700
+          - letter-spacing: 0
+          - line-height: 1.4
+          - width: 100%
+          - max-width: 100%
+          - min-width: 0
+          - box-sizing: border-box
+          - white-space: normal
+          - overflow-wrap: anywhere
+          - word-break: break-word
+          - display: |
+              [[[
+                const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                const grid = states['sensor.e3dc_maestro_forecast_netzbezug_nachste_24h'];
+                const def = states['sensor.e3dc_maestro_morgen_energiedefizit'];
+                const maxs = states['sensor.e3dc_maestro_forecast_max_soc_nachste_24h'];
+                const traj = states['sensor.e3dc_maestro_forecast_soc_trajektorie_24h'];
+                const weak = states['binary_sensor.e3dc_maestro_schwacher_pv_tag'];
+                const g = grid && ok(grid.state) ? parseFloat(grid.state) : NaN;
+                const d = def && ok(def.state) ? parseFloat(def.state) : NaN;
+                const m = maxs && ok(maxs.state) ? parseFloat(maxs.state) : NaN;
+                const hasTraj = traj && traj.attributes && Array.isArray(traj.attributes.trajectory_points) && traj.attributes.trajectory_points.length;
+                const show = (!isNaN(g) && g >= 1) || (!isNaN(d) && d >= 0.5) || !isNaN(m) || hasTraj || (weak && weak.state === 'on');
+                return show ? 'block' : 'none';
+              ]]]
         badge:
           - grid-area: badge
           - position: relative
@@ -479,8 +518,10 @@ button_card_templates:
           - justify-self: end
           - align-self: start
           - width: auto
-          - max-width: 140px
-          - padding: 6px 12px
+          - max-width: 88px
+          - min-width: 72px
+          - flex-shrink: 0
+          - padding: 6px 10px
           - border-radius: 12px
           - background: rgba(255,255,255,0.18)
           - font-size: 11px
@@ -537,6 +578,55 @@ button_card_templates:
           if (a && a.attributes && ok(a.attributes.reason)) return a.attributes.reason;
           if (a && ok(a.state) && !/^[a-z_]+$/.test(a.state)) return a.state;
           return 'Noch keine Regelentscheidung verfügbar';
+        ]]]
+      forecast: |
+        [[[
+          const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+          const fmt = (v) => v.toFixed(1).replace('.', ',');
+          const parts = [];
+          const grid = states['sensor.e3dc_maestro_forecast_netzbezug_nachste_24h'];
+          if (grid && ok(grid.state)) {
+            const v = parseFloat(grid.state);
+            if (!isNaN(v) && v >= 1) parts.push('Defizit ~' + fmt(v) + ' kWh');
+          }
+          // Max-SoC am Kalendertag aus Trajektorie; Fallback: Max-SoC nächste 24h
+          let maxToday = null;
+          const traj = states['sensor.e3dc_maestro_forecast_soc_trajektorie_24h'];
+          const pts = traj && traj.attributes && traj.attributes.trajectory_points;
+          if (Array.isArray(pts) && pts.length) {
+            const start = new Date(); start.setHours(0,0,0,0);
+            const end = new Date(); end.setHours(23,59,59,999);
+            for (const pt of pts) {
+              if (!pt || pt.length < 2) continue;
+              const t = Number(pt[0]);
+              const soc = parseFloat(pt[1]);
+              if (isNaN(t) || isNaN(soc)) continue;
+              const d = new Date(t);
+              if (d >= start && d <= end) {
+                if (maxToday === null || soc > maxToday) maxToday = soc;
+              }
+            }
+          }
+          if (maxToday === null) {
+            const maxs = states['sensor.e3dc_maestro_forecast_max_soc_nachste_24h'];
+            if (maxs && ok(maxs.state)) {
+              const v = parseFloat(maxs.state);
+              if (!isNaN(v)) maxToday = v;
+            }
+          }
+          if (maxToday !== null) parts.push('Max ~' + Math.round(maxToday) + ' %');
+          const def = states['sensor.e3dc_maestro_morgen_energiedefizit'];
+          if (def && ok(def.state)) {
+            const v = parseFloat(def.state);
+            if (!isNaN(v) && v >= 0.5) parts.push('Morgen +' + fmt(v) + ' kWh');
+          }
+          const weak = states['binary_sensor.e3dc_maestro_schwacher_pv_tag'];
+          if (weak && weak.state === 'on') {
+            if (!parts.length) parts.push('Schwacher PV-Tag');
+            else parts.push('schwache PV');
+          }
+          // Auf schmalen Screens umbrechen statt abschneiden
+          return parts.length ? ('⚠ ' + parts.join(' · ')) : '';
         ]]]
       badge: |
         [[[

@@ -563,6 +563,7 @@ views:
                 entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
                 invert_state: false
                 color_icon: true
+                invert_state: true
               solar:
                 entity: sensor.s10e_solar_production_w
                 color_icon: true
@@ -570,6 +571,7 @@ views:
                 entity: sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power
                 state_of_charge: sensor.s10e_state_of_charge
                 color_icon: true
+                invert_state: true
               home:
                 entity: sensor.s10e_house_consumption
                 color_icon: true

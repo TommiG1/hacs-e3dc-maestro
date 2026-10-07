@@ -779,7 +779,7 @@
                 "in_header": false,
                 "in_legend": false
               },
-              "data_generator": "return entity.attributes.grid_points || [];\n"
+              "data_generator": "return (entity.attributes.grid_points || []).map(function (p) { return [p[0], -p[1]]; });\n"
             },
             {
               "entity": "sensor.e3dc_maestro_forecast_soc_trajektorie_24h",

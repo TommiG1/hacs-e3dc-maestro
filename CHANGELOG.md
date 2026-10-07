@@ -9,6 +9,13 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+### Changed
+- Modern-Dashboard (#11): Schnellsteuerungs-Icons vergrößert (`size` / `--mdc-icon-size`
+  56 px, inkl. `img_cell`). Reine CSS-`width` wirkte in button-card nicht zuverlässig.
+- Prognose-Chart: Netz-Prognose zeigt Einspeisung nach unten (−) und Bezug nach oben,
+  analog zum Leistungs-Chart und typischen E3DC-Sensoren. Die Sensor-Attribute bleiben
+  bei der Maestro-Konvention (+ = Einspeisung); nur die Chart-Anzeige wird gespiegelt.
+
 ---
 
 ## [0.3.25] – Akku-Prognose ohne Sprung bei „Jetzt“ (#9) (2026-10-05)

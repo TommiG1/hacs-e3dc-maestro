@@ -176,30 +176,45 @@ button_card_templates:
         - text-align: center
 
   # ── Action-Tile (Toggle/Button) ──────────────────────────────────────────
+  # Icon-Größe: button-card braucht `size` + `--mdc-icon-size` (CSS width allein reicht nicht).
   action_tile:
     template: base_card
+    size: 56px
+    show_state: true
     tap_action:
       action: toggle
     hold_action:
       action: more-info
     styles:
       card:
-        - height: 96px
+        - height: 132px
         - cursor: pointer
       grid:
-        - grid-template-areas: '"i" "n"'
+        - grid-template-areas: '"i" "n" "s"'
         - grid-template-columns: 1fr
-        - grid-template-rows: 1fr auto
-        - row-gap: 6px
+        - grid-template-rows: auto auto auto
+        - row-gap: 4px
         - justify-items: center
         - text-align: center
+      img_cell:
+        - width: 56px
+        - height: 56px
+        - justify-self: center
+        - margin: 4px 0 0 0
       icon:
-        - width: 32px
+        - width: 56px
+        - height: 56px
+        - --mdc-icon-size: 56px
       name:
         - font-size: 12px
         - opacity: 0.85
         - text-transform: none
         - letter-spacing: 0
+        - justify-self: center
+      state:
+        - font-size: 18px
+        - font-weight: 700
+        - justify-self: center
     state:
       - value: "on"
         styles:
@@ -1023,8 +1038,10 @@ views:
                     color: "#42a5f5"
                     stroke_dash: 2
                     show: { in_header: false, in_legend: false }
+                    # Chart: Einspeisung nach unten (−), Bezug nach oben — wie typische E3DC-Sensoren.
+                    # Sensor-Attribute bleiben Maestro-Konvention (+ = Einspeisung).
                     data_generator: |
-                      return entity.attributes.grid_points || [];
+                      return (entity.attributes.grid_points || []).map(function (p) { return [p[0], -p[1]]; });
                   - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
                     name: Akku Prognose
                     yaxis_id: power

@@ -661,8 +661,10 @@ views:
             color: "#42a5f5"
             stroke_dash: 2
             show: { in_header: false, in_legend: false }
+            # Chart: Einspeisung nach unten (−), Bezug nach oben — wie typische E3DC-Sensoren.
+            # Sensor-Attribute bleiben Maestro-Konvention (+ = Einspeisung).
             data_generator: |
-              return entity.attributes.grid_points || [];
+              return (entity.attributes.grid_points || []).map(function (p) { return [p[0], -p[1]]; });
           - entity: sensor.e3dc_maestro_forecast_soc_trajektorie_24h
             name: Akku Prognose
             yaxis_id: power

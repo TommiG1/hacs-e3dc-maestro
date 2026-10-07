@@ -25,10 +25,10 @@
 # Power-Flow-Karte (Übersicht) und in der Live-Leistungs-Mini-Graph (Cockpit)
 # verwendet.
 #
-#   sensor.e3dc_pv_power           # PV-Leistung    (W, ≥ 0)
-#   sensor.e3dc_house_power        # Hausverbrauch  (W, ≥ 0)
-#   sensor.e3dc_grid_power         # Netz           (W, + = Einspeisung, − = Bezug)
-#   sensor.e3dc_battery_power      # Akku           (W, + = laden, − = entladen)
+#   sensor.e3dc_fronius_summe_solar_power  # PV gesamt (E3DC+Fronius, W, ≥ 0)
+#   sensor.e3dc_power_consumption_house    # Hausverbrauch  (W, ≥ 0)
+#   sensor.e3dc_grid_power                 # Netz (W, + = Bezug, − = Einspeisung)
+#   sensor.e3dc_battery_power              # Akku (W, + = laden, − = entladen)
 #   sensor.e3dc_maestro_aktueller_soc # Akku-Ladestand (%) — Maestro-Sensor
 #
 # Falls deine Sensoren andere Namen haben, ersetze sie unten in den
@@ -138,6 +138,81 @@ button_card_templates:
       card:
         - height: 132px
 
+  # ── Mini-Chip rechts oben (nested button-card in custom_fields.chip) ─────
+  quick_chip:
+    show_name: true
+    show_icon: false
+    show_state: false
+    variables:
+      accent: "var(--primary-text-color)"
+    styles:
+      card:
+        - padding: 5px 10px
+        - border-radius: 10px
+        - min-height: 0
+        - height: auto
+        - width: auto
+        - box-shadow: none
+        - cursor: pointer
+        - background: "color-mix(in srgb, var(--primary-text-color) 9%, transparent)"
+        - border: 1px solid color-mix(in srgb, var(--primary-text-color) 14%, transparent)
+        - transition: background 0.15s ease, border-color 0.15s ease
+      name:
+        - font-size: 11px
+        - font-weight: 700
+        - letter-spacing: 0.15px
+        - opacity: 0.92
+        - white-space: nowrap
+        - color: "[[[ return variables.accent ]]]"
+    extra_styles: |
+      ha-card:hover {
+        background: color-mix(in srgb, var(--primary-text-color) 16%, transparent) !important;
+        border-color: color-mix(in srgb, var(--primary-text-color) 28%, transparent) !important;
+        transform: none;
+        box-shadow: none;
+      }
+
+  # ── KPI mit Meta-Zeile + Quick-Chip rechts ───────────────────────────────
+  kpi_enriched:
+    template: kpi
+    triggers_update: all
+    styles:
+      card:
+        - height: 148px
+      grid:
+        - grid-template-areas: '"n chip" "s meta" "i ."'
+        - grid-template-columns: 1fr auto
+        - grid-template-rows: auto auto 1fr
+        - column-gap: 8px
+      name:
+        - padding-right: 4px
+      state:
+        - padding-right: 4px
+      custom_fields:
+        meta:
+          - grid-area: meta
+          - z-index: 2
+          - position: relative
+          - justify-self: end
+          - align-self: end
+          - font-size: 11px
+          - font-weight: 600
+          - opacity: 0.72
+          - text-align: right
+          - line-height: 1.35
+          - max-width: 148px
+          - padding-bottom: 2px
+          - color: var(--primary-text-color)
+        chip:
+          - grid-area: chip
+          - z-index: 3
+          - position: relative
+          - justify-self: end
+          - align-self: start
+          - width: auto
+          - min-width: 0
+          - margin-top: -2px
+
   # ── Power-Tile: Vorzeichen → Farbe (grün = produziert/einspeist) ─────────
   power_tile:
     template: kpi
@@ -145,14 +220,14 @@ button_card_templates:
       accent: "#78909c"
     state:
       - operator: template
-        value: "[[[ return parseFloat(entity.state) > 50 ]]]"
+        value: "[[[ return entity && !['unknown','unavailable',''].includes(entity.state) && parseFloat(entity.state) > 50 ]]]"
         styles:
           icon: [color: "#43a047"]
           label: [color: "#43a047"]
           img_cell:
             - background: "radial-gradient(circle at 50% 50%, color-mix(in srgb, #43a047 55%, transparent) 0%, color-mix(in srgb, #43a047 22%, transparent) 42%, transparent 70%)"
       - operator: template
-        value: "[[[ return parseFloat(entity.state) < -50 ]]]"
+        value: "[[[ return entity && !['unknown','unavailable',''].includes(entity.state) && parseFloat(entity.state) < -50 ]]]"
         styles:
           icon: [color: "#e53935"]
           label: [color: "#e53935"]
@@ -160,6 +235,7 @@ button_card_templates:
             - background: "radial-gradient(circle at 50% 50%, color-mix(in srgb, #e53935 55%, transparent) 0%, color-mix(in srgb, #e53935 22%, transparent) 42%, transparent 70%)"
     label: |
       [[[
+        if (!entity || ['unknown','unavailable',''].includes(entity.state)) return '—';
         const v = parseFloat(entity.state);
         if (isNaN(v)) return '—';
         return Math.abs(v) >= 1000
@@ -228,11 +304,12 @@ button_card_templates:
         - grid-template-columns: 1fr 1fr
         - grid-template-rows: auto 1fr
 
-  # ── Action-Tile (Toggle/Button) mit Corner-Glow ──────────────────────────
+  # ── Action-Tile (Toggle/Button) mit Corner-Glow + Meta/Chip rechts ───────
   action_tile:
     template: base_card
     size: 44px
     show_state: true
+    triggers_update: all
     variables:
       accent: "var(--primary-color)"
     tap_action:
@@ -241,15 +318,20 @@ button_card_templates:
       action: more-info
     styles:
       card:
-        - height: 140px
+        - height: 156px
         - cursor: pointer
       grid:
-        - grid-template-areas: '"n n" "s s" "i ."'
+        - grid-template-areas: '"n chip" "s meta" "i ."'
+        - grid-template-columns: 1fr auto
+        - grid-template-rows: auto auto 1fr
+        - column-gap: 8px
       name:
         - font-size: 13px
+        - padding-right: 4px
       state:
         - font-size: 16px
         - font-weight: 700
+        - padding-right: 4px
       img_cell:
         - left: -6px
         - bottom: -8px
@@ -261,6 +343,30 @@ button_card_templates:
         - height: 44px
         - --mdc-icon-size: 44px
         - margin: 0
+      custom_fields:
+        meta:
+          - grid-area: meta
+          - z-index: 2
+          - position: relative
+          - justify-self: end
+          - align-self: end
+          - font-size: 11px
+          - font-weight: 600
+          - opacity: 0.72
+          - text-align: right
+          - line-height: 1.35
+          - max-width: 140px
+          - padding-bottom: 2px
+          - color: var(--primary-text-color)
+        chip:
+          - grid-area: chip
+          - z-index: 3
+          - position: relative
+          - justify-self: end
+          - align-self: start
+          - width: auto
+          - min-width: 0
+          - margin-top: -2px
     state:
       - value: "on"
         styles:
@@ -613,7 +719,7 @@ button_card_templates:
     styles:
       card:
         - border-radius: 22px
-        - padding: 18px 20px 14px 20px
+        - padding: 16px 18px 14px 18px
         - min-height: 220px
         - background: "linear-gradient(160deg, color-mix(in srgb, var(--card-background-color) 92%, #000) 0%, var(--card-background-color) 55%, color-mix(in srgb, var(--card-background-color) 88%, #000) 100%)"
         - box-shadow: 0 6px 18px rgba(0,0,0,0.18)
@@ -621,6 +727,8 @@ button_card_templates:
         - overflow: hidden
         - position: relative
       grid:
+        # Volle Breite für Marquee + History; Icon liegt absolut oben links
+        # und verbraucht keine Grid-Spalte mehr.
         - grid-template-areas: '"head time" "headline headline" "chips chips" "ticker ticker"'
         - grid-template-columns: 1fr auto
         - grid-template-rows: auto auto auto auto
@@ -629,24 +737,30 @@ button_card_templates:
         - align-items: start
       custom_fields:
         glow:
+          # Overlay über dem gesamten Grid – keine eigene Spalte, volle Textbreite.
+          - grid-area: "1 / 1 / -1 / -1"
           - position: absolute
-          - left: -10px
-          - bottom: -14px
-          - width: 120px
-          - height: 120px
+          - left: -8px
+          - top: -10px
+          - width: 108px
+          - height: 108px
           - border-radius: 50%
           - z-index: 0
           - pointer-events: none
+          - display: grid
+          - place-items: center
+          - padding: 10px 0 0 10px
+          - box-sizing: border-box
         head:
           - grid-area: head
           - position: relative
           - z-index: 2
-          - display: flex
-          - align-items: center
-          - gap: 8px
           - font-size: 15px
           - font-weight: 700
           - letter-spacing: -0.2px
+          # Nur die Titelzeile rückt vor dem Corner-Icon ein.
+          - padding-left: 72px
+          - padding-top: 4px
         time:
           - grid-area: time
           - position: relative
@@ -656,7 +770,7 @@ button_card_templates:
           - font-weight: 600
           - opacity: 0.65
           - white-space: nowrap
-          - margin-top: 2px
+          - margin-top: 6px
         headline:
           - grid-area: headline
           - position: relative
@@ -664,6 +778,10 @@ button_card_templates:
           - font-size: 13.5px
           - line-height: 1.4
           - opacity: 0.92
+          - overflow: hidden
+          - min-width: 0
+          - width: 100%
+          - min-height: 1.4em
         chips:
           - grid-area: chips
           - position: relative
@@ -678,26 +796,11 @@ button_card_templates:
           - display: flex
           - flex-direction: column
           - gap: 5px
+          - width: 100%
+          - min-width: 0
     custom_fields:
       glow: |
         [[[
-          const c = variables.accent || 'var(--primary-color)';
-          return `<div style="width:100%;height:100%;border-radius:50%;background:
-            radial-gradient(circle at 50% 50%, color-mix(in srgb, ${c} 45%, transparent) 0%, color-mix(in srgb, ${c} 16%, transparent) 42%, transparent 70%);"></div>`;
-        ]]]
-      head: |
-        [[[
-          const names = {
-            off: 'Regelung aus', manual: 'Manuell', emergency: 'Notfall-Reserve',
-            curtailment_guard: 'Abregelschutz', feed_in_limit: 'Einspeisedrosselung',
-            force_discharge: 'Erzwungene Entladung', pv_delay: 'PV-Verzögerung',
-            astro_wait: 'Astro-Wartezeit', morning_cap: 'Morning-Cap',
-            morning_discharge: 'Morgen-Vorentladung', hard_soc_limit: 'Hard-SoC-Limit',
-            fast_floor: 'Schnelllade-Boden', corridor: 'Lade-Korridor',
-            spreading: 'Ladeverteilung', reserve_protection: 'Reserve-Schutz',
-            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)',
-            evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
-          };
           const iconmap = {
             off: 'power', manual: 'hand-back-right', emergency: 'alert-octagon',
             curtailment_guard: 'weather-sunny-alert', feed_in_limit: 'transmission-tower-off',
@@ -712,10 +815,38 @@ button_card_templates:
           };
           const p = entity.state;
           const ok = p && !['unknown', 'unavailable', 'none', ''].includes(p);
-          const label = ok ? (names[p] || p) : '—';
           const icon = (ok && iconmap[p]) || 'history';
           const c = variables.accent || 'var(--primary-color)';
-          return `<ha-icon icon="mdi:${icon}" style="--mdc-icon-size:18px;width:18px;height:18px;color:${c};flex:none;"></ha-icon><span>${label}</span>`;
+          return `<div style="
+              width:100%;height:100%;border-radius:50%;
+              display:grid;place-items:center;
+              background: radial-gradient(circle at 50% 50%,
+                color-mix(in srgb, ${c} 55%, transparent) 0%,
+                color-mix(in srgb, ${c} 22%, transparent) 42%,
+                transparent 70%);
+            ">
+              <ha-icon icon="mdi:${icon}" style="
+                --mdc-icon-size:48px;width:48px;height:48px;color:${c};margin:0;
+                filter: drop-shadow(0 2px 10px color-mix(in srgb, ${c} 45%, transparent));
+              "></ha-icon>
+            </div>`;
+        ]]]
+      head: |
+        [[[
+          const names = {
+            off: 'Regelung aus', manual: 'Manuell', emergency: 'Notfall-Reserve',
+            curtailment_guard: 'Abregelschutz', feed_in_limit: 'Einspeisedrosselung',
+            force_discharge: 'Erzwungene Entladung', pv_delay: 'PV-Verzögerung',
+            astro_wait: 'Astro-Wartezeit', morning_cap: 'Morning-Cap',
+            morning_discharge: 'Morgen-Vorentladung', hard_soc_limit: 'Hard-SoC-Limit',
+            fast_floor: 'Schnelllade-Boden', corridor: 'Lade-Korridor',
+            spreading: 'Ladeverteilung', reserve_protection: 'Reserve-Schutz',
+            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)',
+            evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
+          };
+          const p = entity.state;
+          const ok = p && !['unknown', 'unavailable', 'none', ''].includes(p);
+          return ok ? (names[p] || p) : '—';
         ]]]
       time: |
         [[[
@@ -729,9 +860,12 @@ button_card_templates:
           const text = (a.reason && String(a.reason).trim().length)
             ? a.reason
             : 'Noch keine Regelentscheidung verfügbar';
-          if (text.length > 58) {
-            return `<div style="overflow:hidden;white-space:nowrap;mask-image:linear-gradient(90deg,#000 92%,transparent 100%);">
-              <span style="display:inline-block;padding-right:48px;animation: maestro-ticker-scroll 16s linear infinite;">${text}</span>
+          // Volle Kartenbreite: News-Ticker startet rechts außerhalb und
+          // wandert langsam nach links (Anfang zuerst lesbar).
+          if (text.length > 48) {
+            const dur = Math.max(28, Math.min(50, Math.round(text.length * 0.55)));
+            return `<div style="overflow:hidden;white-space:nowrap;width:100%;">
+              <span style="display:inline-block;padding-left:100%;animation: maestro-ticker-scroll ${dur}s linear infinite;">${text}</span>
             </div>`;
           }
           return `<div>${text}</div>`;
@@ -764,17 +898,19 @@ button_card_templates:
           if (!hist.length) return '';
           return hist.slice(0, 5).map(h => {
             const label = names[h.phase] || h.phase || '—';
-            const reasonRaw = h.reason || '';
-            const reason = reasonRaw.length > 40 ? reasonRaw.slice(0, 40) + '…' : reasonRaw;
+            const reason = h.reason || '';
             const time = (h.timestamp_display || '').split(' ').pop();
-            return `<div style="display:flex;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.5;border-top:1px solid color-mix(in srgb, var(--primary-text-color) 8%, transparent);padding-top:4px;">
-              <span style="opacity:0.5;min-width:46px;white-space:nowrap;">${time}</span>
-              <span style="font-weight:700;opacity:0.85;white-space:nowrap;">${label}</span>
-              <span style="opacity:0.6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${reason}</span>
+            // Volle Breite: kein hartes Truncate mehr – CSS ellipsis am Zeilenende.
+            return `<div style="display:flex;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.5;border-top:1px solid color-mix(in srgb, var(--primary-text-color) 8%, transparent);padding-top:4px;width:100%;min-width:0;">
+              <span style="opacity:0.5;flex:none;white-space:nowrap;">${time}</span>
+              <span style="font-weight:700;opacity:0.85;flex:none;white-space:nowrap;">${label}</span>
+              <span style="opacity:0.6;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${reason}</span>
             </div>`;
           }).join('');
         ]]]
     extra_styles: |
+      /* padding-left:100% = Start komplett rechts außerhalb der Karte,
+         danach langsames Durchlaufen nach links (Anfang zuerst lesbar). */
       @keyframes maestro-ticker-scroll {
         0%   { transform: translateX(0); }
         100% { transform: translateX(-100%); }
@@ -816,7 +952,7 @@ views:
             icon: mdi:target
 
           - type: custom:button-card
-            template: kpi
+            template: kpi_enriched
             entity: sensor.e3dc_maestro_ziel_soc
             name: Ziel-SoC
             icon: mdi:battery-heart-variant
@@ -824,9 +960,36 @@ views:
               accent: "#43a047"
             tap_action:
               action: more-info
+            custom_fields:
+              meta: |
+                [[[
+                  const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                  const cur = states['sensor.e3dc_maestro_aktueller_soc'];
+                  const tgt = entity;
+                  const end = states['sensor.e3dc_maestro_saisonales_ladeende_uhrzeit'];
+                  const c = cur && ok(cur.state) ? parseFloat(cur.state) : NaN;
+                  const t = tgt && ok(tgt.state) ? parseFloat(tgt.state) : NaN;
+                  let line = '—';
+                  if (!isNaN(c) && !isNaN(t)) {
+                    const d = Math.round(t - c);
+                    line = (d > 0 ? '+' : '') + d + ' %';
+                  }
+                  if (end && ok(end.state)) line += ' · bis ' + end.state;
+                  return line;
+                ]]]
+              chip:
+                card:
+                  type: custom:button-card
+                  template: quick_chip
+                  name: Ladeende
+                  variables:
+                    accent: "#43a047"
+                  tap_action:
+                    action: more-info
+                    entity: number.e3dc_maestro_ladeende_soc
 
           - type: custom:button-card
-            template: kpi
+            template: kpi_enriched
             entity: sensor.e3dc_maestro_ziel_ladeleistung
             name: Ziel-Ladeleistung
             icon: mdi:lightning-bolt
@@ -834,9 +997,62 @@ views:
               accent: "#f9a825"
             tap_action:
               action: more-info
+            custom_fields:
+              meta: |
+                [[[
+                  const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                  const phase = states['sensor.e3dc_maestro_regelphase'];
+                  const lim = states['sensor.e3dc_maestro_soll_lade_limit'];
+                  const max = states['number.e3dc_maestro_max_ladeleistung'];
+                  const names = {
+                    corridor: 'Korridor', spreading: 'Spreading', idle: 'Idle',
+                    pv_delay: 'PV-Delay', grid_charge: 'Netzladung',
+                    feed_in_limit: 'Einspeise', curtailment_guard: 'Abregel',
+                    emergency: 'Notfall', hard_soc_limit: 'Hard-SoC',
+                    force_discharge: 'Entladung', off: 'Aus'
+                  };
+                  const p = (phase && ok(phase.state)) ? (names[phase.state] || phase.state) : '—';
+                  let cap = '';
+                  if (lim && ok(lim.state)) {
+                    const v = parseFloat(lim.state);
+                    cap = !isNaN(v)
+                      ? (Math.abs(v) >= 1000 ? (v/1000).toFixed(1).replace('.',',') + ' kW' : Math.round(v) + ' W')
+                      : '';
+                  } else if (max && ok(max.state)) {
+                    const v = parseFloat(max.state);
+                    cap = !isNaN(v)
+                      ? 'max ' + (Math.abs(v) >= 1000 ? (v/1000).toFixed(1).replace('.',',') + ' kW' : Math.round(v) + ' W')
+                      : '';
+                  }
+                  return cap ? (p + ' · ' + cap) : p;
+                ]]]
+              chip:
+                card:
+                  type: custom:button-card
+                  template: quick_chip
+                  entity: switch.e3dc_maestro_korridor_pause_min_ladeleistung
+                  name: |
+                    [[[
+                      return entity && entity.state === 'on' ? 'Pause an' : 'Pause';
+                    ]]]
+                  variables:
+                    accent: "#f9a825"
+                  state:
+                    - value: "on"
+                      styles:
+                        name:
+                          - color: "#fb8c00"
+                    - value: "off"
+                      styles:
+                        name:
+                          - color: "#f9a825"
+                  tap_action:
+                    action: toggle
+                  hold_action:
+                    action: more-info
 
           - type: custom:button-card
-            template: kpi
+            template: kpi_enriched
             entity: sensor.e3dc_maestro_autonomiezeit
             name: Autonomiezeit
             icon: mdi:timer-sand
@@ -844,6 +1060,40 @@ views:
               accent: "#00acc1"
             tap_action:
               action: more-info
+            custom_fields:
+              meta: |
+                [[[
+                  const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                  const hp = states['sensor.e3dc_power_consumption_house'];
+                  const res = states['sensor.e3dc_maestro_notstromreserve_aktuell'];
+                  let line = 'Last —';
+                  if (hp && ok(hp.state)) {
+                    const v = parseFloat(hp.state);
+                    if (!isNaN(v)) {
+                      line = 'Last ' + (Math.abs(v) >= 1000
+                        ? (v/1000).toFixed(1).replace('.',',') + ' kW'
+                        : Math.round(v) + ' W');
+                    }
+                  }
+                  if (res && ok(res.state)) {
+                    const r = parseFloat(res.state);
+                    if (!isNaN(r)) line += ' · Res ' + Math.round(r) + ' %';
+                  }
+                  return line;
+                ]]]
+              chip:
+                card:
+                  type: custom:button-card
+                  template: quick_chip
+                  name: Reserve
+                  variables:
+                    accent: "#00acc1"
+                  tap_action:
+                    action: more-info
+                    entity: switch.e3dc_maestro_saisonale_notstromreserve
+                  hold_action:
+                    action: more-info
+                    entity: sensor.e3dc_maestro_notstromreserve_aktuell
 
       # ── Energiefluss live (volle Breite) ─────────────────────────────
       - type: grid
@@ -860,14 +1110,16 @@ views:
                 invert_state: false
                 color_icon: true
               solar:
-                entity: sensor.e3dc_pv_power
+                entity: sensor.e3dc_fronius_summe_solar_power
                 color_icon: true
               battery:
                 entity: sensor.e3dc_battery_power
                 state_of_charge: sensor.e3dc_maestro_aktueller_soc
                 color_icon: true
               home:
-                entity: sensor.e3dc_house_power
+                entity: sensor.e3dc_power_consumption_house
+                # Sonst summiert die Karte Quellen (Netz+Akku-Ladung → 18 kW-Fata Morgana)
+                override_state: true
                 color_icon: true
             clickable_entities: true
             display_zero_lines:
@@ -888,7 +1140,7 @@ views:
 
           - type: custom:button-card
             template: pv_tile
-            entity: sensor.e3dc_pv_power
+            entity: sensor.e3dc_fronius_summe_solar_power
             name: PV-Erzeugung
             icon: mdi:weather-sunny
             tap_action:
@@ -896,7 +1148,7 @@ views:
 
           - type: custom:button-card
             template: house_tile
-            entity: sensor.e3dc_house_power
+            entity: sensor.e3dc_power_consumption_house
             name: Hausverbrauch
             icon: mdi:home-lightning-bolt
             tap_action:
@@ -1076,12 +1328,64 @@ views:
             entity: switch.e3dc_maestro_regelung_aktiv
             name: Regelung aktiv
             icon: mdi:power
+            custom_fields:
+              meta: |
+                [[[
+                  const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                  const phase = states['sensor.e3dc_maestro_regelphase'];
+                  const names = {
+                    off: 'Aus', manual: 'Manuell', emergency: 'Notfall',
+                    curtailment_guard: 'Abregelschutz', feed_in_limit: 'Einspeise',
+                    force_discharge: 'Entladung', pv_delay: 'PV-Delay',
+                    astro_wait: 'Astro', morning_cap: 'Morning-Cap',
+                    morning_discharge: 'Vorentladung', hard_soc_limit: 'Hard-SoC',
+                    fast_floor: 'Schnellboden', corridor: 'Korridor',
+                    spreading: 'Spreading', reserve_protection: 'Reserve',
+                    ht_protection: 'HT-Schutz', grid_charge: 'Netzladung',
+                    evcc_pause: 'EVCC', idle: 'Idle', normal: 'Normal'
+                  };
+                  const p = (phase && ok(phase.state)) ? (names[phase.state] || phase.state) : '—';
+                  return 'Phase · ' + p;
+                ]]]
+              chip:
+                card:
+                  type: custom:button-card
+                  template: quick_chip
+                  name: Warum?
+                  variables:
+                    accent: "var(--primary-color)"
+                  tap_action:
+                    action: more-info
+                    entity: sensor.e3dc_maestro_entscheidungserklarung
 
           - type: custom:button-card
             template: action_tile
             entity: switch.e3dc_maestro_erzwungene_entladung
             name: Erzwungene Entladung
             icon: mdi:battery-arrow-down
+            custom_fields:
+              meta: |
+                [[[
+                  const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                  const n = states['number.e3dc_maestro_erzwungene_entladungsleistung'];
+                  if (!(n && ok(n.state))) return 'Leistung —';
+                  const v = parseFloat(n.state);
+                  if (isNaN(v)) return 'Leistung —';
+                  const p = Math.abs(v) >= 1000
+                    ? (v/1000).toFixed(1).replace('.',',') + ' kW'
+                    : Math.round(v) + ' W';
+                  return 'Soll ' + p;
+                ]]]
+              chip:
+                card:
+                  type: custom:button-card
+                  template: quick_chip
+                  name: Leistung
+                  variables:
+                    accent: "#ef6c00"
+                  tap_action:
+                    action: more-info
+                    entity: number.e3dc_maestro_erzwungene_entladungsleistung
 
           - type: custom:button-card
             template: action_tile
@@ -1090,6 +1394,38 @@ views:
             icon: mdi:check-network
             tap_action:
               action: more-info
+            custom_fields:
+              meta: |
+                [[[
+                  const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                  const soc = states['sensor.e3dc_maestro_aktueller_soc'];
+                  const lim = states['sensor.e3dc_maestro_soll_lade_limit'];
+                  let line = 'SoC —';
+                  if (soc && ok(soc.state)) {
+                    const v = parseFloat(soc.state);
+                    if (!isNaN(v)) line = 'SoC ' + Math.round(v) + ' %';
+                  }
+                  if (lim && ok(lim.state)) {
+                    const v = parseFloat(lim.state);
+                    if (!isNaN(v)) {
+                      const p = Math.abs(v) >= 1000
+                        ? (v/1000).toFixed(1).replace('.',',') + ' kW'
+                        : Math.round(v) + ' W';
+                      line += ' · Cap ' + p;
+                    }
+                  }
+                  return line;
+                ]]]
+              chip:
+                card:
+                  type: custom:button-card
+                  template: quick_chip
+                  name: Phase
+                  variables:
+                    accent: "#00897b"
+                  tap_action:
+                    action: more-info
+                    entity: sensor.e3dc_maestro_regelphase
 
           - type: custom:button-card
             template: action_tile
@@ -1101,6 +1437,37 @@ views:
               perform_action: button.press
               target:
                 entity_id: button.e3dc_maestro_manuell_laden_3_kwh
+            custom_fields:
+              meta: |
+                [[[
+                  const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
+                  const cur = states['sensor.e3dc_maestro_aktueller_soc'];
+                  const tgt = states['sensor.e3dc_maestro_ziel_soc'];
+                  const c = cur && ok(cur.state) ? parseFloat(cur.state) : NaN;
+                  const t = tgt && ok(tgt.state) ? parseFloat(tgt.state) : NaN;
+                  if (isNaN(c)) return 'SoC —';
+                  let line = 'Ist ' + Math.round(c) + ' %';
+                  if (!isNaN(t)) {
+                    const d = Math.round(t - c);
+                    line += ' · Ziel ' + (d > 0 ? '+' : '') + d + ' %';
+                  }
+                  return line;
+                ]]]
+              chip:
+                card:
+                  type: custom:button-card
+                  template: quick_chip
+                  name: Freigeben
+                  variables:
+                    accent: "#43a047"
+                  tap_action:
+                    action: perform-action
+                    perform_action: button.press
+                    target:
+                      entity_id: button.e3dc_maestro_limits_jetzt_freigeben
+                  hold_action:
+                    action: more-info
+                    entity: button.e3dc_maestro_limits_jetzt_freigeben
 
       # ── SoC-Verlauf 24 h ─────────────────────────────────────────────
       - type: grid
@@ -1150,10 +1517,10 @@ views:
               legend: true
               fill: fade
             entities:
-              - entity: sensor.e3dc_pv_power
+              - entity: sensor.e3dc_fronius_summe_solar_power
                 name: PV
                 color: "#f9a825"
-              - entity: sensor.e3dc_house_power
+              - entity: sensor.e3dc_power_consumption_house
                 name: Haus
                 color: "#6d4c41"
               - entity: sensor.e3dc_grid_power
@@ -1265,13 +1632,13 @@ views:
                     color: "#e040fb"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_pv_power
+                  - entity: sensor.e3dc_fronius_summe_solar_power
                     name: PV
                     yaxis_id: power
                     color: "#ffeb3b"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_house_power
+                  - entity: sensor.e3dc_power_consumption_house
                     name: Haus
                     yaxis_id: power
                     color: "#a1887f"
@@ -1655,10 +2022,10 @@ views:
               fill: fade
               extrema: false
             entities:
-              - entity: sensor.e3dc_pv_power
+              - entity: sensor.e3dc_fronius_summe_solar_power
                 name: PV
                 color: "#f9a825"
-              - entity: sensor.e3dc_house_power
+              - entity: sensor.e3dc_power_consumption_house
                 name: Haus
                 color: "#6d4c41"
               - entity: sensor.e3dc_grid_power

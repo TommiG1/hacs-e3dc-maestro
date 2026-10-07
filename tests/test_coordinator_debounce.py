@@ -1,8 +1,11 @@
 """Tests for RSCP power-limit debounce and power_mode payload."""
+from collections import deque
+
 from custom_components.e3dc_maestro.const import (
     PHASE_CORRIDOR,
     PHASE_CURTAILMENT_GUARD,
     PHASE_EMERGENCY,
+    PHASE_FAST_FLOOR,
     PHASE_IDLE,
     PHASE_SPREADING,
     POWER_MODE_CHARGE,
@@ -11,6 +14,7 @@ from custom_components.e3dc_maestro.const import (
     POWER_MODE_NORMAL,
 )
 from custom_components.e3dc_maestro.coordinator import (
+    _action_history_changed,
     _build_power_mode_data,
     _effective_discharge_limit_w,
     _limits_changed_vs_sent_values,
@@ -283,3 +287,68 @@ def test_rscp_success_does_not_resend_identical_limits():
     last_rscp_act_ok = True
     needs_retry = not last_rscp_act_ok
     assert (_limits_changed_vs_sent_values(100.0, None, 100, None) or needs_retry) is False
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Action-History (News-Ticker): nur bei (phase, reason)-Wechsel anhängen
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_action_history_changed_true_when_empty():
+    """Erster Eintrag (Cold Start) wird immer angehängt."""
+    assert _action_history_changed(None, PHASE_CORRIDOR, "Korridor aktiv") is True
+
+
+def test_action_history_changed_false_for_identical_phase_and_reason():
+    """Gleicher Tick-Ergebnis (gleiche Phase + gleicher Grund) spammt nicht."""
+    last = {"phase": PHASE_CORRIDOR, "reason": "Korridor aktiv"}
+    assert _action_history_changed(last, PHASE_CORRIDOR, "Korridor aktiv") is False
+
+
+def test_action_history_changed_true_on_phase_change():
+    last = {"phase": PHASE_CORRIDOR, "reason": "Korridor aktiv"}
+    assert _action_history_changed(last, PHASE_FAST_FLOOR, "Korridor aktiv") is True
+
+
+def test_action_history_changed_true_on_reason_change_same_phase():
+    """Gleiche Phase, aber geänderter Grund (z. B. neuer SoC-Wert im Text) zählt
+    als Wechsel – der Ticker soll die Begründung aktualisieren."""
+    last = {"phase": PHASE_FAST_FLOOR, "reason": "SoC 57 % < Floor 60 %"}
+    assert _action_history_changed(last, PHASE_FAST_FLOOR, "SoC 59 % < Floor 60 %") is True
+
+
+def test_action_history_deque_caps_at_maxlen_eight():
+    """Ringpuffer behält nur die letzten 8 Einträge, neueste zuerst (appendleft)."""
+    history: deque[dict] = deque(maxlen=8)
+    for i in range(12):
+        last = history[0] if history else None
+        phase = f"phase_{i}"
+        reason = f"reason_{i}"
+        if _action_history_changed(last, phase, reason):
+            history.appendleft({"phase": phase, "reason": reason})
+
+    assert len(history) == 8
+    # Neuester Eintrag (phase_11) steht vorne, älteste vier (0-3) sind verdrängt.
+    assert history[0]["phase"] == "phase_11"
+    assert history[-1]["phase"] == "phase_4"
+    assert all(int(e["phase"].split("_")[1]) >= 4 for e in history)
+
+
+def test_action_history_deque_skips_duplicate_consecutive_entries():
+    """Mehrere identische Ticks in Folge erzeugen nur einen History-Eintrag."""
+    history: deque[dict] = deque(maxlen=8)
+    ticks = [
+        (PHASE_CORRIDOR, "Korridor aktiv"),
+        (PHASE_CORRIDOR, "Korridor aktiv"),
+        (PHASE_CORRIDOR, "Korridor aktiv"),
+        (PHASE_FAST_FLOOR, "SoC 57 % < Floor 60 %"),
+        (PHASE_FAST_FLOOR, "SoC 57 % < Floor 60 %"),
+    ]
+    for phase, reason in ticks:
+        last = history[0] if history else None
+        if _action_history_changed(last, phase, reason):
+            history.appendleft({"phase": phase, "reason": reason})
+
+    assert len(history) == 2
+    assert history[0]["phase"] == PHASE_FAST_FLOOR
+    assert history[1]["phase"] == PHASE_CORRIDOR

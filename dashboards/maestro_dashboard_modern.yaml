@@ -593,6 +593,193 @@ button_card_templates:
       grid:
         - grid-template-areas: '"n n" "l l" "i ."'
 
+  # ── Action-Ticker: "Letzte Aktion" als News-Ticker + Mini-Historie ──────
+  # Zeigt die aktuelle Regel-Aktion (Phase/Grund/Modus/Limits) groß an und
+  # darunter – falls vorhanden – die letzten Phasen-/Grund-Wechsel aus
+  # sensor.e3dc_maestro_letzte_aktion.attributes.history (max. 5 Zeilen).
+  # Ohne Historie (z. B. direkt nach Neustart) wird nur die aktuelle Aktion
+  # gezeigt, kein leerer Block.
+  action_ticker:
+    show_name: false
+    show_state: false
+    show_icon: false
+    show_label: false
+    entity: sensor.e3dc_maestro_letzte_aktion
+    variables:
+      accent: "var(--primary-color)"
+    tap_action:
+      action: more-info
+      entity: sensor.e3dc_maestro_letzte_aktion
+    styles:
+      card:
+        - border-radius: 22px
+        - padding: 18px 20px 14px 20px
+        - min-height: 220px
+        - background: "linear-gradient(160deg, color-mix(in srgb, var(--card-background-color) 92%, #000) 0%, var(--card-background-color) 55%, color-mix(in srgb, var(--card-background-color) 88%, #000) 100%)"
+        - box-shadow: 0 6px 18px rgba(0,0,0,0.18)
+        - border: 1px solid color-mix(in srgb, var(--primary-text-color) 7%, transparent)
+        - overflow: hidden
+        - position: relative
+      grid:
+        - grid-template-areas: '"head time" "headline headline" "chips chips" "ticker ticker"'
+        - grid-template-columns: 1fr auto
+        - grid-template-rows: auto auto auto auto
+        - row-gap: 8px
+        - column-gap: 10px
+        - align-items: start
+      custom_fields:
+        glow:
+          - position: absolute
+          - left: -10px
+          - bottom: -14px
+          - width: 120px
+          - height: 120px
+          - border-radius: 50%
+          - z-index: 0
+          - pointer-events: none
+        head:
+          - grid-area: head
+          - position: relative
+          - z-index: 2
+          - display: flex
+          - align-items: center
+          - gap: 8px
+          - font-size: 15px
+          - font-weight: 700
+          - letter-spacing: -0.2px
+        time:
+          - grid-area: time
+          - position: relative
+          - z-index: 2
+          - justify-self: end
+          - font-size: 11px
+          - font-weight: 600
+          - opacity: 0.65
+          - white-space: nowrap
+          - margin-top: 2px
+        headline:
+          - grid-area: headline
+          - position: relative
+          - z-index: 2
+          - font-size: 13.5px
+          - line-height: 1.4
+          - opacity: 0.92
+        chips:
+          - grid-area: chips
+          - position: relative
+          - z-index: 2
+          - display: flex
+          - flex-wrap: wrap
+          - gap: 6px
+        ticker:
+          - grid-area: ticker
+          - position: relative
+          - z-index: 2
+          - display: flex
+          - flex-direction: column
+          - gap: 5px
+    custom_fields:
+      glow: |
+        [[[
+          const c = variables.accent || 'var(--primary-color)';
+          return `<div style="width:100%;height:100%;border-radius:50%;background:
+            radial-gradient(circle at 50% 50%, color-mix(in srgb, ${c} 45%, transparent) 0%, color-mix(in srgb, ${c} 16%, transparent) 42%, transparent 70%);"></div>`;
+        ]]]
+      head: |
+        [[[
+          const names = {
+            off: 'Regelung aus', manual: 'Manuell', emergency: 'Notfall-Reserve',
+            curtailment_guard: 'Abregelschutz', feed_in_limit: 'Einspeisedrosselung',
+            force_discharge: 'Erzwungene Entladung', pv_delay: 'PV-Verzögerung',
+            astro_wait: 'Astro-Wartezeit', morning_cap: 'Morning-Cap',
+            morning_discharge: 'Morgen-Vorentladung', hard_soc_limit: 'Hard-SoC-Limit',
+            fast_floor: 'Schnelllade-Boden', corridor: 'Lade-Korridor',
+            spreading: 'Ladeverteilung', reserve_protection: 'Reserve-Schutz',
+            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)',
+            evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
+          };
+          const iconmap = {
+            off: 'power', manual: 'hand-back-right', emergency: 'alert-octagon',
+            curtailment_guard: 'weather-sunny-alert', feed_in_limit: 'transmission-tower-off',
+            force_discharge: 'battery-arrow-down', pv_delay: 'clock-alert-outline',
+            astro_wait: 'weather-sunset-up', morning_cap: 'battery-clock-outline',
+            morning_discharge: 'battery-arrow-down', hard_soc_limit: 'battery-lock',
+            fast_floor: 'battery-charging-high', corridor: 'battery-charging',
+            spreading: 'chart-bell-curve', reserve_protection: 'shield-half-full',
+            evcc_pause: 'ev-plug-type2', ht_protection: 'clock-alert',
+            grid_charge: 'transmission-tower-import', idle: 'pause-circle-outline',
+            normal: 'auto-mode'
+          };
+          const p = entity.state;
+          const ok = p && !['unknown', 'unavailable', 'none', ''].includes(p);
+          const label = ok ? (names[p] || p) : '—';
+          const icon = (ok && iconmap[p]) || 'history';
+          const c = variables.accent || 'var(--primary-color)';
+          return `<ha-icon icon="mdi:${icon}" style="--mdc-icon-size:18px;width:18px;height:18px;color:${c};flex:none;"></ha-icon><span>${label}</span>`;
+        ]]]
+      time: |
+        [[[
+          const t = entity.attributes ? entity.attributes.timestamp_display : null;
+          if (!t) return '—';
+          return t.split(' ').pop();
+        ]]]
+      headline: |
+        [[[
+          const a = entity.attributes || {};
+          const text = (a.reason && String(a.reason).trim().length)
+            ? a.reason
+            : 'Noch keine Regelentscheidung verfügbar';
+          if (text.length > 58) {
+            return `<div style="overflow:hidden;white-space:nowrap;mask-image:linear-gradient(90deg,#000 92%,transparent 100%);">
+              <span style="display:inline-block;padding-right:48px;animation: maestro-ticker-scroll 16s linear infinite;">${text}</span>
+            </div>`;
+          }
+          return `<div>${text}</div>`;
+        ]]]
+      chips: |
+        [[[
+          const a = entity.attributes || {};
+          const chip = (label, val) => (val === undefined || val === null || val === '') ? '' :
+            `<span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:10px;font-size:10.5px;font-weight:600;background:color-mix(in srgb, var(--primary-text-color) 8%, transparent);opacity:0.85;white-space:nowrap;">${label} ${val}</span>`;
+          return [
+            chip('Modus', a.power_mode),
+            chip('Soll', a.charge_power_limit != null ? a.charge_power_limit + ' W' : null),
+            chip('Gesendet', a.sent_charge_power_limit != null ? a.sent_charge_power_limit + ' W' : null),
+          ].join('');
+        ]]]
+      ticker: |
+        [[[
+          const names = {
+            off: 'Regelung aus', manual: 'Manuell', emergency: 'Notfall-Reserve',
+            curtailment_guard: 'Abregelschutz', feed_in_limit: 'Einspeisedrosselung',
+            force_discharge: 'Erzwungene Entladung', pv_delay: 'PV-Verzögerung',
+            astro_wait: 'Astro-Wartezeit', morning_cap: 'Morning-Cap',
+            morning_discharge: 'Morgen-Vorentladung', hard_soc_limit: 'Hard-SoC-Limit',
+            fast_floor: 'Schnelllade-Boden', corridor: 'Lade-Korridor',
+            spreading: 'Ladeverteilung', reserve_protection: 'Reserve-Schutz',
+            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)',
+            evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
+          };
+          const hist = (entity.attributes && entity.attributes.history) || [];
+          if (!hist.length) return '';
+          return hist.slice(0, 5).map(h => {
+            const label = names[h.phase] || h.phase || '—';
+            const reasonRaw = h.reason || '';
+            const reason = reasonRaw.length > 40 ? reasonRaw.slice(0, 40) + '…' : reasonRaw;
+            const time = (h.timestamp_display || '').split(' ').pop();
+            return `<div style="display:flex;align-items:baseline;gap:8px;font-size:11.5px;line-height:1.5;border-top:1px solid color-mix(in srgb, var(--primary-text-color) 8%, transparent);padding-top:4px;">
+              <span style="opacity:0.5;min-width:46px;white-space:nowrap;">${time}</span>
+              <span style="font-weight:700;opacity:0.85;white-space:nowrap;">${label}</span>
+              <span style="opacity:0.6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${reason}</span>
+            </div>`;
+          }).join('');
+        ]]]
+    extra_styles: |
+      @keyframes maestro-ticker-scroll {
+        0%   { transform: translateX(0); }
+        100% { transform: translateX(-100%); }
+      }
+
 views:
 
   # ========================================================================
@@ -1308,7 +1495,7 @@ views:
             variables:
               accent: "#c62828"
 
-      # ── Letzte Aktion (Markdown bleibt – ist textuell) ───────────────
+      # ── Letzte Aktion (News-Ticker: aktuelle Aktion + Mini-Historie) ────
       - type: grid
         column_span: 3
         cards:
@@ -1316,24 +1503,10 @@ views:
             heading: Letzte Aktion
             icon: mdi:history
 
-          - type: markdown
-            content: >-
-              **Phase:** {{ states('sensor.e3dc_maestro_letzte_aktion') }}
-
-
-              **Grund:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'reason') or '—' }}
-
-
-              **Zeitpunkt:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'timestamp') or '—' }}
-
-
-              **Modus:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'power_mode') or '—' }}
-
-
-              **Soll-Lade-Limit:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'charge_power_limit') or '—' }} W
-
-
-              **Gesendetes Lade-Limit:** {{ state_attr('sensor.e3dc_maestro_letzte_aktion', 'sent_charge_power_limit') or '—' }} W
+          - type: custom:button-card
+            template: action_ticker
+            variables:
+              accent: "#5c6bc0"
 
           - type: conditional
             conditions:

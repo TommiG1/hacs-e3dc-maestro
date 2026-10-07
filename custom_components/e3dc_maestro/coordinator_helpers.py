@@ -149,6 +149,21 @@ def _limits_changed_vs_sent_values(
     return False
 
 
+def _action_history_changed(
+    last_entry: dict[str, Any] | None,
+    phase: str,
+    reason: str,
+) -> bool:
+    """True when (phase, reason) differs from the newest history entry.
+
+    Dashboard-Ticker-Historie (coordinator._action_history) soll nur bei
+    echten Wechseln wachsen, nicht bei jedem Tick mit identischem Ergebnis.
+    """
+    if last_entry is None:
+        return True
+    return last_entry.get("phase") != phase or last_entry.get("reason") != reason
+
+
 
 _RAMP_BYPASS_PHASES = frozenset({
     PHASE_OFF, PHASE_EMERGENCY, PHASE_FEED_IN_LIMIT, PHASE_CURTAILMENT_GUARD,

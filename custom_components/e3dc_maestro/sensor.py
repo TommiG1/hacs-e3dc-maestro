@@ -728,6 +728,7 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
         "battery_points",
         "trajectory_soc",
         "trajectory_phases",
+        "history",
     })
     # Heavy attribute payloads — suppress writes when value+attrs fingerprint unchanged.
     _HEAVY_KEYS = frozenset({
@@ -787,7 +788,10 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any] | None:
         key = self.entity_description.key
         if key == "last_action":
-            return self.coordinator.last_action_info
+            attrs = dict(self.coordinator.last_action_info)
+            # News-Ticker: letzte Phasen-/Grund-Wechsel, neueste zuerst.
+            attrs["history"] = list(self.coordinator._action_history)
+            return attrs
         if key == "decision_explanation":
             coord = self.coordinator
             dec = coord.last_decision

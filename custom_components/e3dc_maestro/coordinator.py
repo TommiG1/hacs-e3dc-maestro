@@ -75,6 +75,7 @@ from .coordinator_forecast import CoordinatorForecastMixin
 from .coordinator_helpers import (
     E3DC_RSCP_POWER_MODE_MAP,
     POWER_DEBOUNCE_W,
+    _action_history_changed,
     _build_power_mode_data,
     _effective_discharge_limit_w,
     energy_interval_hours as _energy_interval_hours,
@@ -95,6 +96,7 @@ __all__ = [
     "E3DCMaestroCoordinator",
     "E3DC_RSCP_POWER_MODE_MAP",
     "POWER_DEBOUNCE_W",
+    "_action_history_changed",
     "_build_power_mode_data",
     "_effective_discharge_limit_w",
     "_limits_changed_vs_sent_values",
@@ -140,6 +142,10 @@ class E3DCMaestroCoordinator(
         self.last_decision: MaestroDecision | None = None
         self.last_phase: str = PHASE_OFF
         self.last_action_info: dict[str, Any] = {}
+        # Ringpuffer der letzten Phasen-/Grund-Wechsel für den Dashboard-Ticker.
+        # Neue Einträge nur bei geändertem (phase, reason) – nicht bei jedem Tick
+        # mit identischem Ergebnis (coordinator_act._async_act).
+        self._action_history: deque[dict[str, Any]] = deque(maxlen=8)
 
         # Statistics (reset at midnight, persisted across restarts)
         self.stats: dict[str, float] = {

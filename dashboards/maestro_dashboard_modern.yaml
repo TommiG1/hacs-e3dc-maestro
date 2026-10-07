@@ -561,7 +561,6 @@ views:
             entities:
               grid:
                 entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
-                invert_state: false
                 color_icon: true
                 invert_state: true
               solar:

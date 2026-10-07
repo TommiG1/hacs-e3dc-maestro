@@ -561,8 +561,8 @@ views:
             entities:
               grid:
                 entity: sensor.energy_grid_inverted_s10e_consumption_from_grid_s10e_export_to_grid_net_power
-                invert_state: false
                 color_icon: true
+                invert_state: true
               solar:
                 entity: sensor.s10e_solar_production_w
                 color_icon: true
@@ -570,6 +570,7 @@ views:
                 entity: sensor.energy_battery_inverted_s10e_battery_discharge_s10e_battery_charge_net_power
                 state_of_charge: sensor.s10e_state_of_charge
                 color_icon: true
+                invert_state: true
               home:
                 entity: sensor.s10e_house_consumption
                 color_icon: true
@@ -917,7 +918,7 @@ views:
                   # SoC-min so wählen, dass 0 W und 0 % auf einer Linie liegen:
                   #   soc_min = -power_min / (power_max - power_min) * 100
                   - id: power
-                    min: -5000
+                    min: -2500
                     max: 10000
                     decimals: 0
                     apex_config:

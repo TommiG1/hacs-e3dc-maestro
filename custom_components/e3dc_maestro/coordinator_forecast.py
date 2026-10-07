@@ -88,7 +88,7 @@ class CoordinatorForecastMixin:
                     pv_source, pv_used if pv_source == "day_forecast" else None
                 )
                 + profile_source_tag("day2", pv_day2)
-                + (round(state.house_power / 250.0),)
+                + (round(state.house_power / 250.0), round(state.battery_power / 250.0))
             )
             fingerprint = _forecast_input_fingerprint(
                 soc=state.soc,
@@ -126,6 +126,7 @@ class CoordinatorForecastMixin:
                     _active=self.regelung_aktiv,
                     _pv2=pv_day2,
                     _anchor=state.house_power,
+                    _batt=state.battery_power,
                 ):
                     return simulate_next_24h(
                         soc=_soc,
@@ -139,6 +140,7 @@ class CoordinatorForecastMixin:
                         consumption_h_day2=_cons if _pv2 is not None else None,
                         day2_from_calendar=_pv2 is not None,
                         consumption_anchor_w=_anchor,
+                        battery_anchor_w=_batt,
                     )
 
                 result = await self.hass.async_add_executor_job(_run_sim)

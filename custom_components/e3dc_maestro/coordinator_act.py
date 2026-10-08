@@ -39,6 +39,7 @@ from .const import (
 from .control_engine import MaestroDecision, MaestroState, hp_desired_state, wallbox_desired_current
 from .coordinator_helpers import (
     E3DC_RSCP_POWER_MODE_MAP,
+    _action_history_changed,
     _build_power_mode_data,
     _effective_discharge_limit_w,
     _limits_changed_vs_sent_values,
@@ -219,15 +220,16 @@ class CoordinatorActMixin:
                     )
             if act_ok:
                 _now_local = dt_util.now()
+                _charge_limit = (
+                    int(round(decision.charge_power_limit))
+                    if decision.charge_power_limit is not None
+                    else None
+                )
                 self.last_action_info = {
                     "phase": decision.phase,
                     "reason": decision.reason,
                     "power_mode": decision.power_mode,
-                    "charge_power_limit": (
-                        int(round(decision.charge_power_limit))
-                        if decision.charge_power_limit is not None
-                        else None
-                    ),
+                    "charge_power_limit": _charge_limit,
                     # Tatsächlich per e3dc_rscp gesendete Caps – Diagnose für
                     # "Soll != Ist auf der E3DC" (z. B. Debounce-Drift).
                     "sent_charge_power_limit": self._last_sent_charge_limit,
@@ -235,6 +237,20 @@ class CoordinatorActMixin:
                     "timestamp": _now_local.isoformat(timespec="seconds"),
                     "timestamp_display": _now_local.strftime("%d.%m.%Y %H:%M:%S"),
                 }
+                # News-Ticker-Historie: nur bei geändertem (phase, reason) anhängen,
+                # damit identische Folge-Ticks (gleicher Grund) nicht spammen.
+                _last_hist = self._action_history[0] if self._action_history else None
+                if _action_history_changed(_last_hist, decision.phase, decision.reason):
+                    self._action_history.appendleft(
+                        {
+                            "phase": decision.phase,
+                            "reason": decision.reason,
+                            "power_mode": decision.power_mode,
+                            "charge_power_limit": _charge_limit,
+                            "timestamp": _now_local.isoformat(timespec="seconds"),
+                            "timestamp_display": _now_local.strftime("%d.%m.%Y %H:%M:%S"),
+                        }
+                    )
 
         if act_attempted:
             self._last_rscp_act_ok = act_ok

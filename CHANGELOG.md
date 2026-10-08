@@ -9,12 +9,32 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+---
+
+## [0.3.26] – Modern-Dashboard: Corner-Glow & SoC-Hero (2026-10-07)
+
 ### Changed
+- **Corner-Glow global:** `base_card`, KPI, Power/PV/Haus, Money, Status-Chips und
+  Action-Tiles nutzen `variables.accent` für Glow- und Icon-Farbe (Room-Card-Stil).
+- **SoC-Hero:** Akkustand mit großem Prozentwert, Meta-Zeile (Ziel · Autonomie) und
+  Progress-Ring ums Batterie-Icon statt zentriertem Donut.
+- **Phase-Hero:** Live-Badge oben rechts, Phasen-Icon im Glow unten links — ohne Überlappung.
+- **SoC-Sensor:** Dashboard-Platzhalter `sensor.e3dc_soc` →
+  `sensor.e3dc_maestro_aktueller_soc` (Maestro-Sensor, unabhängig vom e3dc_rscp-Namen).
 - Modern-Dashboard (#11): Schnellsteuerungs-Icons vergrößert (`size` / `--mdc-icon-size`
   56 px, inkl. `img_cell`). Reine CSS-`width` wirkte in button-card nicht zuverlässig.
-- Prognose-Chart: Netz-Prognose zeigt Einspeisung nach unten (−) und Bezug nach oben,
+- Prognose-Chart (#11): Netz-Prognose zeigt Einspeisung nach unten (−) und Bezug nach oben,
   analog zum Leistungs-Chart und typischen E3DC-Sensoren. Die Sensor-Attribute bleiben
   bei der Maestro-Konvention (+ = Einspeisung); nur die Chart-Anzeige wird gespiegelt.
+
+### Behoben
+- SoC-Karte: kaputtes Layout (Ring rechts, Text über dem Kreis) durch ein einziges
+  HTML-`custom_field`.
+- Corner-Glow: abgeschnittene Icons (SoC-Ring, Aktive Eingriffe) durch sanftere Positionierung.
+- Phase-Hero: Symbol und „Live“-Badge überlappten sich nicht mehr.
+- Phase-Hero / Cockpit: fehlende Phasen-Labels ergänzt (`fast_floor` → „Schnelllade-Boden“,
+  `hard_soc_limit`, `morning_discharge`, `curtailment_guard`, …); Untertitel fällt auf
+  die lesbare `reason` zurück statt auf den Enum-Rohwert.
 
 ---
 

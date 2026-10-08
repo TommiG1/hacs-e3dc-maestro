@@ -286,6 +286,15 @@ EWMA_TAU_S: float = 60.0
 # Sprünge > dieser Schwelle [W] setzen den EWMA sofort zurück (z.B. Wallbox-Start).
 EWMA_JUMP_THRESHOLD_W: float = 2000.0
 
+# ── F1: Forecast-Anker-Glättung (separat von der Regel-EWMA oben) ───────────
+# Der 24h-SoC-Forecast nutzt Haus-/Akku-Leistung als Startanker. Mit der
+# kurzen Regel-EWMA (60 s) flackert der Anker bei normalem Lastrauschen
+# (z.B. ±300 W Herd/WP) noch genug, um den simulierten min_soc nahe der
+# "wird leer"-Schwelle alle paar Sekunden um 10–25 pp kippen zu lassen.
+# Eine eigene, deutlich trägere EWMA (10 min) nur für den Forecast-Anker
+# behält die Regel-EWMA unverändert schnell, glättet aber die Anzeige.
+FORECAST_ANCHOR_TAU_S: float = 600.0
+
 ALL_PHASES = [
     PHASE_OFF,
     PHASE_MANUAL,

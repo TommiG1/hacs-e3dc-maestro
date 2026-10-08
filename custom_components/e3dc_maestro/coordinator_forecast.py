@@ -14,10 +14,14 @@ from .const import (
     CONF_PV_FORECAST_SENSOR_DAY2,
     CONF_PV_FORECAST_TODAY_SENSOR,
     CONF_TOMORROW_PV_SENSOR,
+    EWMA_JUMP_THRESHOLD_W,
+    FORECAST_ANCHOR_TAU_S,
 )
 from .coordinator_helpers import (
+    _ewma_update,
     _run_optimizer_sync,
     forecast_input_fingerprint as _forecast_input_fingerprint,
+    forecast_power_bucket as _forecast_power_bucket,
     quarter_slot as _quarter_slot,
 )
 from .forecast import simulate_next_24h
@@ -81,6 +85,21 @@ class CoordinatorForecastMixin:
                 pv_used = [state.pv_power] * 24
                 pv_source = "instant"
 
+            # F1+: Eigene, träge EWMA (10 min) für die Forecast-Anker – entkoppelt
+            # von der schnellen Regel-EWMA (60 s, siehe coordinator._ewma_house).
+            # battery_power bleibt für die Regelung bewusst roh (feed_in_limit
+            # braucht schnelle Reaktion); für den Forecast-Anker wird es hier
+            # erstmals geglättet, damit min_soc nicht bei jedem Lastrauschen kippt.
+            _dt_s = self.update_interval.total_seconds()
+            self._forecast_house_ewma = _ewma_update(
+                self._forecast_house_ewma, state.house_power,
+                FORECAST_ANCHOR_TAU_S, _dt_s, EWMA_JUMP_THRESHOLD_W,
+            )
+            self._forecast_battery_ewma = _ewma_update(
+                self._forecast_battery_ewma, state.battery_power,
+                FORECAST_ANCHOR_TAU_S, _dt_s, EWMA_JUMP_THRESHOLD_W,
+            )
+
             active = self._active_params
             params_key = (
                 forecast_params_key(active)
@@ -88,7 +107,10 @@ class CoordinatorForecastMixin:
                     pv_source, pv_used if pv_source == "day_forecast" else None
                 )
                 + profile_source_tag("day2", pv_day2)
-                + (round(state.house_power / 250.0), round(state.battery_power / 250.0))
+                + (
+                    _forecast_power_bucket(self._forecast_house_ewma),
+                    _forecast_power_bucket(self._forecast_battery_ewma),
+                )
             )
             fingerprint = _forecast_input_fingerprint(
                 soc=state.soc,
@@ -125,8 +147,8 @@ class CoordinatorForecastMixin:
                     _cap=active.battery_capacity_kwh,
                     _active=self.regelung_aktiv,
                     _pv2=pv_day2,
-                    _anchor=state.house_power,
-                    _batt=state.battery_power,
+                    _anchor=self._forecast_house_ewma,
+                    _batt=self._forecast_battery_ewma,
                 ):
                     return simulate_next_24h(
                         soc=_soc,

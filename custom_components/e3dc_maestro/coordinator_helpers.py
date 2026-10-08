@@ -72,15 +72,30 @@ def forecast_input_fingerprint(
     params_key: tuple[Any, ...],
     quarter: datetime,
 ) -> tuple[Any, ...]:
-    """Stable cache key for the 24h forecast simulator."""
+    """Stable cache key for the 24h forecast simulator.
+
+    ``soc`` is rounded to whole percent (E3DC reports whole percent anyway)
+    so sub-percent sensor jitter does not force a resimulation.
+    """
     return (
-        round(soc, 1),
+        round(soc),
         regelung_aktiv,
         tuple(round(v, 1) for v in (cons_h or ())),
         tuple(round(v, 1) for v in (pv_h or ())),
         params_key,
         quarter.isoformat(),
     )
+
+
+def forecast_power_bucket(watts: float, step: float = 1000.0) -> int:
+    """Bucket a power value (W) for the forecast cache key.
+
+    Grouping in coarse 1000 W steps (instead of raw/fine-grained values)
+    keeps the forecast fingerprint stable against normal load noise
+    (e.g. ±300 W from a heat pump or oven cycling) while still reacting
+    to real load changes (e.g. wallbox start) within one bucket step.
+    """
+    return round(watts / step)
 
 
 def forecast_target_date(now: datetime, days_ahead: int = 0):

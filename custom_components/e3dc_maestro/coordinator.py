@@ -252,6 +252,10 @@ class E3DCMaestroCoordinator(
         )
         # Last computed forecast (exposed to sensor entities)
         self.forecast: ForecastResult | None = None
+        # F1+: Separate, träge EWMA (10 min) für die Forecast-Anker –
+        # entkoppelt von der schnellen Regel-EWMA (_ewma_house/_ewma_pv, 60 s).
+        self._forecast_house_ewma: float | None = None
+        self._forecast_battery_ewma: float | None = None
 
         # F3: Auto-Optimierungs-Modus override state
         self._auto_params: MaestroParams | None = None
@@ -344,6 +348,8 @@ class E3DCMaestroCoordinator(
             self._ewma_pv = None
             self._ewma_house = None
             self._ewma_wallbox = None
+            self._forecast_house_ewma = None
+            self._forecast_battery_ewma = None
             self._last_phase_changed_at = None
             # Force a fresh decide+act cycle so any new phase
             # (e.g. CURTAILMENT_GUARD) is applied without waiting for the next poll.

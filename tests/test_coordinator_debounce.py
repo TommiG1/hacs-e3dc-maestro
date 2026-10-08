@@ -262,6 +262,74 @@ def test_forecast_fingerprint_changes_on_soc_or_quarter():
     assert a != c
 
 
+def test_forecast_fingerprint_stable_for_subpercent_soc_jitter():
+    """SoC jitter below 1 % (E3DC reports whole percent anyway) must not
+    force a resimulation; a real >=1 % change still must."""
+    from datetime import datetime, timezone
+    from custom_components.e3dc_maestro.coordinator_helpers import (
+        forecast_input_fingerprint,
+        quarter_slot,
+    )
+
+    now = datetime(2026, 7, 17, 12, 0, tzinfo=timezone.utc)
+    base = dict(
+        regelung_aktiv=True,
+        cons_h=[300.0] * 24,
+        pv_h=[1000.0] * 24,
+        params_key=(True, 40.0, 10.0),
+        quarter=quarter_slot(now),
+    )
+    a = forecast_input_fingerprint(soc=50.0, **base)
+    b = forecast_input_fingerprint(soc=50.4, **base)
+    c = forecast_input_fingerprint(soc=51.0, **base)
+    assert a == b
+    assert a != c
+
+
+def test_forecast_power_bucket_absorbs_noise_but_reacts_to_real_jumps():
+    """1000 W power buckets must not flip on normal load noise (e.g. oven/
+    heat-pump cycling ±300 W) but still react to a real load change
+    (e.g. wallbox start)."""
+    from custom_components.e3dc_maestro.coordinator_helpers import (
+        forecast_power_bucket,
+    )
+
+    base = forecast_power_bucket(1000.0)
+    assert forecast_power_bucket(700.0) == base
+    assert forecast_power_bucket(1300.0) == base
+    assert forecast_power_bucket(3200.0) != base
+
+
+def test_forecast_anchor_ewma_damps_noise_but_snaps_on_real_jump():
+    """F1+: The 10-min forecast-anchor EWMA must absorb one-tick load noise
+    well within a single 1000 W bucket, while a real jump above the shared
+    EWMA jump threshold (e.g. wallbox start) resets immediately — same
+    jump-reset semantics as the fast 60 s control-loop EWMA."""
+    from custom_components.e3dc_maestro.const import (
+        EWMA_JUMP_THRESHOLD_W,
+        FORECAST_ANCHOR_TAU_S,
+    )
+    from custom_components.e3dc_maestro.coordinator_helpers import (
+        _ewma_update,
+        forecast_power_bucket,
+    )
+
+    dt_s = 30.0  # typical poll interval
+    anchor = 1000.0
+    base_bucket = forecast_power_bucket(anchor)
+
+    noisy = _ewma_update(
+        anchor, anchor + 250.0, FORECAST_ANCHOR_TAU_S, dt_s, EWMA_JUMP_THRESHOLD_W
+    )
+    assert forecast_power_bucket(noisy) == base_bucket
+
+    jumped = _ewma_update(
+        anchor, anchor + EWMA_JUMP_THRESHOLD_W + 500.0,
+        FORECAST_ANCHOR_TAU_S, dt_s, EWMA_JUMP_THRESHOLD_W,
+    )
+    assert forecast_power_bucket(jumped) != base_bucket
+
+
 def test_forecast_target_date_zero_is_today():
     from datetime import datetime, timezone
     from custom_components.e3dc_maestro.coordinator_helpers import forecast_target_date

@@ -9,6 +9,11 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+### Geändert
+- **Max. Netzladung/Tag:** Die Obergrenze der Number-Entity
+  `number.e3dc_maestro_max_netzladung_tag` ist nicht mehr fest 20 kWh, sondern
+  mindestens das Doppelte der konfigurierten Akkukapazität (nie unter 20 kWh).
+
 ---
 
 ## [0.3.28] – Fix: Notstromreserve blockierte Laden & externe Steuerung (Issue #13) (2026-10-09)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.components.number import (
     NumberDeviceClass,
@@ -89,6 +89,11 @@ class MaestroNumberDescription(NumberEntityDescription):
     step_value: float = 1
     mode: NumberMode = NumberMode.BOX
     advanced: bool = False   # hidden unless advanced_corridor enabled
+    # Optional: Obergrenze zur Laufzeit aus den aktuellen MaestroParams
+    # ableiten (z. B. an battery_capacity_kwh gekoppelt), statt des
+    # statischen ``max_value``. Gewinnt, falls gesetzt; ``max_value`` bleibt
+    # dabei die Mindest-Obergrenze (siehe CONF_MAX_GRID_CHARGE_KWH unten).
+    dynamic_max_fn: Callable[[Any], float] | None = None
 
 
 NUMBER_DESCRIPTIONS: tuple[MaestroNumberDescription, ...] = (
@@ -255,6 +260,11 @@ NUMBER_DESCRIPTIONS: tuple[MaestroNumberDescription, ...] = (
         native_unit_of_measurement="kWh",
         param_key=CONF_MAX_GRID_CHARGE_KWH,
         min_value=0, max_value=20, step_value=0.5,
+        # Mindestens das Doppelte der Akkukapazität zulassen (z. B. um an
+        # einem Tag sowohl die Notstromreserve zu überbrücken als auch den
+        # nächsten Tag vorzuladen) – 20 bleibt die Untergrenze für kleine
+        # Speicher, damit sich am bisherigen Standardverhalten nichts ändert.
+        dynamic_max_fn=lambda p: max(20.0, getattr(p, "battery_capacity_kwh", 0.0) * 2.0),
     ),
     # ── Wallbox ───────────────────────────────────────────────────────────
     MaestroNumberDescription(
@@ -687,9 +697,24 @@ class MaestroNumber(CoordinatorEntity[E3DCMaestroCoordinator], NumberEntity):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
         self._attr_device_info = _device_info(coordinator)
         self._attr_native_min_value = description.min_value
-        self._attr_native_max_value = description.max_value
         self._attr_native_step = description.step_value
         self._attr_mode = description.mode
+        # Statischer Fallback; ``native_max_value`` unten überschreibt dies,
+        # falls die Beschreibung ``dynamic_max_fn`` setzt.
+        self._attr_native_max_value = description.max_value
+
+    @property
+    def native_max_value(self) -> float:
+        dynamic_max_fn = self.entity_description.dynamic_max_fn
+        if dynamic_max_fn is not None:
+            try:
+                return max(
+                    self.entity_description.max_value,
+                    dynamic_max_fn(self.coordinator._params),
+                )
+            except (TypeError, ValueError):
+                pass
+        return self.entity_description.max_value
 
     @property
     def native_value(self) -> float | None:

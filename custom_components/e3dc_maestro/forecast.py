@@ -304,14 +304,19 @@ def simulate_next_24h(
             bat_net_w = min(decision.charge_power_limit, params.max_charge_power)
         else:
             # NORMAL (auch mit charge_power_limit=1 als „Laden gesperrt"-Sentinel):
-            # passive PV-Pufferung + freies Entladen bei Defizit.
+            # passive PV-Pufferung + freies Entladen bei Defizit – außer
+            # discharge_power_limit sperrt die Entladung (Notstromreserve §4,
+            # EVCC-Now-Pause §5: nur Entladung gesperrt, Laden bleibt frei).
             charge_cap = params.max_charge_power
             if decision.charge_power_limit is not None:
                 charge_cap = min(charge_cap, max(0, int(decision.charge_power_limit)))
+            disch_cap = max_disch_w
+            if decision.discharge_power_limit is not None:
+                disch_cap = min(disch_cap, max(0, int(decision.discharge_power_limit)))
             if pv_surplus_w > 0:
                 bat_net_w = min(pv_surplus_w, charge_cap)
             else:
-                bat_net_w = max(-max_disch_w, pv_surplus_w)
+                bat_net_w = max(-disch_cap, pv_surplus_w)
 
         # ── Anchor to measured battery power (decays like the load anchor) ──
         if battery_anchor_w is not None:

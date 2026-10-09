@@ -11,6 +11,29 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.3.28] – Fix: Notstromreserve blockierte Laden & externe Steuerung (Issue #13) (2026-10-09)
+
+### Behoben
+- **Notstromreserve (§4) sperrte mehr als nur die Entladung:** Unterhalb der
+  (saisonalen oder verbrauchsadaptiven) Notstromreserve setzte Maestro
+  `power_mode=IDLE` — das ist beim E3DC ein harter manueller Modus, der
+  zusätzlich zur eigentlich gewollten Entlade-Sperre auch jede Ladung und
+  das E3DC-Eigenmanagement (inkl. externer Steuerungen wie EVCC) blockierte.
+  Jetzt wird wie bei der EVCC-Now-Pause nur noch die Entladung über
+  `discharge_power_limit=0` gesperrt (`power_mode=NORMAL`), PV- und
+  Netzladung bleiben frei.
+- **Aktive Netzladung im low-Slot unterhalb der Reserve:** Ist
+  **Aktive Netzladung im low-Slot** eingeschaltet und läuft gerade ein
+  `low`-Slot, darf die Notstromreserve das gezielte Nachladen aus dem Netz
+  nicht mehr verhindern — die Reserve-Schutzphase (§4) weicht jetzt vor der
+  Netzladung (§6.97), analog zum Schwacher-PV-Tag-Fix in 0.3.27.
+- **Prognose-Simulation:** Die SoC-Vorhersage (`forecast.py`) respektiert in
+  der Simulation jetzt `discharge_power_limit` (z. B. aus Notstromreserve
+  oder EVCC-Now-Pause), statt die Entladung bei einem Hausdefizit immer frei
+  zu rechnen.
+
+---
+
 ## [0.3.27] – Fix: Schwacher-PV-Tag blockierte aktive Netzladung im low-Slot (2026-10-09)
 
 ### Behoben

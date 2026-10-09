@@ -1277,10 +1277,23 @@ def _decide_core(
         )
 
     # ── 4. Seasonal reserve protection (B1) ───────────────────────────────────────────────
+    # Soll NUR die Entladung sperren (siehe Reason-Text) – nicht hart alles
+    # blockieren. POWER_MODE_IDLE schickt dem E3DC jedoch RSCP-Modus "1"
+    # (manueller Hard-Lock), der auch die Ladung und das E3DC-Eigenmanagement
+    # (inkl. externer Steuerungen wie EVCC) sperrt. Analog zur EVCC-Now-Pause
+    # (§5) daher NORMAL + discharge_power_limit=0 statt IDLE – das sperrt nur
+    # die Entladung, lässt PV-/Netzladung aber durch.
+    #
+    # Ausnahme: Ist "Aktive Netzladung im low-Slot" eingeschaltet und gerade
+    # ein low-Slot aktiv, ist das ein bewusster Nutzerwunsch, den Akku gezielt
+    # aus dem Netz über die Reserve hinaus zu heben (Issue #13) – dafür muss
+    # §6.97 weiter unten erreichbar bleiben, statt hier zu enden.
     if params.seasonal_reserve_enabled:
         adaptive_pct = adaptive_emergency_reserve_soc(state, params)
         reserve_soc = adaptive_pct if adaptive_pct is not None else seasonal_reserve_soc(now, params)
-        if state.soc <= reserve_soc:
+        if state.soc <= reserve_soc and not (
+            params.low_slot_grid_charge_enabled and tariff_class == TARIFF_LOW
+        ):
             source = "verbrauchsadaptiv" if adaptive_pct is not None else "saisonal"
             return MaestroDecision(
                 phase=PHASE_RESERVE_PROTECTION,
@@ -1288,7 +1301,9 @@ def _decide_core(
                     f"Notstromreserve {reserve_soc:.0f}% ({source}) ≥ SoC {state.soc:.0f}% – "
                     f"Entladung gesperrt"
                 ),
-                power_mode=POWER_MODE_IDLE,
+                power_mode=POWER_MODE_NORMAL,
+                charge_power_limit=None,
+                discharge_power_limit=0.0,
                 target_soc=target,
             )
 

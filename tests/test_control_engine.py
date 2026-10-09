@@ -778,15 +778,38 @@ class TestSeasonalReserve:
         assert soc_winter > soc_equinox
 
     def test_blocks_discharge_when_soc_at_reserve(self):
-        """When SoC equals the reserve, discharge should be blocked (POWER_MODE_IDLE)."""
-        from custom_components.e3dc_maestro.const import POWER_MODE_IDLE
+        """SoC an der Reserve: nur Entladung gesperrt (NORMAL + discharge_limit=0),
+        nicht POWER_MODE_IDLE – sonst sperrt das auch Ladung/E3DC-Eigenmanagement
+        hart (Issue #13), obwohl der Reason-Text nur "Entladung gesperrt" sagt."""
         p = self._reserve_params()
         state = MaestroState(
             soc=28, pv_power=0, house_power=500, grid_power=0, battery_power=0,
         )
         decision = decide(state, p, _now(12, 21, 14))  # winter, reserve ≈ 30
         assert decision.phase == PHASE_RESERVE_PROTECTION
-        assert decision.power_mode == POWER_MODE_IDLE
+        assert decision.power_mode == POWER_MODE_NORMAL
+        assert decision.charge_power_limit is None
+        assert decision.discharge_power_limit == 0.0
+
+    def test_yields_to_active_low_slot_grid_charge(self):
+        """Issue #13: SoC ≤ Notstromreserve, aber aktive Netzladung im low-Slot
+        ist bewusst eingeschaltet und gerade ein low-Slot aktiv → die Reserve
+        darf das gezielte Netzladen nicht blockieren, §6.97 muss greifen."""
+        low_slot = TariffSlot(
+            weekdays=frozenset(range(7)), start_h=0, end_h=24, class_=TARIFF_LOW,
+        )
+        p = self._reserve_params()
+        p.tariff_schedule = TariffSchedule(slots=[low_slot])
+        p.low_slot_grid_charge_enabled = True
+        p.low_slot_target_soc = 60.0
+        p.max_grid_charge_kwh = 3.0
+        p.tariff_mode = "fixed"
+        state = MaestroState(
+            soc=28, pv_power=0, house_power=500, grid_power=0, battery_power=0,
+        )
+        decision = decide(state, p, _now(12, 21, 14))  # winter, reserve ≈ 30
+        assert decision.phase == PHASE_GRID_CHARGE
+        assert decision.power_mode == POWER_MODE_CHARGE
 
     def test_emergency_has_priority_over_reserve(self):
         """EMERGENCY (SoC < charge_threshold) must override RESERVE_PROTECTION."""

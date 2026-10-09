@@ -11,6 +11,15 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.4.0-beta.2] – Preisplan-Karte im Classic-Dashboard (2026-10-09)
+
+### Neu
+- Classic-Dashboard (Tab „Netz & Tarif“): Karte „Preisplan“ mit Schalter,
+  Empfehlung, Begründung und Diagramm (Preiskurve, Netzladung/Halten, SoC).
+  Beta.1 enthielt die Karte nur im Modern-Dashboard.
+
+---
+
 ## [0.4.0-beta.1] – Preisplan im Schattenmodus (Issue #14) (2026-10-09)
 
 > **Beta / nur Anzeige:** Der Preisplan berechnet und zeigt, was sich anhand der

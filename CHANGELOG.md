@@ -11,12 +11,28 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
-## [0.4.0-beta.2] – Preisplan-Karte im Classic-Dashboard (2026-10-09)
+## [0.4.0-beta.2] – Preisplan-Karte & Einstellungen im Dashboard (2026-10-09)
 
 ### Neu
 - Classic-Dashboard (Tab „Netz & Tarif“): Karte „Preisplan“ mit Schalter,
   Empfehlung, Begründung und Diagramm (Preiskurve, Netzladung/Halten, SoC).
   Beta.1 enthielt die Karte nur im Modern-Dashboard.
+
+### Geändert
+- Preisplan: Standard-Wirkungsgrad 0,85 → **0,90**, Mindest-Preisspanne 8 ct →
+  **3 ct** (Verluste und Verschleiß werden separat eingerechnet). Bereits
+  gespeicherte Werte bleiben unverändert.
+
+### Neu
+- **Dynamisches Laden im Dashboard einstellbar** (Tab „Netz & Tarif“, Classic und
+  Modern): Tarif-Modus (Select), Dynamische Tarife, Strompreis Bezug,
+  Einspeisevergütung, Akku-Anschaffungskosten, Akku-Lebensdauer, Günstig-Schwelle,
+  Max. Netzladung/Tag, aktive Netzladung im low-Slot (+ Ziel-SoC,
+  prognosebasierte Menge) sowie alle Preisplan-Werte (Ziel-SoC-Obergrenze,
+  Mindest-Preisspanne, Wirkungsgrad, Sicherheitsfaktor) als Entitäten. Nur der
+  Preis-Sensor bleibt in den Einstellungen.
+- Live-Änderung von „Dynamische Tarife“ und „Günstig-Schwelle“ wirkt jetzt auch
+  mit gespeicherten Tarif-Slots sofort (ohne Neuladen).
 
 ---
 

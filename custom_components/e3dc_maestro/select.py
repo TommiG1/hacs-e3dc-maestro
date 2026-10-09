@@ -8,7 +8,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    CONF_TARIFF_MODE,
     CONF_WALLBOX_TYPE,
+    DEFAULT_TARIFF_MODE,
+    TARIFF_MODES,
     CONF_MORNING_DISCHARGE_MODE,
     CONF_AUTO_MODE_OBJECTIVE,
     AUTO_MODE_OBJECTIVES,
@@ -35,6 +38,7 @@ async def async_setup_entry(
         MaestroWallboxTypeSelect(coordinator),
         MaestroMorningDischargeModeSelect(coordinator),
         MaestroAutoModeObjectiveSelect(coordinator),
+        MaestroTariffModeSelect(coordinator),
     ])
 
 
@@ -104,4 +108,24 @@ class MaestroAutoModeObjectiveSelect(CoordinatorEntity[E3DCMaestroCoordinator], 
 
     async def async_select_option(self, option: str) -> None:
         self.coordinator.update_param(CONF_AUTO_MODE_OBJECTIVE, option)
+        self.async_write_ha_state()
+
+
+class MaestroTariffModeSelect(CoordinatorEntity[E3DCMaestroCoordinator], SelectEntity):
+    _attr_has_entity_name = True
+    _attr_name = "Tarif-Modus"
+    _attr_icon = "mdi:cash-clock"
+    _attr_options = list(TARIFF_MODES)
+
+    def __init__(self, coordinator: E3DCMaestroCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_tariff_mode"
+        self._attr_device_info = _device_info(coordinator)
+
+    @property
+    def current_option(self) -> str | None:
+        return self.coordinator.entry.options.get(CONF_TARIFF_MODE, DEFAULT_TARIFF_MODE)
+
+    async def async_select_option(self, option: str) -> None:
+        self.coordinator.update_param(CONF_TARIFF_MODE, option)
         self.async_write_ha_state()

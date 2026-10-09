@@ -1576,12 +1576,30 @@ views:
 
       - type: entities
         title: Dynamischer Tarif
-        subtitle: Netzladung bei günstigem Preis
+        subtitle: "Tarif, Preise, Akku-Verschleiß und aktive Netzladung (Preis-Sensor nur in den Einstellungen)"
         entities:
+          - entity: select.e3dc_maestro_tarif_modus
+            name: Tarif-Modus (fixed = kein Netzladen, dynamic = erlaubt)
+          - entity: switch.e3dc_maestro_dynamische_tarife
+            name: Dynamische Tarife aktiv
+          - entity: number.e3dc_maestro_strompreis_bezug_fest
+            name: Strompreis Bezug, fester Tarif (€/kWh)
+          - entity: number.e3dc_maestro_einspeisevergutung
+            name: Einspeisevergütung (€/kWh)
+          - entity: number.e3dc_maestro_akku_anschaffungskosten
+            name: Akku-Anschaffungskosten (€)
+          - entity: number.e3dc_maestro_akku_lebensdauer_zyklen
+            name: Akku-Lebensdauer (Vollzyklen)
           - entity: number.e3dc_maestro_gunstig_schwelle
-            name: "Günstig-Schwelle (€/kWh)"
+            name: Günstig-Schwelle (€/kWh)
           - entity: number.e3dc_maestro_max_netzladung_tag
-            name: "Max. Netzladung/Tag (kWh)"
+            name: Max. Netzladung/Tag (kWh)
+          - entity: switch.e3dc_maestro_aktive_netzladung_im_low_slot
+            name: Aktive Netzladung im low-Slot
+          - entity: number.e3dc_maestro_netzlade_ziel_im_low_slot
+            name: Netzlade-Ziel im low-Slot (% SoC)
+          - entity: switch.e3dc_maestro_netzlade_menge_prognosebasiert
+            name: Netzlade-Menge prognosebasiert
           - type: button
             name: "ℹ️  Hilfe zu diesem Abschnitt"
             icon: mdi:help-circle-outline
@@ -1594,6 +1612,14 @@ views:
         entities:
           - entity: switch.e3dc_maestro_preisplan_schattenmodus
             name: Preisplan berechnen
+          - entity: number.e3dc_maestro_preisplan_ziel_soc_obergrenze
+            name: Ziel-SoC Obergrenze (%)
+          - entity: number.e3dc_maestro_preisplan_mindest_preisspanne
+            name: Mindest-Preisspanne (€/kWh)
+          - entity: number.e3dc_maestro_preisplan_wirkungsgrad
+            name: Wirkungsgrad Laden/Entladen (0–1)
+          - entity: number.e3dc_maestro_preisplan_verbrauchs_sicherheitsfaktor
+            name: Verbrauchs-Sicherheitsfaktor
           - entity: sensor.e3dc_maestro_preisplan
             name: Empfehlung
           - type: attribute

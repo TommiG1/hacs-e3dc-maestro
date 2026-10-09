@@ -399,6 +399,12 @@ class E3DCMaestroCoordinator(
         # full integration reload for live entity changes.
         new_options = dict(self.entry.options)
         new_options[key] = value
+        # The cheap threshold of a stored slot schedule depends on these two
+        # options → rebuild it so live changes take effect without a reload.
+        if key in ("dynamic_tariff_enabled", "cheap_threshold"):
+            _schedule = _tariff_schedule_from_stored(new_options)
+            if _schedule is not None:
+                self._params.tariff_schedule = _schedule
         self._skip_reload = True
         try:
             self.hass.config_entries.async_update_entry(self.entry, options=new_options)

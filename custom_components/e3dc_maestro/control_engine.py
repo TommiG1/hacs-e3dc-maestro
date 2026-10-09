@@ -105,8 +105,8 @@ class MaestroParams:
     # Preisplan (Schattenmodus): Plan aus der Preiskurve berechnen und anzeigen.
     price_plan_enabled: bool = False
     price_plan_max_soc: float = 90.0
-    price_plan_min_spread: float = 0.08     # €/kWh nach Verlusten
-    price_plan_efficiency: float = 0.85     # Laden × Entladen
+    price_plan_min_spread: float = 0.03     # €/kWh Mindestgewinn (Verluste/Verschleiß separat)
+    price_plan_efficiency: float = 0.90     # Laden × Entladen
     price_plan_safety_factor: float = 1.15  # Verbrauchs-Sicherheitsfaktor
     # Phase C: explicit tariff slot schedule (optional override).
     # If None, a schedule is derived from the legacy ht_*/cheap_threshold fields.

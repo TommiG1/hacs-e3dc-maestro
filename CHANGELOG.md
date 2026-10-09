@@ -31,6 +31,10 @@ einen eigenen Versionsabschnitt verschieben.
   prognosebasierte Menge) sowie alle Preisplan-Werte (Ziel-SoC-Obergrenze,
   Mindest-Preisspanne, Wirkungsgrad, Sicherheitsfaktor) als Entitäten. Nur der
   Preis-Sensor bleibt in den Einstellungen.
+- **Anleitung zum Preisplan:** Hilfeseite „Preisplan“ (Button „Hilfe zum Preisplan“
+  unter dem Preisplan-Abschnitt, Classic und Modern) mit Voraussetzungen im Config
+  Flow, Einstellungen, Diagramm-Erklärung und FAQ; README-Abschnitt; Hinweis in der
+  Preisplan-Option des Config Flows.
 - Preisplan-Chart in zwei Karten geteilt (Preise/Halten/Laden und geplanter SoC),
   weil die SoC-Linie sonst gegen die Preis-Achse gezeichnet wurde.
 - Live-Änderung von „Dynamische Tarife“ und „Günstig-Schwelle“ wirkt jetzt auch

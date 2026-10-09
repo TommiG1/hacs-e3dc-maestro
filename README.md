@@ -335,6 +335,27 @@ Charges the battery from the grid when the spot electricity price is cheap.
 > enable **Active grid charge in low slot** so the off-peak window is actually
 > used to recharge.
 
+### Price plan (shadow mode, beta)
+
+Uses the price curve (today + tomorrow), the PV forecast and your consumption
+profile to work out when **grid charging** and **holding discharge** pay off. The
+plan is **display only** (`sensor.e3dc_maestro_preisplan`) and controls nothing.
+
+**Setup** (Settings → Devices & services → E3DC Maestro → Configure):
+
+1. **Tariff & costs:** pick the price sensor (attributes `raw_today`/`raw_tomorrow`,
+   e.g. Nordpool, EPEX, aWATTar or Tibber with `prices`), feed-in tariff, battery
+   purchase cost and lifetime (cycles), max grid charge/day.
+2. **System parameters:** battery capacity, max charge power, inverter power.
+3. **PV forecast:** enable a forecast sensor (Solcast / Forecast.Solar) – without
+   one the plan falls back conservatively to history.
+4. **Season & charge corridor:** charge threshold and emergency reserve (floor of the plan).
+5. Enable **Price plan (shadow mode)** – also available as a switch in the dashboard.
+
+Fine-tuning in the dashboard (tab **Grid & Tariff**): max target SoC (90 %),
+minimum price spread (0.03 €/kWh), efficiency (0.90), consumption safety factor
+(1.15). Full guide: **“Help for the price plan”** button in the dashboard.
+
 ---
 
 ### Step 7: Wallbox

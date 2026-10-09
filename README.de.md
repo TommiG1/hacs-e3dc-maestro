@@ -351,6 +351,27 @@ Lädt den Akku aus dem Netz wenn der Börsenstrompreis günstig ist.
 > HT/NT-Modell (fester Tarif) aktiviere **Aktive Netzladung im low-Slot**, damit
 > das NT-Fenster wirklich zum Nachladen genutzt wird.
 
+### Preisplan (Schattenmodus, Beta)
+
+Berechnet aus der Preiskurve (heute + morgen), der PV-Prognose und deinem
+Verbrauchsprofil, wann sich **Netzladung** und **Entladung halten** lohnen. Der
+Plan wird **nur angezeigt** (`sensor.e3dc_maestro_preisplan`) und steuert nichts.
+
+**Einrichtung** (Einstellungen → Geräte & Dienste → E3DC Maestro → Konfigurieren):
+
+1. **Tarif & Kosten:** Preis-Sensor wählen (Attribute `raw_today`/`raw_tomorrow`,
+   z. B. Nordpool, EPEX, aWATTar oder Tibber mit `prices`), Einspeisevergütung,
+   Akku-Anschaffungskosten und Lebensdauer (Zyklen), Max. Netzladung/Tag.
+2. **Systemparameter:** Akku-Kapazität, max. Ladeleistung, Wechselrichter-Leistung.
+3. **PV-Prognose:** Prognose-Sensor (Solcast / Forecast.Solar) aktivieren – ohne
+   rechnet der Plan konservativ mit der Historie.
+4. **Saison & Ladekorridor:** Ladeschwelle und Notstromreserve (Untergrenze des Plans).
+5. **Preisplan (Schattenmodus)** einschalten – auch per Schalter im Dashboard.
+
+Feinjustierung im Dashboard (Tab **Netz & Tarif**): Ziel-SoC-Obergrenze (90 %),
+Mindest-Preisspanne (0,03 €/kWh), Wirkungsgrad (0,90), Verbrauchs-Sicherheitsfaktor
+(1,15). Ausführliche Anleitung: Button **„Hilfe zum Preisplan“** im Dashboard.
+
 ---
 
 ### Schritt 7: Wallbox

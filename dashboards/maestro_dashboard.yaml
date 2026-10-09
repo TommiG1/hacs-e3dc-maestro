@@ -1641,6 +1641,12 @@ views:
             attribute: known_until
             name: Preise bekannt bis
             format: datetime
+          - type: button
+            name: "ℹ️  Hilfe zum Preisplan"
+            icon: mdi:help-circle-outline
+            tap_action:
+              action: navigate
+              navigation_path: /e3dc-maestro/help-preisplan
 
       - type: custom:apexcharts-card
         chart_type: line
@@ -2142,6 +2148,7 @@ views:
           | Astro-Modus (Sonnenuntergang) | [→ Astro](/e3dc-maestro/help-astro) |
           | HT/NT-Schutz | [→ HT-Schutz](/e3dc-maestro/help-ht) |
           | Dynamischer Tarif | [→ Tarif](/e3dc-maestro/help-tarif) |
+          | Preisplan (Schattenmodus) | [→ Preisplan](/e3dc-maestro/help-preisplan) |
           | Tarif-Slots | [→ Tarif-Slots](/e3dc-maestro/help-tariff-slots) |
           | EVCC – Akku-Entladesperre | [→ EVCC](/e3dc-maestro/help-evcc) |
           | Wallbox-Überschussregelung | [→ Wallbox](/e3dc-maestro/help-wallbox) |
@@ -3161,6 +3168,83 @@ views:
           **Empfehlung:** 5–15 kWh je nach Akkugröße. Für 11 kWh Akku typisch 8–10 kWh.
           
           **Standard:** 10 kWh
+
+  - title: "Hilfe: Preisplan"
+    path: help-preisplan
+    subview: true
+    cards:
+      - type: markdown
+        content: |
+          ## Preisplan (Schattenmodus)
+
+          Der Preisplan rechnet anhand der **Strompreis-Kurve** (heute + morgen), der
+          **PV-Prognose** und deines **Verbrauchsprofils** aus, wann sich Netzladung
+          und eine Entlade-Sperre ("Halten") lohnen. Aktuell ist er **nur eine
+          Anzeige** – er steuert nichts. So kannst du ein paar Tage prüfen, ob die
+          Empfehlungen zu deinem Haus passen.
+
+          ---
+
+          ### Voraussetzungen (einmalig im Config Flow)
+
+          **Einstellungen → Geräte & Dienste → E3DC Maestro → Konfigurieren**
+
+          | Schritt | Was einstellen | Warum |
+          |---|---|---|
+          | **Tarif & Kosten** | **Preis-Sensor** wählen | Quelle der Preiskurve. Der Sensor braucht Attribute `raw_today` / `raw_tomorrow` (Nordpool, EPEX, aWATTar, Tibber mit `prices`) oder Listen `today` / `tomorrow` |
+          | **Tarif & Kosten** | **Preisplan (Schattenmodus)** einschalten | Aktiviert die Berechnung (auch im Dashboard schaltbar) |
+          | **Tarif & Kosten** | Strompreis Bezug (fest), **Einspeisevergütung** | Bewertung von PV-Überschuss gegen Netzbezug |
+          | **Tarif & Kosten** | **Akku-Anschaffungskosten** und **Lebensdauer (Zyklen)** | Verschleißkosten pro geladener kWh – verhindert Laden für winzige Preisvorteile |
+          | **Tarif & Kosten** | **Max. Netzladung/Tag** | Tagesbudget: Der Plan lädt nie mehr aus dem Netz |
+          | **Systemparameter** | Akku-Kapazität, max. Lade- und Wechselrichter-Leistung | Begrenzen, wie viel pro Slot geladen werden kann |
+          | **PV-Prognose** | PV-Prognose-Sensor (Prognose aktivieren; Solcast / Forecast.Solar) | Ohne Prognose rechnet der Plan konservativ mit Historie (PV x 0,7) |
+          | **Saison & Ladekorridor** | Ladeschwelle und Notstromreserve | Der Plan entlädt nie unter den Boden aus Ladeschwelle und Reserve |
+
+          > Die Preise für morgen liegen meist erst am Nachmittag vor. Bis dahin
+          > reicht der Plan nur bis Mitternacht ("Preise bekannt bis").
+
+          ---
+
+          ### Einstellungen auf dieser Seite
+
+          | Einstellung | Standard | Wirkung |
+          |---|---|---|
+          | **Preisplan berechnen** | aus | Schalter für die Berechnung |
+          | **Ziel-SoC Obergrenze** | 90 % | Höchster SoC, auf den der Plan aus dem Netz laden darf |
+          | **Mindest-Preisspanne** | 0,03 €/kWh | Netzladung nur, wenn der Preisvorteil **nach** Verlusten und Verschleiß mindestens so groß ist. Höher = seltener, aber lohnender |
+          | **Wirkungsgrad** | 0,90 | Anteil der geladenen Energie, der später wieder entnommen wird (typisch 0,85–0,92) |
+          | **Verbrauchs-Sicherheitsfaktor** | 1,15 | Aufschlag auf den Hausverbrauch, damit teure Slots sicher aus dem Akku gedeckt sind |
+
+          Bereits gespeicherte Werte bleiben bei Updates unverändert.
+
+          ---
+
+          ### Diagramm lesen
+
+          - **Graue Linie:** Strompreis in ct/kWh je Slot
+          - **Grün:** Netzladung geplant
+          - **Orange:** Entladung halten – der Akku wird gespart, das Haus nimmt Netzstrom, damit die Energie für teurere Slots bleibt
+          - **Blaue Linie (unteres Diagramm):** geplanter SoC am Ende jedes Slots
+
+          **Empfehlung** (z. B. "Halten ab 23:00") und **Begründung** zeigen, was jetzt
+          ansteht. **Erwartete Ersparnis** ist der Vergleich zum Verhalten ohne Plan.
+
+          ---
+
+          ### Häufige Fragen
+
+          **Es wird nie geladen.** Meist ist der Preisabstand zu klein: nach
+          Wirkungsgrad, Verschleiß und Mindest-Preisspanne bleibt kein Vorteil. Prüfe
+          Akku-Kosten/Zyklen und senke ggf. die Mindest-Preisspanne. Auch ein
+          Tagesbudget von 0 oder ein voller Akku verhindert Ladung.
+
+          **Der Plan ist leer / "keine Preise".** Preis-Sensor fehlt oder hat keine
+          Attribute `raw_today` / `raw_tomorrow`. Prüfe in den Entwicklerwerkzeugen →
+          Zustände den Sensor.
+
+          **Wann steuert der Plan wirklich?** Erst in einer späteren Version, die
+          separat zuschaltbar sein wird. Bis dahin bleibt alles wie bisher
+          (Tarif-Slots, Günstig-Schwelle, Netzladung im low-Slot).
 
   - title: "Hilfe: Wallbox-Überschussregelung"
     path: help-wallbox

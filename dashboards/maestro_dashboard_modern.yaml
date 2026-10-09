@@ -2775,16 +2775,15 @@ views:
             span:
               start: hour
             header:
-              title: Preiskurve, Plan und SoC
+              title: Preisplan – Preise, Netzladung und Halten
               show: true
               show_states: false
             apex_config:
               chart:
-                height: 300
+                height: 220
                 stacked: true
               stroke:
-                width: [0, 0, 0, 3]
-                curve: stepline
+                width: 0
               plotOptions:
                 bar:
                   columnWidth: 95%
@@ -2796,26 +2795,16 @@ views:
               legend:
                 show: true
             yaxis:
-              - id: price
-                min: 0
+              - min: 0
                 decimals: 0
                 apex_config:
                   title:
                     text: ct/kWh
-              - id: soc
-                opposite: true
-                min: 0
-                max: 100
-                decimals: 0
-                apex_config:
-                  title:
-                    text: SoC %
             series:
               - entity: sensor.e3dc_maestro_preisplan
                 name: Preis
                 type: column
                 color: "#90a4ae"
-                yaxis_id: price
                 show:
                   in_header: false
                 data_generator: |
@@ -2826,7 +2815,6 @@ views:
                 name: Netzladung
                 type: column
                 color: "#43a047"
-                yaxis_id: price
                 show:
                   in_header: false
                 data_generator: |
@@ -2837,18 +2825,47 @@ views:
                 name: Entladung halten
                 type: column
                 color: "#fb8c00"
-                yaxis_id: price
                 show:
                   in_header: false
                 data_generator: |
                   const rows = entity.attributes.plan_slots || [];
                   return rows.filter(r => r.grid_charge_kwh <= 0 && r.hold)
                     .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);
+
+          - type: custom:apexcharts-card
+            chart_type: line
+            graph_span: 36h
+            span:
+              start: hour
+            header:
+              title: Preisplan – geplanter SoC
+              show: true
+              show_states: false
+            apex_config:
+              chart:
+                height: 160
+              stroke:
+                width: 3
+                curve: stepline
+              xaxis:
+                type: datetime
+                labels:
+                  datetimeUTC: false
+                  format: HH:mm
+              legend:
+                show: false
+            yaxis:
+              - min: 0
+                max: 100
+                decimals: 0
+                apex_config:
+                  title:
+                    text: SoC %
+            series:
               - entity: sensor.e3dc_maestro_preisplan
                 name: SoC (Plan)
                 type: line
                 color: "#1e88e5"
-                yaxis_id: soc
                 show:
                   in_header: false
                 data_generator: |

@@ -31,6 +31,8 @@ einen eigenen Versionsabschnitt verschieben.
   prognosebasierte Menge) sowie alle Preisplan-Werte (Ziel-SoC-Obergrenze,
   Mindest-Preisspanne, Wirkungsgrad, Sicherheitsfaktor) als Entitäten. Nur der
   Preis-Sensor bleibt in den Einstellungen.
+- Preisplan-Chart in zwei Karten geteilt (Preise/Halten/Laden und geplanter SoC),
+  weil die SoC-Linie sonst gegen die Preis-Achse gezeichnet wurde.
 - Live-Änderung von „Dynamische Tarife“ und „Günstig-Schwelle“ wirkt jetzt auch
   mit gespeicherten Tarif-Slots sofort (ohne Neuladen).
 

@@ -2092,23 +2092,17 @@
             "start": "hour"
           },
           "header": {
-            "title": "Preisplan – Preiskurve, Plan und SoC",
+            "title": "Preisplan – Preise, Netzladung und Halten",
             "show": true,
             "show_states": false
           },
           "apex_config": {
             "chart": {
-              "height": 300,
+              "height": 220,
               "stacked": true
             },
             "stroke": {
-              "width": [
-                0,
-                0,
-                0,
-                3
-              ],
-              "curve": "stepline"
+              "width": 0
             },
             "plotOptions": {
               "bar": {
@@ -2128,7 +2122,6 @@
           },
           "yaxis": [
             {
-              "id": "price",
               "min": 0,
               "decimals": 0,
               "apex_config": {
@@ -2136,10 +2129,74 @@
                   "text": "ct/kWh"
                 }
               }
+            }
+          ],
+          "series": [
+            {
+              "entity": "sensor.e3dc_maestro_preisplan",
+              "name": "Preis",
+              "type": "column",
+              "color": "#90a4ae",
+              "show": {
+                "in_header": false
+              },
+              "data_generator": "const rows = entity.attributes.plan_slots || [];\nreturn rows.filter(r => r.grid_charge_kwh <= 0 && !r.hold)\n  .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);\n"
             },
             {
-              "id": "soc",
-              "opposite": true,
+              "entity": "sensor.e3dc_maestro_preisplan",
+              "name": "Netzladung",
+              "type": "column",
+              "color": "#43a047",
+              "show": {
+                "in_header": false
+              },
+              "data_generator": "const rows = entity.attributes.plan_slots || [];\nreturn rows.filter(r => r.grid_charge_kwh > 0)\n  .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);\n"
+            },
+            {
+              "entity": "sensor.e3dc_maestro_preisplan",
+              "name": "Entladung halten",
+              "type": "column",
+              "color": "#fb8c00",
+              "show": {
+                "in_header": false
+              },
+              "data_generator": "const rows = entity.attributes.plan_slots || [];\nreturn rows.filter(r => r.grid_charge_kwh <= 0 && r.hold)\n  .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);\n"
+            }
+          ]
+        },
+        {
+          "type": "custom:apexcharts-card",
+          "chart_type": "line",
+          "graph_span": "36h",
+          "span": {
+            "start": "hour"
+          },
+          "header": {
+            "title": "Preisplan – geplanter SoC",
+            "show": true,
+            "show_states": false
+          },
+          "apex_config": {
+            "chart": {
+              "height": 160
+            },
+            "stroke": {
+              "width": 3,
+              "curve": "stepline"
+            },
+            "xaxis": {
+              "type": "datetime",
+              "labels": {
+                "datetimeUTC": false,
+                "format": "HH:mm"
+              }
+            },
+            "legend": {
+              "show": false
+            }
+          },
+          "yaxis": [
+            {
               "min": 0,
               "max": 100,
               "decimals": 0,
@@ -2153,43 +2210,9 @@
           "series": [
             {
               "entity": "sensor.e3dc_maestro_preisplan",
-              "name": "Preis",
-              "type": "column",
-              "color": "#90a4ae",
-              "yaxis_id": "price",
-              "show": {
-                "in_header": false
-              },
-              "data_generator": "const rows = entity.attributes.plan_slots || [];\nreturn rows.filter(r => r.grid_charge_kwh <= 0 && !r.hold)\n  .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);\n"
-            },
-            {
-              "entity": "sensor.e3dc_maestro_preisplan",
-              "name": "Netzladung",
-              "type": "column",
-              "color": "#43a047",
-              "yaxis_id": "price",
-              "show": {
-                "in_header": false
-              },
-              "data_generator": "const rows = entity.attributes.plan_slots || [];\nreturn rows.filter(r => r.grid_charge_kwh > 0)\n  .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);\n"
-            },
-            {
-              "entity": "sensor.e3dc_maestro_preisplan",
-              "name": "Entladung halten",
-              "type": "column",
-              "color": "#fb8c00",
-              "yaxis_id": "price",
-              "show": {
-                "in_header": false
-              },
-              "data_generator": "const rows = entity.attributes.plan_slots || [];\nreturn rows.filter(r => r.grid_charge_kwh <= 0 && r.hold)\n  .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);\n"
-            },
-            {
-              "entity": "sensor.e3dc_maestro_preisplan",
               "name": "SoC (Plan)",
               "type": "line",
               "color": "#1e88e5",
-              "yaxis_id": "soc",
               "show": {
                 "in_header": false
               },

@@ -2781,12 +2781,9 @@ views:
             apex_config:
               chart:
                 height: 220
-                stacked: true
               stroke:
-                width: 0
-              plotOptions:
-                bar:
-                  columnWidth: 95%
+                width: [2, 5, 5]
+                curve: straight
               xaxis:
                 type: datetime
                 labels:
@@ -2803,34 +2800,55 @@ views:
             series:
               - entity: sensor.e3dc_maestro_preisplan
                 name: Preis
-                type: column
+                type: line
                 color: "#90a4ae"
                 show:
                   in_header: false
                 data_generator: |
                   const rows = entity.attributes.plan_slots || [];
-                  return rows.filter(r => r.grid_charge_kwh <= 0 && !r.hold)
-                    .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);
+                  const pts = [];
+                  rows.forEach(r => {
+                    const s = new Date(r.start).getTime();
+                    const e = s + r.hours * 3600000 - 1000;
+                    const y = Math.round(r.price * 1000) / 10;
+                    pts.push([s, y]);
+                    pts.push([e, y]);
+                  });
+                  return pts;
               - entity: sensor.e3dc_maestro_preisplan
                 name: Netzladung
-                type: column
+                type: line
                 color: "#43a047"
                 show:
                   in_header: false
                 data_generator: |
                   const rows = entity.attributes.plan_slots || [];
-                  return rows.filter(r => r.grid_charge_kwh > 0)
-                    .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);
+                  const pts = [];
+                  rows.forEach(r => {
+                    const s = new Date(r.start).getTime();
+                    const e = s + r.hours * 3600000 - 1000;
+                    const y = Math.round(r.price * 1000) / 10;
+                    if (r.grid_charge_kwh > 0) { pts.push([s, y]); pts.push([e, y]); }
+                    else { pts.push([s, null]); }
+                  });
+                  return pts;
               - entity: sensor.e3dc_maestro_preisplan
                 name: Entladung halten
-                type: column
+                type: line
                 color: "#fb8c00"
                 show:
                   in_header: false
                 data_generator: |
                   const rows = entity.attributes.plan_slots || [];
-                  return rows.filter(r => r.grid_charge_kwh <= 0 && r.hold)
-                    .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);
+                  const pts = [];
+                  rows.forEach(r => {
+                    const s = new Date(r.start).getTime();
+                    const e = s + r.hours * 3600000 - 1000;
+                    const y = Math.round(r.price * 1000) / 10;
+                    if (r.grid_charge_kwh <= 0 && r.hold) { pts.push([s, y]); pts.push([e, y]); }
+                    else { pts.push([s, null]); }
+                  });
+                  return pts;
 
           - type: custom:apexcharts-card
             chart_type: line

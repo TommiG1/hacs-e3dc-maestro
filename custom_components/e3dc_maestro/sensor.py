@@ -32,6 +32,16 @@ class MaestroSensorDescription(SensorEntityDescription):
 
 SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
     MaestroSensorDescription(
+        key="price_plan",
+        name="Preisplan",
+        icon="mdi:chart-timeline-variant",
+        value_fn=lambda coord: (
+            coord.price_plan.summary
+            if getattr(coord, "price_plan", None) is not None
+            else "aus"
+        ),
+    ),
+    MaestroSensorDescription(
         key="phase",
         name="Regelphase",
         icon="mdi:state-machine",
@@ -729,6 +739,7 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
         "trajectory_soc",
         "trajectory_phases",
         "history",
+        "plan_slots",
     })
     # Heavy attribute payloads — suppress writes when value+attrs fingerprint unchanged.
     _HEAVY_KEYS = frozenset({
@@ -737,6 +748,7 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
         "decision_explanation",
         "forecast_data_quality",
         "debug_log",
+        "price_plan",
     })
 
     def __init__(self, coordinator: E3DCMaestroCoordinator, description: MaestroSensorDescription) -> None:
@@ -810,6 +822,27 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
                 "battery_priority": dec.battery_priority,
                 "low_yield_coverage": coord.low_yield_coverage,
                 "timestamp": coord.last_action_info.get("timestamp"),
+            }
+        if key == "price_plan":
+            snap = getattr(self.coordinator, "price_plan", None)
+            if snap is None:
+                return {"shadow_mode": True, "enabled": False}
+            plan = snap.plan
+            return {
+                "shadow_mode": True,
+                "enabled": True,
+                "status": snap.status,
+                "message": snap.message,
+                "computed_at": snap.computed_at.isoformat() if snap.computed_at else None,
+                "known_until": snap.known_until.isoformat() if snap.known_until else None,
+                "charge_now": plan.charge_now if plan else None,
+                "hold_now": plan.hold_now if plan else None,
+                "target_soc_pct": plan.target_soc_pct if plan else None,
+                "total_grid_charge_kwh": round(plan.total_grid_charge_kwh, 2) if plan else None,
+                "expected_saving_eur": round(plan.expected_saving_eur, 2) if plan else None,
+                "budget_kwh": snap.budget_kwh,
+                "floor_pct": snap.floor_pct,
+                "plan_slots": snap.rows,
             }
         if key == "autonomy_time":
             coord = self.coordinator

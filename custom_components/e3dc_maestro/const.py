@@ -91,6 +91,14 @@ CONF_LOW_SLOT_TARGET_SOC = "low_slot_target_soc"                    # % SoC-Ziel
 # (low_slot_target_soc wirkt dann als Obergrenze).
 CONF_LOW_SLOT_FORECAST_BASED = "low_slot_forecast_based"           # bool
 
+# Preisplan (dynamische Netzladung + Entlade-Sperre anhand der Preiskurve).
+# Schattenmodus: berechnet/zeigt den Plan, steuert nichts.
+CONF_PRICE_PLAN_ENABLED = "price_plan_enabled"                      # bool
+CONF_PRICE_PLAN_MAX_SOC = "price_plan_max_soc"                      # % Obergrenze
+CONF_PRICE_PLAN_MIN_SPREAD = "price_plan_min_spread"                # €/kWh
+CONF_PRICE_PLAN_EFFICIENCY = "price_plan_efficiency"                # 0–1
+CONF_PRICE_PLAN_SAFETY_FACTOR = "price_plan_safety_factor"          # Verbrauch ×
+
 # Phase C: generic tariff slot list (replaces the single HT-window).
 # Stored under entry options as a list of dicts:
 #   {"weekdays": [0,1,2,3,4], "start_h": 5, "end_h": 21,
@@ -337,6 +345,11 @@ DEFAULT_MAX_GRID_CHARGE_KWH = 3.0
 DEFAULT_LOW_SLOT_GRID_CHARGE_ENABLED = False
 DEFAULT_LOW_SLOT_TARGET_SOC = 60.0
 DEFAULT_LOW_SLOT_FORECAST_BASED = False
+DEFAULT_PRICE_PLAN_ENABLED = False
+DEFAULT_PRICE_PLAN_MAX_SOC = 90.0
+DEFAULT_PRICE_PLAN_MIN_SPREAD = 0.08
+DEFAULT_PRICE_PLAN_EFFICIENCY = 0.85
+DEFAULT_PRICE_PLAN_SAFETY_FACTOR = 1.15
 DEFAULT_WALLBOX_MIN_CURRENT = 6
 DEFAULT_WALLBOX_MAX_CURRENT = 16
 DEFAULT_WALLBOX_PHASES = "3"  # SelectSelector erwartet str (options=["1","3"])

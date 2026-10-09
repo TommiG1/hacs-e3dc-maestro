@@ -117,7 +117,12 @@
           "max_grid_charge_kwh": "Max. Netzladung pro Tag (kWh)",
           "low_slot_grid_charge_enabled": "Aktive Netzladung im low-Slot",
           "low_slot_target_soc": "Netzlade-Ziel im low-Slot (% SoC)",
-          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert"
+          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert",
+          "price_plan_enabled": "Preisplan (Schattenmodus)",
+          "price_plan_max_soc": "Preisplan: Ziel-SoC Obergrenze (%)",
+          "price_plan_min_spread": "Preisplan: Mindest-Preisspanne (€/kWh)",
+          "price_plan_efficiency": "Preisplan: Wirkungsgrad Laden/Entladen (0–1)",
+          "price_plan_safety_factor": "Preisplan: Verbrauchs-Sicherheitsfaktor"
         }
       },
       "tariff_slots": {
@@ -434,7 +439,12 @@
           "max_grid_charge_kwh": "Max. Netzladung pro Tag (kWh)",
           "low_slot_grid_charge_enabled": "Aktive Netzladung im low-Slot",
           "low_slot_target_soc": "Netzlade-Ziel im low-Slot (% SoC)",
-          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert"
+          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert",
+          "price_plan_enabled": "Preisplan (Schattenmodus)",
+          "price_plan_max_soc": "Preisplan: Ziel-SoC Obergrenze (%)",
+          "price_plan_min_spread": "Preisplan: Mindest-Preisspanne (€/kWh)",
+          "price_plan_efficiency": "Preisplan: Wirkungsgrad Laden/Entladen (0–1)",
+          "price_plan_safety_factor": "Preisplan: Verbrauchs-Sicherheitsfaktor"
         },
         "data_description": {
           "battery_capex_eur": "Kaufpreis des Akkus in €. Wird für die Wear-Cost-Berechnung (Zellverschleiß pro kWh) genutzt.",
@@ -443,7 +453,12 @@
           "max_grid_charge_kwh": "Maximale Netzlade-Energie pro Kalendertag. Verhindert tägliches Vollladen aus dem Netz.",
           "low_slot_grid_charge_enabled": "Lädt in einem low-Slot aktiv aus dem Netz, bis der Ziel-SoC erreicht ist – unabhängig vom Tarif-Modus. Nützlich für klassische NT-Fenster, um die Zeit bis zur PV-Deckung zu überbrücken. Begrenzt durch das Tagesbudget oben.",
           "low_slot_target_soc": "Ziel-SoC, bis zu dem im low-Slot aus dem Netz geladen wird. Bei prognosebasierter Menge wirkt dieser Wert als Obergrenze.",
-          "low_slot_forecast_based": "Statt fixem Ziel-SoC wird nur so viel nachgeladen, wie laut morgiger PV-/Verbrauchsprognose nötig ist (benötigt die Sensoren für Prognose morgen + Verbrauch morgen). Der Ziel-SoC oben ist dann die Obergrenze. Fehlen Prognosedaten, gilt der feste Ziel-SoC."
+          "low_slot_forecast_based": "Statt fixem Ziel-SoC wird nur so viel nachgeladen, wie laut morgiger PV-/Verbrauchsprognose nötig ist (benötigt die Sensoren für Prognose morgen + Verbrauch morgen). Der Ziel-SoC oben ist dann die Obergrenze. Fehlen Prognosedaten, gilt der feste Ziel-SoC.",
+          "price_plan_enabled": "Berechnet anhand der Preiskurve (Preis-Sensor mit raw_today/raw_tomorrow o. ä.), wann sich Netzladung und Entlade-Sperre lohnen. Aktuell nur Anzeige (Sensor „Preisplan“) – es wird nichts gesteuert.",
+          "price_plan_max_soc": "Der Preisplan lädt höchstens bis zu diesem SoC.",
+          "price_plan_min_spread": "Netzladung wird nur geplant, wenn der erwartete Preisvorteil nach Verlusten mindestens so groß ist.",
+          "price_plan_efficiency": "Anteil der geladenen Energie, der später wieder entnommen werden kann (typisch 0,85–0,92).",
+          "price_plan_safety_factor": "Faktor auf den prognostizierten Hausverbrauch (1,15 = 15 % Reserve), damit teure Slots sicher aus dem Akku gedeckt werden."
         }
       },
       "wallbox": {

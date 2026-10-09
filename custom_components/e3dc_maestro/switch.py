@@ -22,6 +22,7 @@ from .const import (
     CONF_HT_SUN,
     CONF_LOWER_CORRIDOR_PAUSE_ENABLED,
     CONF_PRE_DISCHARGE_TIBBER_AUTO,
+    CONF_PRICE_PLAN_ENABLED,
     CONF_SPREADING_ENABLED,
     CONF_ASTRO_ENABLED,
     CONF_MORNING_CAP_ENABLED,
@@ -199,6 +200,15 @@ SWITCH_DESCRIPTIONS: tuple[MaestroSwitchDescription, ...] = (
         param_key=CONF_PRE_DISCHARGE_TIBBER_AUTO,
         on_fn=lambda coord: coord.update_param(CONF_PRE_DISCHARGE_TIBBER_AUTO, True),
         off_fn=lambda coord: coord.update_param(CONF_PRE_DISCHARGE_TIBBER_AUTO, False),
+    ),
+    # Preisplan (Schattenmodus)
+    MaestroSwitchDescription(
+        key=CONF_PRICE_PLAN_ENABLED,
+        name="Preisplan (Schattenmodus)",
+        icon="mdi:chart-timeline-variant",
+        param_key=CONF_PRICE_PLAN_ENABLED,
+        on_fn=lambda coord: coord.update_param(CONF_PRICE_PLAN_ENABLED, True),
+        off_fn=lambda coord: coord.update_param(CONF_PRICE_PLAN_ENABLED, False),
     ),
     # E2: Ladeverteilung (Spreading)
     MaestroSwitchDescription(

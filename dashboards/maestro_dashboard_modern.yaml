@@ -2709,6 +2709,137 @@ views:
                   action: navigate
                   navigation_path: /e3dc-maestro-modern/help-tarif
 
+      # ── Preisplan (Schattenmodus) ────────────────────────────────────
+      - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: Preisplan (Schattenmodus – steuert nichts)
+            icon: mdi:chart-timeline-variant
+
+          - type: entities
+            entities:
+              - entity: switch.e3dc_maestro_preisplan_schattenmodus
+                name: Preisplan berechnen
+              - entity: sensor.e3dc_maestro_preisplan
+                name: Empfehlung
+              - type: attribute
+                entity: sensor.e3dc_maestro_preisplan
+                attribute: message
+                name: Begründung
+              - type: attribute
+                entity: sensor.e3dc_maestro_preisplan
+                attribute: total_grid_charge_kwh
+                name: Geplante Netzladung
+                suffix: kWh
+              - type: attribute
+                entity: sensor.e3dc_maestro_preisplan
+                attribute: expected_saving_eur
+                name: Erwartete Ersparnis
+                suffix: €
+              - type: attribute
+                entity: sensor.e3dc_maestro_preisplan
+                attribute: known_until
+                name: Preise bekannt bis
+                format: datetime
+
+          - type: custom:apexcharts-card
+            chart_type: line
+            graph_span: 36h
+            span:
+              start: hour
+            header:
+              title: Preiskurve, Plan und SoC
+              show: true
+              show_states: false
+            apex_config:
+              chart:
+                height: 300
+                stacked: true
+              stroke:
+                width: [0, 0, 0, 3]
+                curve: stepline
+              plotOptions:
+                bar:
+                  columnWidth: 95%
+              xaxis:
+                type: datetime
+                labels:
+                  datetimeUTC: false
+                  format: HH:mm
+              legend:
+                show: true
+            yaxis:
+              - id: price
+                min: 0
+                decimals: 0
+                apex_config:
+                  title:
+                    text: ct/kWh
+              - id: soc
+                opposite: true
+                min: 0
+                max: 100
+                decimals: 0
+                apex_config:
+                  title:
+                    text: SoC %
+            series:
+              - entity: sensor.e3dc_maestro_preisplan
+                name: Preis
+                type: column
+                color: "#90a4ae"
+                yaxis_id: price
+                show:
+                  in_header: false
+                data_generator: |
+                  const rows = entity.attributes.plan_slots || [];
+                  return rows.filter(r => r.grid_charge_kwh <= 0 && !r.hold)
+                    .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);
+              - entity: sensor.e3dc_maestro_preisplan
+                name: Netzladung
+                type: column
+                color: "#43a047"
+                yaxis_id: price
+                show:
+                  in_header: false
+                data_generator: |
+                  const rows = entity.attributes.plan_slots || [];
+                  return rows.filter(r => r.grid_charge_kwh > 0)
+                    .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);
+              - entity: sensor.e3dc_maestro_preisplan
+                name: Entladung halten
+                type: column
+                color: "#fb8c00"
+                yaxis_id: price
+                show:
+                  in_header: false
+                data_generator: |
+                  const rows = entity.attributes.plan_slots || [];
+                  return rows.filter(r => r.grid_charge_kwh <= 0 && r.hold)
+                    .map(r => [new Date(r.start).getTime(), Math.round(r.price * 1000) / 10]);
+              - entity: sensor.e3dc_maestro_preisplan
+                name: SoC (Plan)
+                type: line
+                color: "#1e88e5"
+                yaxis_id: soc
+                show:
+                  in_header: false
+                data_generator: |
+                  const rows = entity.attributes.plan_slots || [];
+                  return rows.map(r => [new Date(r.start).getTime(), r.soc_pct]);
+
+          - type: markdown
+            content: >
+              **Schattenmodus:** Der Plan wird aus der Preiskurve des
+              Preis-Sensors (`raw_today` / `raw_tomorrow`), der PV-Prognose
+              und dem Verbrauchsprofil berechnet und nur angezeigt.
+              <font color="#43a047">Grün</font> = Netzladung geplant,
+              <font color="#fb8c00">Orange</font> = Entladung halten
+              (Akku-Energie für teurere Slots sparen). Konfiguration unter
+              *Einstellungen → Integrationen → E3DC Maestro → Konfigurieren →
+              Tarif* (Preisplan-Optionen).
+
       # ── Tarif-Slots ──────────────────────────────────────────────────
       - type: grid
         column_span: 2

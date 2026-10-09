@@ -9,6 +9,33 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+---
+
+## [0.4.0-beta.1] – Preisplan im Schattenmodus (Issue #14) (2026-10-09)
+
+> **Beta / nur Anzeige:** Der Preisplan berechnet und zeigt, was sich anhand der
+> Preiskurve lohnen würde – er **steuert nichts**. Standardmäßig aus.
+
+### Neu
+- **Preisplan (Schattenmodus):** Neuer Sensor `sensor.e3dc_maestro_preisplan`
+  und Schalter `switch.e3dc_maestro_preisplan_schattenmodus`. Aus der Preiskurve
+  des Preis-Sensors (`raw_today`/`raw_tomorrow`, Float-Listen `today`/`tomorrow`
+  oder Tibber-Format `prices`, jeweils 1 h oder 15 min), der PV-Prognose und dem
+  Verbrauchsprofil plant ein Optimierer (dynamische Programmierung) je Preis-Slot
+  **Netzladung** und **Entladung halten** (Energie für teurere Slots sparen).
+  Berücksichtigt Wirkungsgrad, Akku-Verschleiß, Einspeisevergütung,
+  Mindest-Preisspanne, Boden (max. aus Ladeschwelle und Notstromreserve),
+  Obergrenze, Ladeleistung und Tagesbudget. Der Plan reicht bis zum Ende der
+  bekannten Preise (max. 48 h).
+- Sensor-Attribute: `message`, `charge_now`, `hold_now`, `target_soc_pct`,
+  `total_grid_charge_kwh`, `expected_saving_eur`, `known_until`, `plan_slots`
+  (je Slot Preis, Netzladung, Halten, SoC, Bezug mit/ohne Plan).
+- Neue Optionen (Tarif-Schritt): Preisplan aktivieren, Ziel-SoC-Obergrenze,
+  Mindest-Preisspanne, Wirkungsgrad, Verbrauchs-Sicherheitsfaktor. Preisquelle
+  ist der bestehende „Preis-Sensor“.
+- Dashboard (Modern, Tab „Netz & Tarif“): Karte „Preisplan“ mit Preiskurve,
+  Netzladung/Halten-Fenstern und geplantem SoC.
+
 ### Geändert
 - **Max. Netzladung/Tag:** Die Obergrenze der Number-Entity
   `number.e3dc_maestro_max_netzladung_tag` ist nicht mehr fest 20 kWh, sondern

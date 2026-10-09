@@ -102,6 +102,12 @@ class MaestroParams:
     # Prognosebasiert: nur so viel nachladen, wie laut morgiger Prognose nötig
     # (low_slot_target_soc wird dann zur Obergrenze).
     low_slot_forecast_based: bool = False
+    # Preisplan (Schattenmodus): Plan aus der Preiskurve berechnen und anzeigen.
+    price_plan_enabled: bool = False
+    price_plan_max_soc: float = 90.0
+    price_plan_min_spread: float = 0.08     # €/kWh nach Verlusten
+    price_plan_efficiency: float = 0.85     # Laden × Entladen
+    price_plan_safety_factor: float = 1.15  # Verbrauchs-Sicherheitsfaktor
     # Phase C: explicit tariff slot schedule (optional override).
     # If None, a schedule is derived from the legacy ht_*/cheap_threshold fields.
     tariff_schedule: TariffSchedule | None = None

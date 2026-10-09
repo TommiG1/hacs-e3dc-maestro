@@ -87,6 +87,7 @@ from .coordinator_helpers import (
     _run_optimizer_sync,
     _tariff_schedule_from_stored,
 )
+from .coordinator_price_plan import CoordinatorPricePlanMixin
 from .coordinator_sensors import CoordinatorSensorsMixin
 from .coordinator_sizing import CoordinatorSizingMixin
 from .forecast import ForecastResult
@@ -114,6 +115,7 @@ _LOGGER = logging.getLogger(__name__)
 class E3DCMaestroCoordinator(
     CoordinatorActMixin,
     CoordinatorForecastMixin,
+    CoordinatorPricePlanMixin,
     CoordinatorSizingMixin,
     CoordinatorSensorsMixin,
     CoordinatorDiagnosticsMixin,
@@ -532,6 +534,7 @@ class E3DCMaestroCoordinator(
             except Exception as err:
                 _LOGGER.debug("PV stats refresh failed: %s", err)
         await self._async_update_forecast(state_data, now)
+        await self._async_update_price_plan(state_data, now)
         await self._async_maybe_run_optimizer(state_data, now)
 
         # Rule engine

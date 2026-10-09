@@ -1459,10 +1459,16 @@ def _decide_core(
     # Greift bei schwachem PV-Tag ODER unzureichender Restprognose (P10).
     # NORMAL + max_charge_power: E3DC nutzt PV-Überschuss selbst, kein Netzbezug.
     # Fester Cap statt Momentan-Überschuss → kein ständiges Nachregeln.
+    # Ausnahme: Ist die aktive Netzladung im low-Slot (§6.97) eingeschaltet und
+    # gerade ein low-Slot aktiv, ist das ein bewusster Nutzerwunsch (explizit
+    # zum Überbrücken schwacher PV-Tage gedacht) und muss Vorrang vor dieser
+    # Heuristik haben – sonst verhindert schon minimale Resteinstrahlung
+    # (_pv_now > 0) dauerhaft die gewünschte Netzladung tagsüber.
     if (
         _battery_priority
         and state.soc < params.charge_target
         and not curtailment_guard_active
+        and not (params.low_slot_grid_charge_enabled and tariff_class == TARIFF_LOW)
     ):
         _pv_now = (
             state.pv_power_instant

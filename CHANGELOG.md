@@ -11,6 +11,21 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.3.27] – Fix: Schwacher-PV-Tag blockierte aktive Netzladung im low-Slot (2026-10-09)
+
+### Behoben
+- **Akku-Priorität vs. Netzladung:** An einem Schwacher-PV-Tag griff die
+  PV-Überschuss-Priorität (§6.96) schon bei minimaler Resteinstrahlung
+  (`pv_power > 0`, z. B. ein paar Watt an einem bewölkten Tag) und verließ
+  `decide()` vor §6.97 — dadurch wurde die bewusst vom Nutzer eingeschaltete
+  **Aktive Netzladung im low-Slot** tagsüber dauerhaft übersprungen, obwohl
+  genau dafür gedacht (Zeit bis zur PV-Deckung an schwachen Tagen aus einem
+  günstigen Tarif-Fenster überbrücken). Die Akku-Priorität weicht jetzt der
+  aktiven Netzladung, wenn `low_slot_grid_charge_enabled` an ist und gerade
+  ein `low`-Tarif-Slot läuft.
+
+---
+
 ## [0.3.26] – Modern-Dashboard: Corner-Glow & SoC-Hero (2026-10-07)
 
 ### Changed

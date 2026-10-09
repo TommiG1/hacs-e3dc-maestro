@@ -3040,6 +3040,31 @@ class TestLowYieldDecide:
         assert "Schwacher-PV-Tag" in decision.reason
         assert "E3DC nutzt PV-Überschuss" in decision.reason
 
+    def test_low_yield_yields_to_active_low_slot_grid_charge(self):
+        # Bug-Repro: Schwacher-PV-Tag ist aktiv UND es gibt etwas Rest-PV
+        # (_pv_now > 0) UND der User hat "Aktive Netzladung im low-Slot"
+        # bewusst eingeschaltet, weil gerade ein günstiger Tarif-Slot läuft.
+        # §6.96 (PV-Überschuss-Priorität) darf diesen expliziten Nutzerwunsch
+        # nicht mehr blockieren – §6.97 (grid_charge) muss greifen.
+        low_slot = TariffSlot(
+            weekdays=frozenset(range(7)), start_h=0, end_h=24, class_=TARIFF_LOW,
+        )
+        p = _low_yield_params(
+            ht_enabled=False,
+            seasonal_reserve_enabled=False,
+            tariff_schedule=TariffSchedule(slots=[low_slot]),
+            low_slot_grid_charge_enabled=True,
+            low_slot_target_soc=60.0,
+            max_grid_charge_kwh=3.0,
+            tariff_mode="fixed",
+        )
+        # Wenig Rest-PV (bewölkt), reicht aber für _pv_now > 0.
+        s = self._state(soc=30, pv=50, house=600, forecast_today=50.0)
+        decision = decide(s, p, _now(6, 15, 11))
+        assert decision.phase == PHASE_GRID_CHARGE
+        assert decision.power_mode == POWER_MODE_CHARGE
+        assert decision.target_soc == 60.0
+
     def test_sunny_day_keeps_spreading_throttle(self):
         # 90 kWh / 110 kWh = 0.82 > 0.5 ⇒ kein low_yield → Spreading-Cap aktiv.
         p = _low_yield_params()

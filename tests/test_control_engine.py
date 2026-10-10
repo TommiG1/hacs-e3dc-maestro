@@ -32,6 +32,7 @@ from custom_components.e3dc_maestro.const import (
     PHASE_EVCC_PAUSE,
     PHASE_FEED_IN_LIMIT,
     PHASE_GRID_CHARGE,
+    PHASE_GRID_HOLD,
     PHASE_HT_PROTECTION,
     PHASE_IDLE,
     PHASE_MORNING_CAP,
@@ -3568,3 +3569,62 @@ class TestForecastGateDecide:
         assert "Prognose unzureichend" not in (d.reason or "")
         assert d.charge_power_limit is not None
         assert d.charge_power_limit < p.max_charge_power
+
+
+class TestLowSlotHold:
+    """Issue #15: nach erreichtem Netzlade-Ziel Entladung sperren (kein Schwingen)."""
+
+    _params = TestLowSlotGridCharge._params
+    _state = TestLowSlotGridCharge._state
+
+    def test_target_reached_holds_discharge(self):
+        p = self._params(low_slot_target_soc=90.0)
+        d = decide(self._state(soc=90), p, _now(1, 15, 2))
+        assert d.phase == PHASE_GRID_HOLD
+        assert d.discharge_power_limit == 0.0
+        assert d.power_mode == POWER_MODE_NORMAL
+        assert d.charge_power_limit is None  # PV darf weiter laden
+
+    def test_below_target_still_charges(self):
+        p = self._params(low_slot_target_soc=90.0)
+        d = decide(self._state(soc=85), p, _now(1, 15, 2))
+        assert d.phase == PHASE_GRID_CHARGE
+
+    def test_no_oscillation_cycle(self):
+        """Laden bis Ziel → Halten; SoC bleibt (Entladung gesperrt), kein Rückfall in Laden."""
+        p = self._params(low_slot_target_soc=90.0)
+        phases = [decide(self._state(soc=s), p, _now(1, 15, 2)).phase for s in (88, 89, 90, 90, 90)]
+        assert phases == [PHASE_GRID_CHARGE] * 2 + [PHASE_GRID_HOLD] * 3
+
+    def test_hard_soc_limit_blocks_charge_but_still_holds(self):
+        p = self._params(
+            low_slot_target_soc=90.0, hard_soc_limit_enabled=True, hard_soc_limit=90.0,
+        )
+        d = decide(self._state(soc=90), p, _now(1, 15, 2))
+        assert d.phase == PHASE_GRID_HOLD
+        assert d.discharge_power_limit == 0.0
+        assert d.charge_power_limit == 1
+
+    def test_option_off_keeps_old_behaviour(self):
+        p = self._params(low_slot_target_soc=90.0, low_slot_hold_discharge=False)
+        d = decide(self._state(soc=90), p, _now(1, 15, 2))
+        assert d.phase != PHASE_GRID_HOLD
+
+    def test_no_hold_without_grid_charge_option(self):
+        p = self._params(low_slot_target_soc=90.0, low_slot_grid_charge_enabled=False)
+        d = decide(self._state(soc=90), p, _now(1, 15, 2))
+        assert d.phase != PHASE_GRID_HOLD
+
+    def test_no_hold_when_forecast_needs_nothing(self):
+        p = self._params(low_slot_forecast_based=True)
+        st = MaestroState(
+            soc=50, pv_power=0, house_power=1000, grid_power=0, battery_power=0,
+            tomorrow_pv_kwh=20.0, tomorrow_consumption_kwh=10.0,
+        )
+        d = decide(st, p, _now(1, 15, 2))
+        assert d.phase != PHASE_GRID_HOLD
+
+    def test_emergency_still_wins(self):
+        p = self._params(low_slot_target_soc=90.0)
+        d = decide(self._state(soc=10), p, _now(1, 15, 2))
+        assert d.phase == PHASE_EMERGENCY

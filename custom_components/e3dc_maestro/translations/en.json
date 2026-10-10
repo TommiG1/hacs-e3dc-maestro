@@ -117,7 +117,8 @@
           "max_grid_charge_kwh": "Max. grid charging per day (kWh)",
           "low_slot_grid_charge_enabled": "Active grid charging in low slot",
           "low_slot_target_soc": "Grid charge target in low slot (% SoC)",
-          "low_slot_forecast_based": "Forecast-based grid charge amount"
+          "low_slot_forecast_based": "Forecast-based grid charge amount",
+          "low_slot_hold_discharge": "Block discharge in low slot after target"
         }
       },
       "tariff_slots": {
@@ -434,7 +435,8 @@
           "max_grid_charge_kwh": "Max. grid charging per day (kWh)",
           "low_slot_grid_charge_enabled": "Active grid charging in low slot",
           "low_slot_target_soc": "Grid charge target in low slot (% SoC)",
-          "low_slot_forecast_based": "Forecast-based grid charge amount"
+          "low_slot_forecast_based": "Forecast-based grid charge amount",
+          "low_slot_hold_discharge": "Block discharge in low slot after target"
         },
         "data_description": {
           "battery_capex_eur": "Purchase price of the battery in €. Used for the wear cost calculation (cell wear per kWh).",
@@ -443,7 +445,8 @@
           "max_grid_charge_kwh": "Maximum grid charging energy per calendar day. Prevents daily full charging from the grid.",
           "low_slot_grid_charge_enabled": "Actively charges from the grid during a low slot until the target SoC is reached – regardless of the tariff mode. Useful for classic NT windows to bridge the time until PV coverage. Limited by the daily budget above.",
           "low_slot_target_soc": "Target SoC up to which the battery is charged from the grid during the low slot. With forecast-based amount, this value acts as the upper limit.",
-          "low_slot_forecast_based": "Instead of a fixed target SoC, only as much is recharged as is needed according to tomorrow's PV/consumption forecast (requires the sensors for forecast tomorrow + consumption tomorrow). The target SoC above then acts as the upper limit. If forecast data is missing, the fixed target SoC applies."
+          "low_slot_forecast_based": "Instead of a fixed target SoC, only as much is recharged as is needed according to tomorrow's PV/consumption forecast (requires the sensors for forecast tomorrow + consumption tomorrow). The target SoC above then acts as the upper limit. If forecast data is missing, the fixed target SoC applies.",
+          "low_slot_hold_discharge": "Once the grid-charge target is reached in the low slot, battery discharge is blocked and the house runs on cheap grid power. Prevents constantly discharging and recharging around the target SoC. PV surplus may still charge."
         }
       },
       "wallbox": {
@@ -590,6 +593,7 @@
           "hard_soc_limit": "Hard SoC limit active",
           "fast_floor": "Fast charge floor",
           "grid_charge": "Grid charging (cheap slot)",
+          "grid_hold": "Grid-charge target reached (discharge held)",
           "idle": "Idle"
         }
       },

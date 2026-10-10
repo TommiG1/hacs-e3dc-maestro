@@ -117,7 +117,8 @@
           "max_grid_charge_kwh": "Max. Netzladung pro Tag (kWh)",
           "low_slot_grid_charge_enabled": "Aktive Netzladung im low-Slot",
           "low_slot_target_soc": "Netzlade-Ziel im low-Slot (% SoC)",
-          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert"
+          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert",
+          "low_slot_hold_discharge": "Entladung im low-Slot nach Ziel sperren"
         }
       },
       "tariff_slots": {
@@ -434,7 +435,8 @@
           "max_grid_charge_kwh": "Max. Netzladung pro Tag (kWh)",
           "low_slot_grid_charge_enabled": "Aktive Netzladung im low-Slot",
           "low_slot_target_soc": "Netzlade-Ziel im low-Slot (% SoC)",
-          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert"
+          "low_slot_forecast_based": "Netzlade-Menge prognosebasiert",
+          "low_slot_hold_discharge": "Entladung im low-Slot nach Ziel sperren"
         },
         "data_description": {
           "battery_capex_eur": "Kaufpreis des Akkus in €. Wird für die Wear-Cost-Berechnung (Zellverschleiß pro kWh) genutzt.",
@@ -443,7 +445,8 @@
           "max_grid_charge_kwh": "Maximale Netzlade-Energie pro Kalendertag. Verhindert tägliches Vollladen aus dem Netz.",
           "low_slot_grid_charge_enabled": "Lädt in einem low-Slot aktiv aus dem Netz, bis der Ziel-SoC erreicht ist – unabhängig vom Tarif-Modus. Nützlich für klassische NT-Fenster, um die Zeit bis zur PV-Deckung zu überbrücken. Begrenzt durch das Tagesbudget oben.",
           "low_slot_target_soc": "Ziel-SoC, bis zu dem im low-Slot aus dem Netz geladen wird. Bei prognosebasierter Menge wirkt dieser Wert als Obergrenze.",
-          "low_slot_forecast_based": "Statt fixem Ziel-SoC wird nur so viel nachgeladen, wie laut morgiger PV-/Verbrauchsprognose nötig ist (benötigt die Sensoren für Prognose morgen + Verbrauch morgen). Der Ziel-SoC oben ist dann die Obergrenze. Fehlen Prognosedaten, gilt der feste Ziel-SoC."
+          "low_slot_forecast_based": "Statt fixem Ziel-SoC wird nur so viel nachgeladen, wie laut morgiger PV-/Verbrauchsprognose nötig ist (benötigt die Sensoren für Prognose morgen + Verbrauch morgen). Der Ziel-SoC oben ist dann die Obergrenze. Fehlen Prognosedaten, gilt der feste Ziel-SoC.",
+          "low_slot_hold_discharge": "Ist das Netzlade-Ziel im low-Slot erreicht, wird die Akku-Entladung gesperrt und das Haus läuft aus dem günstigen Netz. Verhindert das ständige Entladen und Wiederaufladen um den Ziel-SoC. PV-Überschuss darf weiter laden."
         }
       },
       "wallbox": {
@@ -590,6 +593,7 @@
           "hard_soc_limit": "Hard-SoC-Limit aktiv",
           "fast_floor": "Schnelllade-Boden",
           "grid_charge": "Netzladung (günstiger Slot)",
+          "grid_hold": "Netzladung-Ziel erreicht (Entladung gesperrt)",
           "idle": "Bereitschaft"
         }
       },

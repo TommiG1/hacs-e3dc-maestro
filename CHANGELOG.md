@@ -11,6 +11,27 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.3.29] – Fix: Lade-/Entlade-Schwingen im günstigen Slot (Issue #15) (2026-10-10)
+
+### Behoben
+- **Lade-/Entlade-Schwingen bei aktiver Netzladung im low-Slot**
+  ([#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15)): War das
+  Netzlade-Ziel (z. B. 90 %) erreicht, hörte Maestro nur mit dem Laden auf. Das
+  Haus entlud den Akku sofort wieder unter das Ziel, einige Minuten später lud
+  Maestro erneut aus dem Netz nach – im Dauertakt. Jetzt sperrt Maestro nach
+  Erreichen des Ziels im `low`-Slot die **Entladung** (neue Phase `grid_hold`,
+  „Ziel erreicht (halten)“). Das Haus läuft aus dem günstigen Netz, der Akku
+  bleibt auf Ziel-SoC. PV-Überschuss darf weiter laden; ein aktiver
+  **Max-SoC-Deckel** (Hard-SoC-Limit) blockiert die Ladung weiterhin.
+
+### Neu
+- Option **Entladung im low-Slot nach Ziel sperren** (Einstellungen → Tarif &
+  Kosten, Standard **an**). Ausschalten stellt das alte Verhalten wieder her.
+  Bei prognosebasierter Netzlade-Menge ohne Bedarf (Ziel 0 %) wird nichts
+  gesperrt.
+
+---
+
 ## [0.3.28] – Fix: Notstromreserve blockierte Laden & externe Steuerung (Issue #13) (2026-10-09)
 
 ### Behoben

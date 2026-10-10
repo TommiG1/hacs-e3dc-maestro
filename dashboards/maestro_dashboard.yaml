@@ -153,6 +153,7 @@ views:
           {% elif p == 'curtailment_guard' %} amber
           {% elif p == 'ht_protection' %} deep-orange
           {% elif p == 'grid_charge' %} indigo
+          {% elif p == 'grid_hold' %} indigo
           {% elif p == 'reserve_protection' %} blue
           {% elif p == 'evcc_pause' %} purple
           {% elif p == 'pv_delay' %} light-green
@@ -764,6 +765,7 @@ views:
                 'spreading': 'Spreading',
                 'predischarge': 'Vorentladung',
                 'grid_charge': 'Netzladung (günstig)',
+                'grid_hold': 'Ziel erreicht (halten)',
                 'hold': 'Halten',
                 'idle': 'Leerlauf',
                 'normal': 'Normalbetrieb'
@@ -1997,6 +1999,7 @@ views:
           | 11 | **hard_soc_limit** | Harter Max-SoC-Deckel (Akku-Schonung) |
           | 12 | **fast_floor** | Schnelllade-Boden: voller PV-Überschuss bis Floor-SoC |
           | 13 | **grid_charge** | Aktive Netzladung im `low`-Slot bis Ziel-SoC (NT-Fenster) |
+          | 13b | **grid_hold** | Ziel im `low`-Slot erreicht: Entladung gesperrt, Haus läuft aus dem günstigen Netz |
           | 14 | **pv_delay** | Gute PV-Prognose → Korridor-Ladung verzögert |
           | 15 | **corridor** | Saisonaler Ladekorridor / Schwacher-PV-Tag-Überschuss |
           | 16 | **spreading** | Ladeverteilung über Restzeit bis Ladeende |

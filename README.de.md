@@ -344,6 +344,7 @@ Lädt den Akku aus dem Netz wenn der Börsenstrompreis günstig ist.
 | **Aktive Netzladung im low-Slot** | aus | Lädt in einem `low`-Slot aktiv aus dem Netz bis zum Ziel-SoC – **unabhängig vom Tarif-Modus** (Phase `grid_charge`). Für klassische NT-Fenster |
 | **Netzlade-Ziel im low-Slot (% SoC)** | 60 | Ziel-SoC, bis zu dem im `low`-Slot aus dem Netz geladen wird. Begrenzt durch Max. Netzladung/Tag. Bei prognosebasierter Menge = Obergrenze |
 | **Netzlade-Menge prognosebasiert** | aus | Statt festem Ziel-SoC wird nur so viel nachgeladen, wie laut morgiger PV-/Verbrauchsprognose nötig ist (Defizit = Verbrauch − PV). Nutzt die Sensoren *Prognose morgen* + *Verbrauch morgen*; ohne Daten gilt der feste Ziel-SoC |
+| **Entladung im low-Slot nach Ziel sperren** | an | Ist das Netzlade-Ziel erreicht, sperrt Maestro die Entladung (Phase `grid_hold`), das Haus läuft aus dem günstigen Netz. Verhindert Lade-/Entlade-Schwingen um den Ziel-SoC |
 
 > **`low`-Slot ohne aktive Netzladung:** Ohne diese Option ist die Klasse `low`
 > rein passiv – sie erlaubt Netzladung nur, wenn zusätzlich `tariff_mode=dynamic`

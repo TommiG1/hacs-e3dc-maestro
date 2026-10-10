@@ -9,6 +9,20 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+### Behoben
+- **Korridor-Pause schickte PV-Überschuss ins Netz statt in den Akku**
+  ([#16](https://github.com/TommiG1/hacs-e3dc-maestro/issues/16)):
+  - Mit ausgeschaltetem Spreading sperrt die Korridor-Pause die Ladung nicht
+    mehr auf 0 W, sondern gibt die maximale Ladeleistung frei. Der E3DC lädt
+    weiterhin nur aus PV-Überschuss, nimmt ihn aber sofort mit. Mit aktivem
+    Spreading bleibt die Sperre (Glättung).
+  - An einem Schwacher-PV-Tag greift auch die Korridor-Pause nach dem
+    Überschuss-Deckel nicht mehr (die erste Korridor-Pause war hier schon
+    ausgenommen).
+  - Liefert der Prognose-Anbieter kein P10 (z. B. Forecast.Solar), wird die
+    P50-Restprognose mit Abschlag (× 0,7) bewertet. Die Akku-Priorität wird
+    dadurch nicht mehr bei knapp ausreichender Prognose freigegeben.
+
 ---
 
 ## [0.4.0-beta.2] – Preisplan-Karte & Einstellungen im Dashboard (2026-10-09)

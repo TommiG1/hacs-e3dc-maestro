@@ -629,6 +629,21 @@ def spreading_active(
 LOW_YIELD_RELEASE_COVERAGE = 1.0
 LOW_YIELD_REENGAGE_COVERAGE = 0.85
 
+# Abschlag auf die P50-Restprognose, wenn der Anbieter kein P10 liefert
+# (z. B. Forecast.Solar). P50 ist der Erwartungswert und überschätzt an
+# wechselhaften Tagen regelmäßig; ungedämpft gibt er die Akku-Priorität zu
+# früh frei.
+P50_FALLBACK_FACTOR = 0.7
+
+
+def _conservative_remaining_kwh(state: MaestroState) -> float | None:
+    """Pessimistische Restprognose (kWh): P10, sonst P50 × P50_FALLBACK_FACTOR."""
+    if state.pv_forecast_remaining_p10_kwh is not None:
+        return state.pv_forecast_remaining_p10_kwh
+    if state.pv_forecast_remaining_kwh is not None:
+        return state.pv_forecast_remaining_kwh * P50_FALLBACK_FACTOR
+    return None
+
 
 def low_yield_coverage_ratio(
     state: MaestroState, params: MaestroParams, target: float
@@ -636,7 +651,7 @@ def low_yield_coverage_ratio(
     """Restprognose / (Restbedarf bis ``target`` × Sicherheitsfaktor).
 
     Verwendet dieselbe Restprognose-Quelle wie ``_is_forecast_insufficient``
-    (P10, Fallback P50). ``target`` sollte das Ladeende-SoC
+    (P10, Fallback P50 mit Abschlag). ``target`` sollte das Ladeende-SoC
     (``params.charge_target``) sein, nicht das aktuelle Tages-Rampenziel –
     die Schwacher-PV-Tag-Priorität soll erst enden, wenn der Akku bis zum
     eigentlichen Endziel gedeckt ist.
@@ -647,9 +662,7 @@ def low_yield_coverage_ratio(
       * ``math.inf`` wenn der Restbedarf bereits ≤ 0 ist (SoC ≥ target).
       * sonst der Deckungsgrad als positive Zahl (≥ 1.0 = ausreichend gedeckt).
     """
-    remaining = state.pv_forecast_remaining_p10_kwh
-    if remaining is None:
-        remaining = state.pv_forecast_remaining_kwh
+    remaining = _conservative_remaining_kwh(state)
     if remaining is None or params.battery_capacity_kwh <= 0:
         return None
     needed_kwh = max(0.0, (target - state.soc) / 100.0 * params.battery_capacity_kwh)
@@ -666,7 +679,7 @@ def _is_forecast_insufficient(
 ) -> bool:
     """True wenn die konservative (P10) Restprognose den Akku-Restbedarf nicht deckt.
 
-    Vergleicht die pessimistische Restprognose (P10, Fallback P50) mit dem
+    Vergleicht die pessimistische Restprognose (P10, Fallback P50 mit Abschlag) mit dem
     verbleibenden Ladebedarf bis ``target`` inklusive Sicherheitsfaktor. Ist die
     Prognose kleiner, hat der Akku Vorrang (kein Spreading, voller PV-Überschuss
     in den Akku). Inaktiv wenn PV-Forecast aus, Spreading aus oder keine
@@ -674,9 +687,7 @@ def _is_forecast_insufficient(
     """
     if not params.pv_forecast_enabled or not params.spreading_enabled:
         return False
-    remaining = state.pv_forecast_remaining_p10_kwh
-    if remaining is None:
-        remaining = state.pv_forecast_remaining_kwh
+    remaining = _conservative_remaining_kwh(state)
     if remaining is None:
         return False
     needed_kwh = max(
@@ -773,6 +784,34 @@ def _curtailment_floor_w(state: MaestroState, params: MaestroParams) -> float:
     floor_feed_in = max(0.0, state.pv_power - state.house_power - feed_in_limit)
     floor_inverter = max(0.0, state.pv_power - params.inverter_power)
     return max(floor_feed_in, floor_inverter)
+
+
+def _corridor_pause_decision(
+    reason: str, *, block_charge: bool, params: MaestroParams, target: float
+) -> MaestroDecision:
+    """Korridor-Pause (§7b/§7e).
+
+    ``block_charge`` (Spreading aktiv): max_charge=0, damit der E3DC die
+    Glättung nicht mit voller Überschussleistung unterläuft; Entladung bleibt
+    frei. Ohne Spreading gibt es nichts zu glätten: max_charge_power freigeben,
+    der E3DC lädt nur aus PV-Überschuss und nimmt ihn sofort mit.
+    """
+    from .const import PHASE_IDLE, POWER_MODE_NORMAL
+    if block_charge:
+        return MaestroDecision(
+            phase=PHASE_IDLE,
+            reason=f"{reason} → Ladung blockiert",
+            power_mode=POWER_MODE_NORMAL,
+            charge_power_limit=0.0,
+            target_soc=target,
+        )
+    return MaestroDecision(
+        phase=PHASE_IDLE,
+        reason=f"{reason} → Spreading aus, E3DC nutzt PV-Überschuss selbst",
+        power_mode=POWER_MODE_NORMAL,
+        charge_power_limit=params.max_charge_power,
+        target_soc=target,
+    )
 
 
 # SoC ceiling above which any charge command is futile (battery saturated).
@@ -1675,17 +1714,12 @@ def _decide_core(
             and not _low_yield  # gelatchter Schwacher-PV-Tag: keine Korridor-Pause
             and not (_spread_on and state.soc < BATTERY_FULL_SOC_CEILING)
         ):
-            # charge_power_limit=0.0 → max_charge=0 (Ladung blockiert),
-            # Entladung bleibt frei (Haus darf aus dem Akku versorgt werden).
-            return MaestroDecision(
-                phase=PHASE_IDLE,
-                reason=(
-                    f"Korridor-Pause: Soll-Ladeleistung {charge_power:.0f} W "
-                    f"< unterer Korridor {params.lower_corridor:.0f} W"
-                ),
-                power_mode=POWER_MODE_NORMAL,
-                charge_power_limit=0.0,
-                target_soc=target,
+            return _corridor_pause_decision(
+                f"Korridor-Pause: Soll-Ladeleistung {charge_power:.0f} W "
+                f"< unterer Korridor {params.lower_corridor:.0f} W",
+                block_charge=_spread_on,
+                params=params,
+                target=target,
             )
         # 7c. Spreading-Cap auf Korridor: Wenn Spreading aktiv ist, begrenzt
         # die zeitbasierte Spreading-Rate (kWh bis Ladeende / Restzeit) zusätzlich
@@ -1779,17 +1813,15 @@ def _decide_core(
             and effective_charge < params.lower_corridor
             and not curtailment_guard_active
             and not _battery_priority
+            and not _low_yield  # gelatchter Schwacher-PV-Tag: keine Korridor-Pause
         ):
-            return MaestroDecision(
-                phase=PHASE_IDLE,
-                reason=(
-                    f"Korridor-Pause (nach Surplus-Cap): nutzbarer Überschuss "
-                    f"{effective_charge:.0f} W < unterer Korridor "
-                    f"{params.lower_corridor:.0f} W → Ladung blockiert"
-                ),
-                power_mode=POWER_MODE_NORMAL,
-                charge_power_limit=0.0,
-                target_soc=target,
+            return _corridor_pause_decision(
+                f"Korridor-Pause (nach Surplus-Cap): nutzbarer Überschuss "
+                f"{effective_charge:.0f} W < unterer Korridor "
+                f"{params.lower_corridor:.0f} W",
+                block_charge=_spread_on,
+                params=params,
+                target=target,
             )
         return MaestroDecision(
             phase=PHASE_CORRIDOR,

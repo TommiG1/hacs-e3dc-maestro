@@ -20,6 +20,7 @@ from custom_components.e3dc_maestro.control_engine import (
     adaptive_ht_reserve_soc,
     low_slot_grid_charge_target,
     low_yield_coverage_ratio,
+    P50_FALLBACK_FACTOR,
     TariffSlot,
     TariffSchedule,
     TARIFF_HIGH,
@@ -1335,6 +1336,17 @@ class TestLowerCorridorPause:
         decision = decide(state, p, _now(6, 15, 10))
         assert decision.phase == PHASE_IDLE
 
+    def test_corridor_pause_releases_charge_without_spreading(self):
+        """Issue #16: §7b-Pause ohne Spreading → max_charge_power statt 0 W."""
+        p = self._lcp_params(lower_corridor=500, min_charge_power=100)
+        state = MaestroState(
+            soc=40, pv_power=2000, house_power=500, grid_power=0, battery_power=0,
+        )
+        decision = decide(state, p, _now(6, 15, 10))
+        assert decision.phase == PHASE_IDLE
+        assert decision.reason.startswith("Korridor-Pause: Soll-Ladeleistung")
+        assert decision.charge_power_limit == p.max_charge_power
+
     def test_spreading_overrides_corridor_pause(self):
         """Mit spreading_enabled darf lower_corridor_pause NICHT zu IDLE führen,
         sonst entsteht im Forecast und Live-Betrieb ein Treppen-Pendel
@@ -1427,10 +1439,25 @@ class TestPostCeilingCorridorPause:
         → weit über lower_corridor=1500 W → Pause 7b greift nicht.
         Surplus = pv(3500) - house(3250) = 250 W < lower_corridor(1500 W)
         → effective_charge nach house-ceiling ≈ 250 W < 1500 W
-        → Post-ceiling-Pause muss IDLE + 0 W zurückgeben (Ladung blockiert),
-          damit der Wechselrichter nicht auf sein Default-Verhalten (volle
-          PV-Überschussladung) zurückfällt.
+        → Post-ceiling-Pause muss bei aktivem Spreading IDLE + 0 W zurückgeben
+          (Ladung blockiert), damit der Wechselrichter die Glättung nicht mit
+          voller PV-Überschussladung unterläuft.
         Zeitpunkt 16:50 Uhr: ramp-target ≈ 93 % > soc=86 % → corridor-block aktiv.
+        """
+        p = self._params(spreading_enabled=True)
+        state = MaestroState(
+            soc=86, pv_power=3500, house_power=3250, grid_power=0, battery_power=0,
+        )
+        decision = decide(state, p, _now(5, 13, 16, 50))
+        assert decision.phase == PHASE_IDLE
+        assert decision.charge_power_limit == 0.0
+
+    def test_post_ceiling_pause_releases_charge_without_spreading(self):
+        """Issue #16: Ohne Spreading gibt es nichts zu glätten → keine Ladesperre.
+
+        Gleiches Szenario, aber spreading_enabled=False: max_charge_power statt
+        0 W, damit der E3DC wieder auftretenden Überschuss sofort in den Akku
+        nimmt statt ihn bis zum nächsten Zyklus einzuspeisen.
         """
         p = self._params()
         state = MaestroState(
@@ -1438,7 +1465,8 @@ class TestPostCeilingCorridorPause:
         )
         decision = decide(state, p, _now(5, 13, 16, 50))
         assert decision.phase == PHASE_IDLE
-        assert decision.charge_power_limit == 0.0
+        assert decision.charge_power_limit == p.max_charge_power
+        assert "Spreading aus" in decision.reason
 
     def test_post_ceiling_pause_disabled_sends_small_limit(self):
         """Mit lower_corridor_pause_enabled=False: kleines Limit wird gesendet."""
@@ -3134,6 +3162,41 @@ class TestLowYieldDecide:
         assert decision.charge_power_limit == 9000
         assert "Korridor-Pause" not in decision.reason
 
+    def test_released_low_yield_day_skips_post_ceiling_pause(self):
+        # Issue #16: Schwacher-PV-Tag gelatcht, Restprognose (P10) deckt den
+        # Bedarf → Priorität freigegeben. Kein Überschuss → früher §7e-Pause
+        # mit max_charge=0; jetzt keine Ladesperre.
+        p = _low_yield_params(
+            spreading_enabled=True, pv_forecast_enabled=True,
+            battery_capacity_kwh=10.0, lower_corridor=150,
+            min_charge_power=50, charge_threshold=3,
+        )
+        s = MaestroState(
+            soc=5, pv_power=3300, house_power=3300, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=50.0, pv_forecast_remaining_p10_kwh=60.0,
+        )
+        decision = decide(s, p, _now(6, 15, 9, 12))
+        assert decision.battery_priority is False
+        assert "Korridor-Pause" not in decision.reason
+        assert decision.charge_power_limit != 0.0
+
+    def test_p50_fallback_keeps_priority_when_coverage_marginal(self):
+        # Issue #16: Ohne P10 (Forecast.Solar) lag der Deckungsgrad mit rohem
+        # P50 knapp über 1,0 → Priorität freigegeben. Mit Abschlag bleibt sie.
+        # needed = (100-50)% × 10 kWh × 1.2 = 6.0 kWh; P50 6.06 → 1.01 roh.
+        p = _low_yield_params(
+            spreading_enabled=False, pv_forecast_enabled=True,
+            battery_capacity_kwh=10.0, pv_forecast_safety_factor=1.2,
+        )
+        s = MaestroState(
+            soc=50, pv_power=3300, house_power=2200, grid_power=0, battery_power=0,
+            pv_forecast_today_kwh=50.0, pv_forecast_remaining_kwh=6.06,
+        )
+        decision = decide(s, p, _now(6, 15, 9, 12))
+        assert decision.battery_priority is True
+        assert decision.phase == PHASE_CORRIDOR
+        assert decision.charge_power_limit == p.max_charge_power
+
     def test_low_yield_target_soc_matches_charge_target_not_ramp(self):
         # Phase 2: target_soc muss dem tatsächlich verfolgten Ladeende-Ziel
         # entsprechen (params.charge_target), nicht dem an diesem Tick
@@ -3190,7 +3253,10 @@ class TestLowYieldCoverageGate:
             soc=90, pv_power=0, house_power=0, grid_power=0, battery_power=0,
             pv_forecast_remaining_p10_kwh=None, pv_forecast_remaining_kwh=3.0,
         )
-        assert low_yield_coverage_ratio(s, p, target=100.0) == pytest.approx(3.0)
+        # P50 mit Abschlag: 3.0 × P50_FALLBACK_FACTOR (0.7) = 2.1
+        assert low_yield_coverage_ratio(s, p, target=100.0) == pytest.approx(
+            3.0 * P50_FALLBACK_FACTOR
+        )
 
     def test_safety_factor_multiplies_need(self):
         p = MaestroParams(battery_capacity_kwh=10.0, pv_forecast_safety_factor=2.0)

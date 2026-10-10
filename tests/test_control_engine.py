@@ -31,6 +31,7 @@ from custom_components.e3dc_maestro.const import (
     PHASE_CURTAILMENT_GUARD,
     PHASE_EMERGENCY,
     PHASE_EVCC_PAUSE,
+    PHASE_FAST_FLOOR,
     PHASE_FEED_IN_LIMIT,
     PHASE_GRID_CHARGE,
     PHASE_GRID_HOLD,
@@ -2093,6 +2094,64 @@ class TestLowSlotGridCharge:
         p = self._params()
         d = decide(self._state(soc=10), p, _now(1, 15, 2))
         assert d.phase == PHASE_EMERGENCY
+
+    def test_fast_floor_yields_while_grid_charge_pending(self):
+        """Issue #15: Schnelllade-Boden (nur PV) darf die Netzladung im
+        low-Slot nicht abfangen, solange Ziel und Tagesbudget offen sind."""
+        p = self._params(fast_charge_floor_enabled=True, fast_charge_floor_soc=50.0)
+        d = decide(self._state(soc=30), p, _now(1, 15, 2))
+        assert d.phase == PHASE_GRID_CHARGE
+        assert d.power_mode == POWER_MODE_CHARGE
+
+    def test_fast_floor_remains_when_grid_budget_exhausted(self):
+        """Budget leer: keine Netzladung, der Boden lädt weiter vollen PV-Überschuss."""
+        p = self._params(fast_charge_floor_enabled=True, fast_charge_floor_soc=50.0)
+        d = decide(
+            self._state(soc=30), p, _now(1, 15, 2),
+            grid_charged_today_kwh=3.0,
+        )
+        assert d.phase == PHASE_FAST_FLOOR
+
+    def test_fast_floor_remains_above_grid_target(self):
+        """SoC am Netzlade-Ziel, aber unter dem Floor: Boden bleibt für PV."""
+        p = self._params(
+            fast_charge_floor_enabled=True,
+            fast_charge_floor_soc=70.0,
+            low_slot_hold_discharge=False,
+        )
+        d = decide(self._state(soc=60), p, _now(1, 15, 2))
+        assert d.phase == PHASE_FAST_FLOOR
+
+    def test_astro_wait_yields_while_grid_charge_pending(self):
+        p = self._params(astro_enabled=True)
+        d = decide(self._state(soc=30), p, _now(1, 15, 7))
+        assert d.phase == PHASE_GRID_CHARGE
+
+    def test_morning_cap_yields_while_grid_charge_pending(self):
+        p = self._params(
+            morning_cap_enabled=True, morning_cap_soc=20.0, morning_cap_until_h=12.0,
+        )
+        d = decide(self._state(soc=30), p, _now(1, 15, 7))
+        assert d.phase == PHASE_GRID_CHARGE
+
+    def test_morning_cap_applies_when_grid_budget_exhausted(self):
+        p = self._params(
+            morning_cap_enabled=True, morning_cap_soc=20.0, morning_cap_until_h=12.0,
+        )
+        d = decide(
+            self._state(soc=30), p, _now(1, 15, 7),
+            grid_charged_today_kwh=3.0,
+        )
+        assert d.phase == PHASE_MORNING_CAP
+
+    def test_fast_floor_when_grid_charge_disabled(self):
+        p = self._params(
+            low_slot_grid_charge_enabled=False,
+            fast_charge_floor_enabled=True,
+            fast_charge_floor_soc=50.0,
+        )
+        d = decide(self._state(soc=30), p, _now(1, 15, 2))
+        assert d.phase == PHASE_FAST_FLOOR
 
 
 class TestLowSlotGridChargeForecast:

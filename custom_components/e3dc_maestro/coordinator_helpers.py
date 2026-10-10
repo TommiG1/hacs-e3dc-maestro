@@ -16,6 +16,7 @@ from .const import (
     PHASE_EMERGENCY,
     PHASE_FEED_IN_LIMIT,
     PHASE_FORCE_DISCHARGE,
+    PHASE_GRID_CHARGE,
     PHASE_MORNING_DISCHARGE,
     PHASE_OFF,
     POWER_MODE_CHARGE,
@@ -180,9 +181,12 @@ def _action_history_changed(
 
 
 
-_RAMP_BYPASS_PHASES = frozenset({
+# Phasen, die sofort volle Leistung verlangen: weder Anlauf-Rampe (A2) noch
+# Schonladung (F0). PHASE_GRID_CHARGE: angeforderte Netzladung im Tiefpreis
+# (NT-Slot oder Preisplan) soll das günstige Fenster voll nutzen.
+_FULL_POWER_PHASES = frozenset({
     PHASE_OFF, PHASE_EMERGENCY, PHASE_FEED_IN_LIMIT, PHASE_CURTAILMENT_GUARD,
-    PHASE_MORNING_DISCHARGE, PHASE_FORCE_DISCHARGE,
+    PHASE_MORNING_DISCHARGE, PHASE_FORCE_DISCHARGE, PHASE_GRID_CHARGE,
 })
 
 
@@ -191,7 +195,8 @@ def _ramp_bypass_for_phase(decision: MaestroDecision) -> bool:
 
     Zwei unabhängige Gründe:
       1. Die Phase selbst verlangt sofortige volle Leistung (Notfall,
-         Einspeiseschutz, Abregelschutz, Vorentladung, Zwangs-Entladung).
+         Einspeiseschutz, Abregelschutz, Vorentladung, Zwangs-Entladung,
+         Netzladung im Tiefpreis).
       2. ``decision.battery_priority`` – Abschnitt 6.96 (Schwacher-PV-Tag /
          Prognose-Gate) hat diesen Tick tatsächlich gegriffen.
 
@@ -200,7 +205,7 @@ def _ramp_bypass_for_phase(decision: MaestroDecision) -> bool:
     wenn Abschnitt 6.96 diesen Tick gar nicht aktiv war (z. B. weil die
     Bedarfsprüfung die Priorität bereits freigegeben hatte).
     """
-    return decision.phase in _RAMP_BYPASS_PHASES or decision.battery_priority
+    return decision.phase in _FULL_POWER_PHASES or decision.battery_priority
 
 
 def _ramp_bypass_due_to_resync(

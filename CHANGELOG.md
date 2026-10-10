@@ -11,6 +11,44 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.4.0-beta.6] – Netzladung im Tiefpreis ohne künstliche Bremse (2026-10-10)
+
+> **Beta.** Inhalt von beta.5 plus Follow-up zu
+> [#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15):
+> Schnelllade-Boden, Morning-Cap, Astro-Wait, Schonladung und Anlauf-Rampe
+> blockieren eine bewusst angeforderte Netzladung nicht mehr. Entspricht dem
+> Stable-Fix 0.3.30; gilt zusätzlich für die Preisplan-Netzladung.
+
+### Behoben
+- **Schnelllade-Boden blockierte NT-Netzladung**
+  ([#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15) Follow-up):
+  Unter dem Floor-SoC endete die Entscheidung in `fast_floor`
+  (`POWER_MODE_NORMAL`, nur PV) und verhinderte `grid_charge`. Morgen-Cap und
+  Astro-Wait hatten denselben Effekt. Jetzt weichen alle drei, solange
+  Netzlade-Ziel und Tagesbudget offen sind.
+- **Schonladung und Anlauf-Rampe** drosselten `grid_charge` (NT-Slot und
+  Preisplan). Beide greifen für diese Phase nicht mehr – volle Leistung im
+  Tiefpreis-Fenster.
+
+### Geändert
+- Gemeinsame Phasenliste `_FULL_POWER_PHASES` für Rampe und Schonladung
+  (inkl. `grid_charge`).
+- Dashboard-Hilfe: Schnelllade-Boden, Morning-Cap, Astro-Wait und Schonladung
+  beschreiben den Vorrang der Netzladung.
+
+---
+
+## [0.3.30] – Fix: Netzladung im low-Slot ohne künstliche Bremse (Issue #15) (2026-10-10)
+
+### Behoben
+- **Schnelllade-Boden / Morning-Cap / Astro-Wait blockierten die aktive
+  Netzladung im low-Slot**
+  ([#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15) Follow-up):
+  Solange Ziel und Tagesbudget offen sind, weichen diese Phasen. Schonladung
+  und Anlauf-Rampe greifen für `grid_charge` nicht mehr.
+
+---
+
 ## [0.4.0-beta.5] – Preisplan steuert + stabile Dashboard-Charts (2026-10-10)
 
 > **Beta mit echter Steuerung** (Inhalt von beta.4) **plus** stabiler Apex-Chart.

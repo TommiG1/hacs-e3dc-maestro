@@ -1478,6 +1478,19 @@ def _decide_core(
                 power_mode=POWER_MODE_IDLE,
                 target_soc=target,
             )
+    # Aktive Netzladung im low-Slot (§6.97) würde in diesem Tick laden. Phasen,
+    # die nur PV-Ladung drosseln oder sperren (Morning-Cap, Astro-Wait,
+    # Schnelllade-Boden), weichen dann – sonst schalten sie die bewusst
+    # angeforderte Netzladung stumm ab (Issue #15).
+    _gc_target = low_slot_grid_charge_target(state, params)
+    _grid_charge_pending = (
+        params.low_slot_grid_charge_enabled
+        and tariff_class == TARIFF_LOW
+        and not curtailment_guard_active
+        and state.soc < _gc_target
+        and grid_charged_today_kwh < params.max_grid_charge_kwh
+    )
+
     # ── 6.4 Low-Slot-Halten: Netzlade-Ziel erreicht → Entladung sperren ───────────────
     # Ohne diese Sperre entlädt das Haus den Akku unter das Ziel, die aktive
     # Netzladung (§6.97) lädt kurz darauf wieder nach – Lade-/Entlade-Schwingen
@@ -1540,6 +1553,7 @@ def _decide_core(
         params.morning_cap_enabled
         and not curtailment_guard_active
         and not _morning_cap_yields
+        and not _grid_charge_pending
     ):
         hour_now = now.hour + now.minute / 60
         if hour_now < params.morning_cap_until_h and state.soc >= params.morning_cap_soc:
@@ -1558,7 +1572,11 @@ def _decide_core(
     # ── 6.75 Astro-Wait: Ladestart-Sperre bis Sonnenaufgang + Offset ────────────────
     # NORMAL + 1 W: blockt Laden, lässt Entladung zur Hausabdeckung zu (sonst würde
     # der Akku nachts unnötig auf 100 % bleiben oder gar Netzbezug verursachen).
-    if params.astro_enabled and state.soc < params.charge_target:
+    if (
+        params.astro_enabled
+        and state.soc < params.charge_target
+        and not _grid_charge_pending
+    ):
         sunrise_h, _ = astro_sunrise_sunset(now, params)
         charge_start_gate_h = sunrise_h + params.charge_start_sunrise_offset_h
         hour_now = now.hour + now.minute / 60
@@ -1605,6 +1623,7 @@ def _decide_core(
         params.fast_charge_floor_enabled
         and state.soc < params.fast_charge_floor_soc
         and not curtailment_guard_active
+        and not _grid_charge_pending
     ):
         return MaestroDecision(
             phase=PHASE_FAST_FLOOR,
@@ -1684,32 +1703,25 @@ def _decide_core(
     # überbrücken. Unabhängig vom tariff_mode, weil hier ein bewusster
     # Nutzerwunsch vorliegt. Das Tagesbudget max_grid_charge_kwh begrenzt die
     # aus dem Netz geladene Energie; Curtailment-Guard hat weiterhin Vorrang.
-    if (
-        params.low_slot_grid_charge_enabled
-        and tariff_class == TARIFF_LOW
-        and not curtailment_guard_active
-    ):
-        gc_target = low_slot_grid_charge_target(state, params)
-        if state.soc < gc_target:
-            budget_left_kwh = params.max_grid_charge_kwh - grid_charged_today_kwh
-            if budget_left_kwh > 0:
-                target_src = (
-                    "prognosebasiert"
-                    if params.low_slot_forecast_based
-                    else "fest"
-                )
-                return MaestroDecision(
-                    phase=PHASE_GRID_CHARGE,
-                    reason=(
-                        f"Netzladung im günstigen Slot: SoC {state.soc:.0f}% < "
-                        f"Ziel {gc_target:.0f}% ({target_src}), "
-                        f"Restbudget {budget_left_kwh:.1f} kWh"
-                    ),
-                    power_mode=POWER_MODE_CHARGE,
-                    charge_power_limit=params.max_charge_power,
-                    target_soc=gc_target,
-                    target_charge_power=params.max_charge_power,
-                )
+    if _grid_charge_pending:
+        budget_left_kwh = params.max_grid_charge_kwh - grid_charged_today_kwh
+        target_src = (
+            "prognosebasiert"
+            if params.low_slot_forecast_based
+            else "fest"
+        )
+        return MaestroDecision(
+            phase=PHASE_GRID_CHARGE,
+            reason=(
+                f"Netzladung im günstigen Slot: SoC {state.soc:.0f}% < "
+                f"Ziel {_gc_target:.0f}% ({target_src}), "
+                f"Restbudget {budget_left_kwh:.1f} kWh"
+            ),
+            power_mode=POWER_MODE_CHARGE,
+            charge_power_limit=params.max_charge_power,
+            target_soc=_gc_target,
+            target_charge_power=params.max_charge_power,
+        )
 
     charge_power = desired_charge_power(state.soc, target, params, now)
     if charge_power > 0 and state.soc < params.charge_target:

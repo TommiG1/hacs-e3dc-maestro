@@ -2187,10 +2187,10 @@ views:
           | 6 | **evcc_pause** | EVCC Sofortladen → Akku-Entladegrenze |
           | 7 | **ht_protection** | Hochtarif-Fenster → kein Entladen über Reserve |
           | 8 | **morning_discharge** | Morgen-Vorentladung (Kapazität für Tages-PV schaffen) |
-          | 9 | **morning_cap** | SoC-Deckel morgens bis konfigurierte Uhrzeit |
-          | 10 | **astro_wait** | Warten auf Sonnenaufgang + Offset (kein Laden) |
+          | 9 | **morning_cap** | SoC-Deckel morgens bis konfigurierte Uhrzeit (weicht der aktiven Netzladung im `low`-Slot) |
+          | 10 | **astro_wait** | Warten auf Sonnenaufgang + Offset (kein Laden; weicht der aktiven Netzladung im `low`-Slot) |
           | 11 | **hard_soc_limit** | Harter Max-SoC-Deckel (Akku-Schonung) |
-          | 12 | **fast_floor** | Schnelllade-Boden: voller PV-Überschuss bis Floor-SoC |
+          | 12 | **fast_floor** | Schnelllade-Boden: voller PV-Überschuss bis Floor-SoC (weicht der aktiven Netzladung im `low`-Slot, solange Ziel und Tagesbudget offen sind) |
           | 13 | **grid_charge** | Aktive Netzladung im `low`-Slot bis Ziel-SoC (NT-Fenster) |
           | 13b | **grid_hold** | Ziel im `low`-Slot erreicht: Entladung gesperrt, Haus läuft aus dem günstigen Netz |
           | 14 | **pv_delay** | Gute PV-Prognose → Korridor-Ladung verzögert |
@@ -2342,6 +2342,12 @@ views:
           (kein Korridor-Cap), damit die Mindestreserve schnell aus PV-Überschuss
           aufgebaut wird. Sobald der Floor erreicht ist, greifen wieder Korridor,
           Spreading oder Idle.
+
+          Ist die aktive Netzladung im günstigen Slot eingeschaltet und würde sie
+          in diesem Takt laden (SoC unter dem Netzlade-Ziel, Tagesbudget noch
+          übrig), hat sie Vorrang. Der Boden schaltet die Netzladung dann nicht ab.
+          Ist das Budget leer oder das Ziel schon erreicht, lädt der Boden weiter
+          vollen PV-Überschuss.
 
           Abregelschutz kann den Floor übersteuern (höhere Priorität über den
           Curtailment-Floor). Schalter und SoC-Ziel liegen unter *Steuerverhalten*.
@@ -3867,7 +3873,8 @@ views:
           
           **Ausnahmen:** Curtailment Guard (Abregelschutz) und Akku-Priorität
           (Schwacher-PV-Tag / unzureichende Restprognose) überschreiben den Morning-Cap
-          immer, damit keine Energie verloren geht.
+          immer, damit keine Energie verloren geht. Auch die aktive Netzladung im
+          günstigen Slot hat Vorrang, solange Netzlade-Ziel und Tagesbudget offen sind.
           
           ---
           
@@ -3899,8 +3906,9 @@ views:
           **Wirkung:** Reduziert die maximale Ladeleistung auf den eingestellten Faktor.
           Schützt die Batterie vor schneller Vollladung (High-Rate-Stress).
           
-          **Ausnahmen:** Curtailment Guard, Notfall-Ladung und Einspeisedrosselung
-          laden immer mit voller Leistung – Schonladung wird dort ignoriert.
+          **Ausnahmen:** Curtailment Guard, Notfall-Ladung, Einspeisedrosselung und
+          Netzladung im Tiefpreis (NT-Slot oder Preisplan) laden immer mit voller
+          Leistung – Schonladung und Anlauf-Rampe werden dort ignoriert.
           
           ---
           

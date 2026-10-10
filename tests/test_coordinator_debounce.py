@@ -6,6 +6,7 @@ from custom_components.e3dc_maestro.const import (
     PHASE_CURTAILMENT_GUARD,
     PHASE_EMERGENCY,
     PHASE_FAST_FLOOR,
+    PHASE_GRID_CHARGE,
     PHASE_IDLE,
     PHASE_SPREADING,
     POWER_MODE_CHARGE,
@@ -14,6 +15,7 @@ from custom_components.e3dc_maestro.const import (
     POWER_MODE_NORMAL,
 )
 from custom_components.e3dc_maestro.coordinator import (
+    _FULL_POWER_PHASES,
     _action_history_changed,
     _build_power_mode_data,
     _effective_discharge_limit_w,
@@ -118,6 +120,14 @@ def test_ramp_bypass_active_for_hardcoded_phases_without_battery_priority():
 
     d2 = MaestroDecision(phase=PHASE_CURTAILMENT_GUARD, reason="x", battery_priority=False)
     assert _ramp_bypass_for_phase(d2) is True
+
+
+def test_grid_charge_skips_ramp_and_gentle_charge():
+    """Issue #15: angeforderte Netzladung im Tiefpreis (NT-Slot oder Preisplan)
+    läuft ohne Anlauf-Rampe und ohne Schonladung."""
+    d = MaestroDecision(phase=PHASE_GRID_CHARGE, reason="x", battery_priority=False)
+    assert _ramp_bypass_for_phase(d) is True
+    assert PHASE_GRID_CHARGE in _FULL_POWER_PHASES
 
 
 def test_ramp_bypass_inactive_for_normal_phase_without_battery_priority():

@@ -335,11 +335,13 @@ Charges the battery from the grid when the spot electricity price is cheap.
 > enable **Active grid charge in low slot** so the off-peak window is actually
 > used to recharge.
 
-### Price plan (shadow mode, beta)
+### Price plan (beta)
 
 Uses the price curve (today + tomorrow), the PV forecast and your consumption
 profile to work out when **grid charging** and **holding discharge** pay off. The
-plan is **display only** (`sensor.e3dc_maestro_preisplan`) and controls nothing.
+plan is visible as a sensor (`sensor.e3dc_maestro_preisplan`). The second switch,
+**Price plan controls the battery**, makes Maestro actually execute it – without
+it the plan stays display-only (shadow mode).
 
 **Setup** (Settings → Devices & services → E3DC Maestro → Configure):
 
@@ -350,7 +352,13 @@ plan is **display only** (`sensor.e3dc_maestro_preisplan`) and controls nothing.
 3. **PV forecast:** enable a forecast sensor (Solcast / Forecast.Solar) – without
    one the plan falls back conservatively to history.
 4. **Season & charge corridor:** charge threshold and emergency reserve (floor of the plan).
-5. Enable **Price plan (shadow mode)** – also available as a switch in the dashboard.
+5. Enable **Calculate price plan** – also available as a switch in the dashboard.
+   Review the recommendations for a day or two (tab **Grid & Tariff**).
+6. Enable **Price plan controls the battery**: Maestro then charges from the grid in
+   cheap slots (phase `grid_charge`, reason "Preisplan: …") and blocks discharge when
+   saving energy for pricier slots pays off (phase `grid_hold`). Emergency charge,
+   feed-in limit, EVCC pause and curtailment guard take priority. If the price
+   sensor drops out (plan older than 20 min) Maestro falls back to normal control.
 
 Fine-tuning in the dashboard (tab **Grid & Tariff**): max target SoC (90 %),
 minimum price spread (0.03 €/kWh), efficiency (0.90), consumption safety factor

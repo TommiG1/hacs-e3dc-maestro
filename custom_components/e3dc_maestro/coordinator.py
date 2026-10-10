@@ -596,6 +596,7 @@ class E3DCMaestroCoordinator(
                 if self.last_decision is not None
                 else False
             ),
+            price_plan=self._price_plan_action(now),
         )
 
         # Act on decision (debounced)

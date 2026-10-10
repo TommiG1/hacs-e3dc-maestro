@@ -1612,10 +1612,12 @@ views:
               navigation_path: /e3dc-maestro/help-tarif
 
       - type: entities
-        title: Preisplan (Schattenmodus – steuert nichts)
+        title: Preisplan (Beta)
         entities:
           - entity: switch.e3dc_maestro_preisplan_schattenmodus
             name: Preisplan berechnen
+          - entity: switch.e3dc_maestro_preisplan_steuert_akku
+            name: Preisplan steuert Akku (Beta)
           - entity: number.e3dc_maestro_preisplan_ziel_soc_obergrenze
             name: Ziel-SoC Obergrenze (%)
           - entity: number.e3dc_maestro_preisplan_mindest_preisspanne
@@ -1775,8 +1777,8 @@ views:
 
       - type: markdown
         content: >
-          **Schattenmodus:** Der Plan wird aus der Preiskurve des Preis-Sensors,
-          der PV-Prognose und dem Verbrauchsprofil berechnet und nur angezeigt.
+          **Preisplan:** Der Plan wird aus der Preiskurve des Preis-Sensors,
+          der PV-Prognose und dem Verbrauchsprofil berechnet. Mit **Preisplan steuert Akku** setzt Maestro ihn um, sonst nur Anzeige.
           Grün = Netzladung geplant, Orange = Entladung halten (Akku-Energie für
           teurere Slots sparen). Optionen unter *Einstellungen → Integrationen →
           E3DC Maestro → Konfigurieren → Tarif*.
@@ -2152,7 +2154,7 @@ views:
           | Astro-Modus (Sonnenuntergang) | [→ Astro](/e3dc-maestro/help-astro) |
           | HT/NT-Schutz | [→ HT-Schutz](/e3dc-maestro/help-ht) |
           | Dynamischer Tarif | [→ Tarif](/e3dc-maestro/help-tarif) |
-          | Preisplan (Schattenmodus) | [→ Preisplan](/e3dc-maestro/help-preisplan) |
+          | Preisplan (Beta) | [→ Preisplan](/e3dc-maestro/help-preisplan) |
           | Tarif-Slots | [→ Tarif-Slots](/e3dc-maestro/help-tariff-slots) |
           | EVCC – Akku-Entladesperre | [→ EVCC](/e3dc-maestro/help-evcc) |
           | Wallbox-Überschussregelung | [→ Wallbox](/e3dc-maestro/help-wallbox) |
@@ -3180,13 +3182,17 @@ views:
     cards:
       - type: markdown
         content: |
-          ## Preisplan (Schattenmodus)
+          ## Preisplan (Beta)
 
           Der Preisplan rechnet anhand der **Strompreis-Kurve** (heute + morgen), der
           **PV-Prognose** und deines **Verbrauchsprofils** aus, wann sich Netzladung
-          und eine Entlade-Sperre ("Halten") lohnen. Aktuell ist er **nur eine
-          Anzeige** – er steuert nichts. So kannst du ein paar Tage prüfen, ob die
-          Empfehlungen zu deinem Haus passen.
+          und eine Entlade-Sperre ("Halten") lohnen.
+
+          - **Preisplan berechnen** = nur Anzeige (Schattenmodus). Empfehlenswert für
+            ein, zwei Tage, um zu prüfen, ob die Vorschläge zu deinem Haus passen.
+          - **Preisplan steuert Akku** (Beta) = Maestro setzt den Plan um: Netzladung
+            in günstigen Slots und Entladung sperren, wenn die Akku-Energie in einem
+            teureren Slot mehr wert ist.
 
           ---
 
@@ -3197,7 +3203,8 @@ views:
           | Schritt | Was einstellen | Warum |
           |---|---|---|
           | **Tarif & Kosten** | **Preis-Sensor** wählen | Quelle der Preiskurve. Der Sensor braucht Attribute `raw_today` / `raw_tomorrow` (Nordpool, EPEX, aWATTar, Tibber mit `prices`) oder Listen `today` / `tomorrow` |
-          | **Tarif & Kosten** | **Preisplan (Schattenmodus)** einschalten | Aktiviert die Berechnung (auch im Dashboard schaltbar) |
+          | **Tarif & Kosten** | **Preisplan berechnen** einschalten | Aktiviert die Berechnung (auch im Dashboard schaltbar) |
+          | **Tarif & Kosten** | **Preisplan steuert den Akku** einschalten | Erst nach der Prüfphase: Maestro führt den Plan aus (auch im Dashboard schaltbar) |
           | **Tarif & Kosten** | Strompreis Bezug (fest), **Einspeisevergütung** | Bewertung von PV-Überschuss gegen Netzbezug |
           | **Tarif & Kosten** | **Akku-Anschaffungskosten** und **Lebensdauer (Zyklen)** | Verschleißkosten pro geladener kWh – verhindert Laden für winzige Preisvorteile |
           | **Tarif & Kosten** | **Max. Netzladung/Tag** | Tagesbudget: Der Plan lädt nie mehr aus dem Netz |
@@ -3214,7 +3221,8 @@ views:
 
           | Einstellung | Standard | Wirkung |
           |---|---|---|
-          | **Preisplan berechnen** | aus | Schalter für die Berechnung |
+          | **Preisplan berechnen** | aus | Schalter für die Berechnung (Anzeige) |
+          | **Preisplan steuert Akku (Beta)** | aus | Maestro führt den Plan aus. Braucht „Preisplan berechnen“ |
           | **Ziel-SoC Obergrenze** | 90 % | Höchster SoC, auf den der Plan aus dem Netz laden darf |
           | **Mindest-Preisspanne** | 0,03 €/kWh | Netzladung nur, wenn der Preisvorteil **nach** Verlusten und Verschleiß mindestens so groß ist. Höher = seltener, aber lohnender |
           | **Wirkungsgrad** | 0,90 | Anteil der geladenen Energie, der später wieder entnommen wird (typisch 0,85–0,92) |
@@ -3247,9 +3255,28 @@ views:
           Attribute `raw_today` / `raw_tomorrow`. Prüfe in den Entwicklerwerkzeugen →
           Zustände den Sensor.
 
-          **Wann steuert der Plan wirklich?** Erst in einer späteren Version, die
-          separat zuschaltbar sein wird. Bis dahin bleibt alles wie bisher
-          (Tarif-Slots, Günstig-Schwelle, Netzladung im low-Slot).
+          **Wann steuert der Plan?** Nur wenn **Preisplan berechnen** *und*
+          **Preisplan steuert Akku** an sind. Dann gilt, in dieser Reihenfolge:
+          Notfallladung, Einspeisebegrenzung, EVCC-Sperre und Abregelschutz haben
+          Vorrang. Danach führt der Plan aus: **Netzladung jetzt** (Phase
+          `grid_charge`, Grund beginnt mit „Preisplan:“) lädt mit maximaler
+          Ladeleistung bis zum geplanten Ziel-SoC, **Entladung halten** (Phase
+          `grid_hold`) sperrt die Entladung, das Haus läuft aus dem Netz.
+          PV-Überschuss lädt weiter, außer ein aktiver Max-SoC-Deckel greift.
+
+          **Wie sicher ist das?** Ist der Plan älter als 20 Minuten (Preis-Sensor
+          ausgefallen, keine Preise mehr), steuert Maestro nicht mehr nach Plan,
+          sondern regelt wie gewohnt. Die Netzladung ist durch **Max. Netzladung/Tag**
+          begrenzt und lädt nie über die Ziel-SoC-Obergrenze.
+
+          **Was passiert mit der Netzladung im low-Slot?** Beides darf gleichzeitig
+          an sein. Der Preisplan hat Vorrang; wo er nichts will, gelten weiter
+          Tarif-Slots, Günstig-Schwelle und Netzladung im low-Slot.
+
+          **Der Akku lädt und entlädt im Wechsel.** Das sollte nicht mehr vorkommen:
+          Nach der Ladung sperrt der Plan („Halten“) bzw. der low-Slot („Entladung
+          nach Ziel sperren“) die Entladung. Falls doch, bitte Diagnose-Download und
+          Regelphasen-Verlauf (24 h) an ein Issue hängen.
 
   - title: "Hilfe: Wallbox-Überschussregelung"
     path: help-wallbox

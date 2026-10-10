@@ -87,3 +87,37 @@ def test_disabling_clears_plan():
     c._params.price_plan_enabled = False
     asyncio.run(c._async_update_price_plan(_state(), NOW))
     assert c.price_plan is None
+
+
+class TestPricePlanAction:
+    """Der Koordinator reicht den Plan nur frisch und nur bei eingeschalteter Steuerung weiter."""
+
+    def _fake_with_plan(self, active=True, age_s=60, status="ok"):
+        from custom_components.e3dc_maestro.control_price_plan import PricePlan
+        from custom_components.e3dc_maestro.price_plan_runner import PricePlanSnapshot
+
+        f = _Fake()
+        f._params.price_plan_active = active
+        f.price_plan = PricePlanSnapshot(
+            status=status, message="m", computed_at=NOW - dt.timedelta(seconds=age_s),
+            plan=PricePlan(charge_now=True, hold_now=False, target_soc_pct=80.0, reason="r"),
+        )
+        return f
+
+    def test_returns_action_when_active_and_fresh(self):
+        a = self._fake_with_plan()._price_plan_action(NOW)
+        assert a is not None and a.charge_now and a.target_soc == 80.0
+
+    def test_none_when_switch_off(self):
+        assert self._fake_with_plan(active=False)._price_plan_action(NOW) is None
+
+    def test_none_when_stale(self):
+        assert self._fake_with_plan(age_s=25 * 60)._price_plan_action(NOW) is None
+
+    def test_none_when_status_not_ok(self):
+        assert self._fake_with_plan(status="no_prices")._price_plan_action(NOW) is None
+
+    def test_none_without_plan(self):
+        f = _Fake()
+        f._params.price_plan_active = True
+        assert f._price_plan_action(NOW) is None

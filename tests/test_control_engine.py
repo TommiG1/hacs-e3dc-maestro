@@ -3694,3 +3694,110 @@ class TestLowSlotHold:
         p = self._params(low_slot_target_soc=90.0)
         d = decide(self._state(soc=10), p, _now(1, 15, 2))
         assert d.phase == PHASE_EMERGENCY
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Preisplan (aktiv): Netzladung / Entladung halten aus dem Plan
+# ──────────────────────────────────────────────────────────────────────────────
+from custom_components.e3dc_maestro.control_engine import PricePlanAction  # noqa: E402
+
+
+class TestPricePlanActive:
+    def _p(self, **kw):
+        base = {
+            **DEFAULT_PARAMS.__dict__,
+            "ht_enabled": False,
+            "seasonal_reserve_enabled": False,
+            "price_plan_enabled": True,
+            "price_plan_active": True,
+            "max_grid_charge_kwh": 10.0,
+        }
+        base.update(kw)
+        return MaestroParams(**base)
+
+    def _s(self, soc=40):
+        return MaestroState(soc=soc, pv_power=0, house_power=800, grid_power=0, battery_power=0)
+
+    def test_charge_now_charges_to_target(self):
+        d = decide(
+            self._s(40), self._p(), _now(1, 15, 2),
+            price_plan=PricePlanAction(charge_now=True, target_soc=70.0),
+        )
+        assert d.phase == PHASE_GRID_CHARGE
+        assert d.power_mode == POWER_MODE_CHARGE
+        assert d.target_soc == 70.0
+        assert d.reason.startswith("Preisplan")
+
+    def test_target_reached_stops_charging(self):
+        d = decide(
+            self._s(70), self._p(), _now(1, 15, 2),
+            price_plan=PricePlanAction(charge_now=True, target_soc=70.0),
+        )
+        assert d.phase != PHASE_GRID_CHARGE
+
+    def test_hold_now_blocks_discharge(self):
+        d = decide(
+            self._s(60), self._p(), _now(1, 15, 2),
+            price_plan=PricePlanAction(hold_now=True),
+        )
+        assert d.phase == PHASE_GRID_HOLD
+        assert d.discharge_power_limit == 0.0
+        assert d.charge_power_limit is None
+
+    def test_inactive_switch_is_shadow_only(self):
+        d = decide(
+            self._s(40), self._p(price_plan_active=False), _now(1, 15, 2),
+            price_plan=PricePlanAction(charge_now=True, target_soc=70.0),
+        )
+        assert d.phase != PHASE_GRID_CHARGE
+
+    def test_plan_calc_off_is_ignored(self):
+        d = decide(
+            self._s(40), self._p(price_plan_enabled=False), _now(1, 15, 2),
+            price_plan=PricePlanAction(charge_now=True, target_soc=70.0),
+        )
+        assert d.phase != PHASE_GRID_CHARGE
+
+    def test_no_plan_means_normal_control(self):
+        d = decide(self._s(40), self._p(), _now(1, 15, 2), price_plan=None)
+        assert d.phase not in (PHASE_GRID_CHARGE, PHASE_GRID_HOLD)
+
+    def test_budget_exhausted_blocks_charge(self):
+        d = decide(
+            self._s(40), self._p(), _now(1, 15, 2),
+            grid_charged_today_kwh=10.0,
+            price_plan=PricePlanAction(charge_now=True, target_soc=70.0),
+        )
+        assert d.phase != PHASE_GRID_CHARGE
+
+    def test_hard_soc_limit_blocks_plan_charge(self):
+        d = decide(
+            self._s(85), self._p(hard_soc_limit_enabled=True, hard_soc_limit=80.0),
+            _now(1, 15, 2),
+            price_plan=PricePlanAction(charge_now=True, target_soc=90.0),
+        )
+        assert d.phase != PHASE_GRID_CHARGE
+
+    def test_emergency_beats_hold(self):
+        d = decide(
+            self._s(5), self._p(), _now(1, 15, 2),
+            price_plan=PricePlanAction(hold_now=True),
+        )
+        assert d.phase == PHASE_EMERGENCY
+
+    def test_curtailment_guard_beats_plan(self):
+        d = decide(
+            self._s(40), self._p(), _now(1, 15, 2),
+            curtailment_guard_active=True,
+            price_plan=PricePlanAction(charge_now=True, target_soc=70.0),
+        )
+        assert d.phase != PHASE_GRID_CHARGE
+
+    def test_plan_charge_overrides_reserve_protection(self):
+        d = decide(
+            self._s(30),
+            self._p(seasonal_reserve_enabled=True),
+            _now(1, 15, 2),
+            price_plan=PricePlanAction(charge_now=True, target_soc=70.0),
+        )
+        assert d.phase == PHASE_GRID_CHARGE

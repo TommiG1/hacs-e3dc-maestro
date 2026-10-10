@@ -99,6 +99,12 @@ def decision_explanation(coord) -> str:
             "sperrt die weitere Entladung, damit für den Rest des teuren "
             "Hochtarif-Fensters genug Kapazität erhalten bleibt."
         )
+    elif phase in ("grid_charge", "grid_hold") and dec.reason.startswith("Preisplan"):
+        text = (
+            f"{dec.reason}. Der Preisplan wertet die Preiskurve aus und lädt nur, "
+            "wenn der Preisvorteil nach Verlusten und Verschleiß die "
+            "Mindest-Preisspanne übersteigt."
+        )
     elif phase == "grid_charge":
         target = _f(dec.target_soc)
         text = (

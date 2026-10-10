@@ -11,6 +11,69 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.4.0-beta.4] – Preisplan steuert jetzt echt (dynamisches Laden) (2026-10-10)
+
+> **Beta mit echter Steuerung.** Anders als beta.1–3 kann der Preisplan den Akku
+> jetzt tatsächlich laden und sperren. Standardmäßig **aus** – wer nichts
+> einschaltet, merkt keinen Unterschied. Enthält außerdem den Fix aus 0.3.29.
+
+### Neu
+- **Preisplan steuert den Akku** (neuer Schalter
+  `switch.e3dc_maestro_preisplan_steuert_akku`, auch im Dashboard Tab „Netz &
+  Tarif“ und in den Einstellungen unter Tarif & Kosten). Setzt „Preisplan
+  berechnen“ voraus (bisher „Preisplan (Schattenmodus)“, Entity-ID
+  `switch.e3dc_maestro_preisplan_schattenmodus` bleibt unverändert).
+  - **Netzladung jetzt:** Phase `grid_charge` (Grund „Preisplan: …“), maximale
+    Ladeleistung bis zum geplanten Ziel-SoC, begrenzt durch **Max.
+    Netzladung/Tag**, die **Ziel-SoC-Obergrenze** und einen aktiven
+    Max-SoC-Deckel.
+  - **Entladung halten:** neue Phase `grid_hold`. Die Entladung wird gesperrt,
+    das Haus läuft aus dem Netz, um Akku-Energie für teurere Slots zu sparen.
+    PV-Überschuss lädt weiter.
+  - **Vorrang:** Notfallladung, Einspeisebegrenzung, EVCC-Sperre und
+    Abregelschutz stehen vor dem Plan. Der Plan darf unter die Notstromreserve
+    laden, sperrt aber nie die Ladung.
+  - **Fail-safe:** Ist der Plan älter als 20 Minuten (Preis-Sensor ausgefallen,
+    keine Preise mehr), regelt Maestro wie gewohnt ohne Plan.
+  - Sensor `sensor.e3dc_maestro_preisplan`: Attribut `controlling` zeigt, ob der
+    Plan gerade steuern darf (`shadow_mode` = Gegenteil).
+- Neue Phase `grid_hold` in Dashboard (Classic + Modern), Phasen-Glossar und
+  Erklärungs-Sensor.
+
+### Geändert
+- Hilfeseite „Preisplan“, README und Dashboard-Texte beschreiben jetzt
+  Einrichtung, Reihenfolge der Prioritäten und Fehlersuche für den steuernden
+  Betrieb.
+- Schalter „Preisplan berechnen“ (vorher „Preisplan (Schattenmodus)“).
+
+### Behoben
+- Lade-/Entlade-Schwingen im günstigen Slot
+  ([#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15)) – siehe
+  0.3.29 unten (neue Option „Entladung im low-Slot nach Ziel sperren“).
+
+---
+
+## [0.3.29] – Fix: Lade-/Entlade-Schwingen im günstigen Slot (Issue #15) (2026-10-10)
+
+### Behoben
+- **Lade-/Entlade-Schwingen bei aktiver Netzladung im low-Slot**
+  ([#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15)): War das
+  Netzlade-Ziel (z. B. 90 %) erreicht, hörte Maestro nur mit dem Laden auf. Das
+  Haus entlud den Akku sofort wieder unter das Ziel, einige Minuten später lud
+  Maestro erneut aus dem Netz nach – im Dauertakt. Jetzt sperrt Maestro nach
+  Erreichen des Ziels im `low`-Slot die **Entladung** (neue Phase `grid_hold`,
+  „Ziel erreicht (halten)“). Das Haus läuft aus dem günstigen Netz, der Akku
+  bleibt auf Ziel-SoC. PV-Überschuss darf weiter laden; ein aktiver
+  **Max-SoC-Deckel** (Hard-SoC-Limit) blockiert die Ladung weiterhin.
+
+### Neu
+- Option **Entladung im low-Slot nach Ziel sperren** (Einstellungen → Tarif &
+  Kosten, Standard **an**). Ausschalten stellt das alte Verhalten wieder her.
+  Bei prognosebasierter Netzlade-Menge ohne Bedarf (Ziel 0 %) wird nichts
+  gesperrt.
+
+---
+
 ## [0.4.0-beta.3] – Korridor-Pause & Akku-Vorrang ohne P10 (2026-10-10)
 
 ### Behoben

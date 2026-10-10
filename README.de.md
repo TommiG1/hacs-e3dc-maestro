@@ -344,6 +344,7 @@ Lädt den Akku aus dem Netz wenn der Börsenstrompreis günstig ist.
 | **Aktive Netzladung im low-Slot** | aus | Lädt in einem `low`-Slot aktiv aus dem Netz bis zum Ziel-SoC – **unabhängig vom Tarif-Modus** (Phase `grid_charge`). Für klassische NT-Fenster |
 | **Netzlade-Ziel im low-Slot (% SoC)** | 60 | Ziel-SoC, bis zu dem im `low`-Slot aus dem Netz geladen wird. Begrenzt durch Max. Netzladung/Tag. Bei prognosebasierter Menge = Obergrenze |
 | **Netzlade-Menge prognosebasiert** | aus | Statt festem Ziel-SoC wird nur so viel nachgeladen, wie laut morgiger PV-/Verbrauchsprognose nötig ist (Defizit = Verbrauch − PV). Nutzt die Sensoren *Prognose morgen* + *Verbrauch morgen*; ohne Daten gilt der feste Ziel-SoC |
+| **Entladung im low-Slot nach Ziel sperren** | an | Ist das Netzlade-Ziel erreicht, sperrt Maestro die Entladung (Phase `grid_hold`), das Haus läuft aus dem günstigen Netz. Verhindert Lade-/Entlade-Schwingen um den Ziel-SoC |
 
 > **`low`-Slot ohne aktive Netzladung:** Ohne diese Option ist die Klasse `low`
 > rein passiv – sie erlaubt Netzladung nur, wenn zusätzlich `tariff_mode=dynamic`
@@ -351,11 +352,13 @@ Lädt den Akku aus dem Netz wenn der Börsenstrompreis günstig ist.
 > HT/NT-Modell (fester Tarif) aktiviere **Aktive Netzladung im low-Slot**, damit
 > das NT-Fenster wirklich zum Nachladen genutzt wird.
 
-### Preisplan (Schattenmodus, Beta)
+### Preisplan (Beta)
 
 Berechnet aus der Preiskurve (heute + morgen), der PV-Prognose und deinem
 Verbrauchsprofil, wann sich **Netzladung** und **Entladung halten** lohnen. Der
-Plan wird **nur angezeigt** (`sensor.e3dc_maestro_preisplan`) und steuert nichts.
+Plan ist als Sensor sichtbar (`sensor.e3dc_maestro_preisplan`). Mit dem zweiten
+Schalter **Preisplan steuert Akku** setzt Maestro ihn tatsächlich um – ohne
+diesen Schalter bleibt er reine Anzeige (Schattenmodus).
 
 **Einrichtung** (Einstellungen → Geräte & Dienste → E3DC Maestro → Konfigurieren):
 
@@ -366,7 +369,13 @@ Plan wird **nur angezeigt** (`sensor.e3dc_maestro_preisplan`) und steuert nichts
 3. **PV-Prognose:** Prognose-Sensor (Solcast / Forecast.Solar) aktivieren – ohne
    rechnet der Plan konservativ mit der Historie.
 4. **Saison & Ladekorridor:** Ladeschwelle und Notstromreserve (Untergrenze des Plans).
-5. **Preisplan (Schattenmodus)** einschalten – auch per Schalter im Dashboard.
+5. **Preisplan berechnen** einschalten – auch per Schalter im Dashboard. Ein bis
+   zwei Tage die Empfehlungen im Dashboard prüfen (Tab **Netz & Tarif**).
+6. **Preisplan steuert Akku** einschalten: Maestro lädt dann in günstigen Slots aus
+   dem Netz (Phase `grid_charge`, Grund „Preisplan: …“) und sperrt die Entladung,
+   wenn sich das Aufsparen für teurere Slots lohnt (Phase `grid_hold`).
+   Notfallladung, Einspeisebegrenzung, EVCC-Sperre und Abregelschutz haben Vorrang.
+   Fällt der Preis-Sensor aus (Plan älter als 20 min), regelt Maestro wie gewohnt.
 
 Feinjustierung im Dashboard (Tab **Netz & Tarif**): Ziel-SoC-Obergrenze (90 %),
 Mindest-Preisspanne (0,03 €/kWh), Wirkungsgrad (0,90), Verbrauchs-Sicherheitsfaktor

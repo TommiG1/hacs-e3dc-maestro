@@ -108,6 +108,8 @@ class MaestroParams:
     low_slot_hold_discharge: bool = True
     # Preisplan (Schattenmodus): Plan aus der Preiskurve berechnen und anzeigen.
     price_plan_enabled: bool = False
+    # Beta: Plan steuert den Akku (Netzladung + Entladung halten) statt nur anzuzeigen.
+    price_plan_active: bool = False
     price_plan_max_soc: float = 90.0
     price_plan_min_spread: float = 0.03     # €/kWh Mindestgewinn (Verluste/Verschleiß separat)
     price_plan_efficiency: float = 0.90     # Laden × Entladen
@@ -236,6 +238,16 @@ class MaestroParams:
     battery_total_cycles: float = 5000.0   # Vollzyklen Lebensdauer
     # Manuelle Erzwingung der Akku-Entladung (Dashboard-Schalter)
     force_discharge_power_w: float = 3000.0
+
+
+@dataclass(frozen=True)
+class PricePlanAction:
+    """Aktuelle Handlungsempfehlung des Preisplans für diesen Regeltakt."""
+
+    charge_now: bool = False
+    hold_now: bool = False
+    target_soc: float | None = None
+    message: str = ""
 
 
 @dataclass
@@ -1103,6 +1115,7 @@ def decide(
     previous_phase: str | None = None,
     previous_phase_since: datetime | None = None,
     previous_battery_priority: bool = False,
+    price_plan: PricePlanAction | None = None,
 ) -> MaestroDecision:
     """Public entry point: run the decision cascade + post-process guards.
 
@@ -1125,6 +1138,7 @@ def decide(
         previous_phase=previous_phase,
         previous_phase_since=previous_phase_since,
         previous_battery_priority=previous_battery_priority,
+        price_plan=price_plan,
     )
     return _apply_wallbox_discharge_guard(decision, state, params)
 
@@ -1144,6 +1158,7 @@ def _decide_core(
     previous_phase: str | None = None,
     previous_phase_since: datetime | None = None,
     previous_battery_priority: bool = False,
+    price_plan: PricePlanAction | None = None,
 ) -> MaestroDecision:
     """Determine the desired action for this control cycle.
 
@@ -1196,6 +1211,29 @@ def _decide_core(
     schedule = tariff_schedule_from_params(params)
     tariff_class = current_tariff_class(now, schedule, current_price)
     active_slot = active_tariff_slot(now, schedule)
+
+    # Preisplan (aktiv): Netzladung bzw. Entladung halten aus der Preiskurve.
+    # Nur wenn der Nutzer die Steuerung eingeschaltet hat und der Plan frisch ist
+    # (der Koordinator liefert ``None`` bei veraltetem/fehlendem Plan). Der
+    # Abregelschutz hat Vorrang.
+    _plan_on = (
+        params.price_plan_enabled
+        and params.price_plan_active
+        and price_plan is not None
+        and not curtailment_guard_active
+    )
+    _hard_cap_reached = (
+        params.hard_soc_limit_enabled and state.soc >= params.hard_soc_limit
+    )
+    _plan_charge = bool(
+        _plan_on
+        and price_plan.charge_now
+        and price_plan.target_soc is not None
+        and state.soc < price_plan.target_soc
+        and grid_charged_today_kwh < params.max_grid_charge_kwh
+        and not _hard_cap_reached
+    )
+    _plan_hold = bool(_plan_on and price_plan.hold_now)
 
     # Schwacher-PV-Tag: einmal pro Tick auswerten und als Flag durchreichen.
     # Bei aktivem Flag wird Spreading übersprungen, die Korridor-Pause umgangen
@@ -1341,7 +1379,7 @@ def _decide_core(
     if params.seasonal_reserve_enabled:
         adaptive_pct = adaptive_emergency_reserve_soc(state, params)
         reserve_soc = adaptive_pct if adaptive_pct is not None else seasonal_reserve_soc(now, params)
-        if state.soc <= reserve_soc and not (
+        if state.soc <= reserve_soc and not _plan_charge and not (
             params.low_slot_grid_charge_enabled and tariff_class == TARIFF_LOW
         ):
             source = "verbrauchsadaptiv" if adaptive_pct is not None else "saisonal"
@@ -1380,6 +1418,34 @@ def _decide_core(
                 discharge_power_limit=limit_w,
                 target_soc=target,
             )
+
+    # ── 5.5 Preisplan (aktiv) ────────────────────────────────────────────────────────────
+    # Netzladung in günstigen Slots bzw. Entladung sperren, um Akku-Energie für
+    # teurere Slots aufzusparen. Notfall/Einspeisebegrenzung/EVCC stehen davor.
+    if _plan_charge:
+        return MaestroDecision(
+            phase=PHASE_GRID_CHARGE,
+            reason=(
+                f"Preisplan: Netzladung jetzt – SoC {state.soc:.0f}% → "
+                f"{price_plan.target_soc:.0f}%"
+            ),
+            power_mode=POWER_MODE_CHARGE,
+            charge_power_limit=params.max_charge_power,
+            target_soc=price_plan.target_soc,
+            target_charge_power=params.max_charge_power,
+        )
+    if _plan_hold:
+        return MaestroDecision(
+            phase=PHASE_GRID_HOLD,
+            reason=(
+                f"Preisplan: Entladung halten – Akku-Energie (SoC {state.soc:.0f}%) "
+                "für teurere Slots aufsparen"
+            ),
+            power_mode=POWER_MODE_NORMAL,
+            charge_power_limit=1 if _hard_cap_reached else None,
+            discharge_power_limit=0.0,
+            target_soc=target,
+        )
 
     # ── 6. HT protection ─────────────────────────────────────────────────────────────────────
     if tariff_class == TARIFF_HIGH:

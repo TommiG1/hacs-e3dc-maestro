@@ -23,6 +23,7 @@ from .const import (
     CONF_LOWER_CORRIDOR_PAUSE_ENABLED,
     CONF_PRE_DISCHARGE_TIBBER_AUTO,
     CONF_PRICE_PLAN_ENABLED,
+    CONF_PRICE_PLAN_ACTIVE,
     CONF_DYNAMIC_TARIFF_ENABLED,
     CONF_LOW_SLOT_FORECAST_BASED,
     CONF_LOW_SLOT_HOLD_DISCHARGE,
@@ -237,7 +238,7 @@ SWITCH_DESCRIPTIONS: tuple[MaestroSwitchDescription, ...] = (
         on_fn=lambda coord: coord.update_param(CONF_LOW_SLOT_HOLD_DISCHARGE, True),
         off_fn=lambda coord: coord.update_param(CONF_LOW_SLOT_HOLD_DISCHARGE, False),
     ),
-    # Preisplan (Schattenmodus)
+    # Preisplan: Berechnung (Schalter „Schattenmodus“, Entity-ID bleibt stabil) und Steuerung
     MaestroSwitchDescription(
         key=CONF_PRICE_PLAN_ENABLED,
         name="Preisplan (Schattenmodus)",
@@ -245,6 +246,14 @@ SWITCH_DESCRIPTIONS: tuple[MaestroSwitchDescription, ...] = (
         param_key=CONF_PRICE_PLAN_ENABLED,
         on_fn=lambda coord: coord.update_param(CONF_PRICE_PLAN_ENABLED, True),
         off_fn=lambda coord: coord.update_param(CONF_PRICE_PLAN_ENABLED, False),
+    ),
+    MaestroSwitchDescription(
+        key=CONF_PRICE_PLAN_ACTIVE,
+        name="Preisplan steuert Akku",
+        icon="mdi:robot-outline",
+        param_key=CONF_PRICE_PLAN_ACTIVE,
+        on_fn=lambda coord: coord.update_param(CONF_PRICE_PLAN_ACTIVE, True),
+        off_fn=lambda coord: coord.update_param(CONF_PRICE_PLAN_ACTIVE, False),
     ),
     # E2: Ladeverteilung (Spreading)
     MaestroSwitchDescription(

@@ -825,11 +825,13 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
             }
         if key == "price_plan":
             snap = getattr(self.coordinator, "price_plan", None)
+            _active = bool(getattr(self.coordinator._params, "price_plan_active", False))
             if snap is None:
-                return {"shadow_mode": True, "enabled": False}
+                return {"shadow_mode": not _active, "controlling": False, "enabled": False}
             plan = snap.plan
             return {
-                "shadow_mode": True,
+                "shadow_mode": not _active,
+                "controlling": _active,
                 "enabled": True,
                 "status": snap.status,
                 "message": snap.message,

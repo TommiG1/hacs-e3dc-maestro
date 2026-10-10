@@ -1,4 +1,4 @@
-"""Price plan (shadow mode): compute and cache the price-based charge/hold plan."""
+"""Price plan: compute and cache the price-based charge/hold plan (optionally actuated)."""
 from __future__ import annotations
 
 import logging
@@ -9,16 +9,20 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 
 from .const import CONF_PRICE_SENSOR
 from .control_engine import (
+    PricePlanAction,
     adaptive_emergency_reserve_soc as _adaptive_emergency_reserve_soc,
     seasonal_reserve_soc as _seasonal_reserve_soc,
 )
 from .price_curve import read_price_horizon
-from .price_plan_runner import PricePlanSnapshot, compute_price_plan
+from .price_plan_runner import STATUS_OK, PricePlanSnapshot, compute_price_plan
 
 if TYPE_CHECKING:
     from .control_engine import MaestroState
 
 _LOGGER = logging.getLogger(__name__)
+
+# Ein Plan, der älter ist (z. B. Preis-Sensor ausgefallen), steuert nicht mehr.
+PRICE_PLAN_MAX_AGE_S = 20 * 60
 
 
 class CoordinatorPricePlanMixin:
@@ -29,8 +33,30 @@ class CoordinatorPricePlanMixin:
         self.price_plan = None
         self._price_plan_fingerprint = None
 
+    def _price_plan_action(self, now: datetime) -> PricePlanAction | None:
+        """Aktuelle Handlungsempfehlung – nur wenn der Plan steuern soll und frisch ist.
+
+        Ohne gültigen Plan (keine Preise, veraltet, Fehler) gibt es ``None`` und
+        Maestro regelt normal weiter (fail-safe).
+        """
+        params = self._params
+        if not (params.price_plan_enabled and params.price_plan_active):
+            return None
+        snap = self.price_plan
+        if snap is None or snap.status != STATUS_OK or snap.plan is None or snap.computed_at is None:
+            return None
+        if abs((now - snap.computed_at).total_seconds()) > PRICE_PLAN_MAX_AGE_S:
+            return None
+        plan = snap.plan
+        return PricePlanAction(
+            charge_now=plan.charge_now,
+            hold_now=plan.hold_now,
+            target_soc=plan.target_soc_pct,
+            message=plan.reason,
+        )
+
     async def _async_update_price_plan(self, state: MaestroState, now: datetime) -> None:
-        """Shadow mode: compute the plan, never touch the battery."""
+        """Compute the plan. Actuation happens in ``decide()`` only when price_plan_active is on."""
         params = self._params
         if not params.price_plan_enabled:
             if self.price_plan is not None:

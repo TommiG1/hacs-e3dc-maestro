@@ -95,6 +95,7 @@ CONF_LOW_SLOT_HOLD_DISCHARGE = "low_slot_hold_discharge"           # bool
 # Preisplan (dynamische Netzladung + Entlade-Sperre anhand der Preiskurve).
 # Schattenmodus: berechnet/zeigt den Plan, steuert nichts.
 CONF_PRICE_PLAN_ENABLED = "price_plan_enabled"                      # bool
+CONF_PRICE_PLAN_ACTIVE = "price_plan_active"                        # bool – Plan steuert den Akku
 CONF_PRICE_PLAN_MAX_SOC = "price_plan_max_soc"                      # % Obergrenze
 CONF_PRICE_PLAN_MIN_SPREAD = "price_plan_min_spread"                # €/kWh
 CONF_PRICE_PLAN_EFFICIENCY = "price_plan_efficiency"                # 0–1
@@ -350,6 +351,7 @@ DEFAULT_LOW_SLOT_TARGET_SOC = 60.0
 DEFAULT_LOW_SLOT_FORECAST_BASED = False
 DEFAULT_LOW_SLOT_HOLD_DISCHARGE = True
 DEFAULT_PRICE_PLAN_ENABLED = False
+DEFAULT_PRICE_PLAN_ACTIVE = False
 DEFAULT_PRICE_PLAN_MAX_SOC = 90.0
 DEFAULT_PRICE_PLAN_MIN_SPREAD = 0.03
 DEFAULT_PRICE_PLAN_EFFICIENCY = 0.90

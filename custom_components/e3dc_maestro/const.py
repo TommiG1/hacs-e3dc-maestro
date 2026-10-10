@@ -90,6 +90,7 @@ CONF_LOW_SLOT_TARGET_SOC = "low_slot_target_soc"                    # % SoC-Ziel
 # nachgeladen, wie laut morgiger Verbrauchs-/PV-Prognose nötig ist
 # (low_slot_target_soc wirkt dann als Obergrenze).
 CONF_LOW_SLOT_FORECAST_BASED = "low_slot_forecast_based"           # bool
+CONF_LOW_SLOT_HOLD_DISCHARGE = "low_slot_hold_discharge"           # bool
 
 # Preisplan (dynamische Netzladung + Entlade-Sperre anhand der Preiskurve).
 # Schattenmodus: berechnet/zeigt den Plan, steuert nichts.
@@ -276,6 +277,7 @@ PHASE_MORNING_CAP = "morning_cap"                # F0: Morning-SoC-Cap aktiv
 PHASE_HARD_SOC_LIMIT = "hard_soc_limit"          # G0: Fester Max-SoC-Deckel (Akku-Schonung)
 PHASE_FAST_FLOOR = "fast_floor"                  # Schnelllade-Boden: voller PV-Überschuss bis Floor-SoC
 PHASE_GRID_CHARGE = "grid_charge"                # aktive Netzladung im low-Slot (NT-Fenster)
+PHASE_GRID_HOLD = "grid_hold"                    # Ziel erreicht: Akku halten, Haus aus günstigem Netz
 PHASE_FORCE_DISCHARGE = "force_discharge"        # manueller Schalter im Dashboard
 PHASE_IDLE = "idle"                              # kein Bedarf
 
@@ -318,6 +320,7 @@ ALL_PHASES = [
     PHASE_HARD_SOC_LIMIT,
     PHASE_FAST_FLOOR,
     PHASE_GRID_CHARGE,
+    PHASE_GRID_HOLD,
     PHASE_CORRIDOR,
     PHASE_PV_DELAY,
     PHASE_SPREADING,
@@ -345,6 +348,7 @@ DEFAULT_MAX_GRID_CHARGE_KWH = 3.0
 DEFAULT_LOW_SLOT_GRID_CHARGE_ENABLED = False
 DEFAULT_LOW_SLOT_TARGET_SOC = 60.0
 DEFAULT_LOW_SLOT_FORECAST_BASED = False
+DEFAULT_LOW_SLOT_HOLD_DISCHARGE = True
 DEFAULT_PRICE_PLAN_ENABLED = False
 DEFAULT_PRICE_PLAN_MAX_SOC = 90.0
 DEFAULT_PRICE_PLAN_MIN_SPREAD = 0.03

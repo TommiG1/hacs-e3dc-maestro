@@ -25,6 +25,7 @@ from .const import (
     CONF_PRICE_PLAN_ENABLED,
     CONF_DYNAMIC_TARIFF_ENABLED,
     CONF_LOW_SLOT_FORECAST_BASED,
+    CONF_LOW_SLOT_HOLD_DISCHARGE,
     CONF_LOW_SLOT_GRID_CHARGE_ENABLED,
     CONF_SPREADING_ENABLED,
     CONF_ASTRO_ENABLED,
@@ -227,6 +228,14 @@ SWITCH_DESCRIPTIONS: tuple[MaestroSwitchDescription, ...] = (
         param_key=CONF_LOW_SLOT_FORECAST_BASED,
         on_fn=lambda coord: coord.update_param(CONF_LOW_SLOT_FORECAST_BASED, True),
         off_fn=lambda coord: coord.update_param(CONF_LOW_SLOT_FORECAST_BASED, False),
+    ),
+    MaestroSwitchDescription(
+        key=CONF_LOW_SLOT_HOLD_DISCHARGE,
+        name="Entladung im low-Slot nach Ziel sperren",
+        icon="mdi:battery-lock",
+        param_key=CONF_LOW_SLOT_HOLD_DISCHARGE,
+        on_fn=lambda coord: coord.update_param(CONF_LOW_SLOT_HOLD_DISCHARGE, True),
+        off_fn=lambda coord: coord.update_param(CONF_LOW_SLOT_HOLD_DISCHARGE, False),
     ),
     # Preisplan (Schattenmodus)
     MaestroSwitchDescription(

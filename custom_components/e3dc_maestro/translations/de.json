@@ -118,6 +118,7 @@
           "low_slot_grid_charge_enabled": "Aktive Netzladung im low-Slot",
           "low_slot_target_soc": "Netzlade-Ziel im low-Slot (% SoC)",
           "low_slot_forecast_based": "Netzlade-Menge prognosebasiert",
+          "low_slot_hold_discharge": "Entladung im low-Slot nach Ziel sperren",
           "price_plan_enabled": "Preisplan (Schattenmodus)",
           "price_plan_max_soc": "Preisplan: Ziel-SoC Obergrenze (%)",
           "price_plan_min_spread": "Preisplan: Mindest-Preisspanne (€/kWh)",
@@ -440,6 +441,7 @@
           "low_slot_grid_charge_enabled": "Aktive Netzladung im low-Slot",
           "low_slot_target_soc": "Netzlade-Ziel im low-Slot (% SoC)",
           "low_slot_forecast_based": "Netzlade-Menge prognosebasiert",
+          "low_slot_hold_discharge": "Entladung im low-Slot nach Ziel sperren",
           "price_plan_enabled": "Preisplan (Schattenmodus)",
           "price_plan_max_soc": "Preisplan: Ziel-SoC Obergrenze (%)",
           "price_plan_min_spread": "Preisplan: Mindest-Preisspanne (€/kWh)",
@@ -454,6 +456,7 @@
           "low_slot_grid_charge_enabled": "Lädt in einem low-Slot aktiv aus dem Netz, bis der Ziel-SoC erreicht ist – unabhängig vom Tarif-Modus. Nützlich für klassische NT-Fenster, um die Zeit bis zur PV-Deckung zu überbrücken. Begrenzt durch das Tagesbudget oben.",
           "low_slot_target_soc": "Ziel-SoC, bis zu dem im low-Slot aus dem Netz geladen wird. Bei prognosebasierter Menge wirkt dieser Wert als Obergrenze.",
           "low_slot_forecast_based": "Statt fixem Ziel-SoC wird nur so viel nachgeladen, wie laut morgiger PV-/Verbrauchsprognose nötig ist (benötigt die Sensoren für Prognose morgen + Verbrauch morgen). Der Ziel-SoC oben ist dann die Obergrenze. Fehlen Prognosedaten, gilt der feste Ziel-SoC.",
+          "low_slot_hold_discharge": "Ist das Netzlade-Ziel im low-Slot erreicht, wird die Akku-Entladung gesperrt und das Haus läuft aus dem günstigen Netz. Verhindert das ständige Entladen und Wiederaufladen um den Ziel-SoC. PV-Überschuss darf weiter laden.",
           "price_plan_enabled": "Berechnet anhand der Preiskurve (Preis-Sensor mit raw_today/raw_tomorrow o. ä.), wann sich Netzladung und Entlade-Sperre lohnen. Aktuell nur Anzeige (Sensor „Preisplan“) – es wird nichts gesteuert. Voraussetzungen: Preis-Sensor (oben), Akku-Kosten/Zyklen, Einspeisevergütung, PV-Prognose-Sensor und Max. Netzladung/Tag. Anleitung: Dashboard → Netz & Tarif → „Hilfe zum Preisplan“.",
           "price_plan_max_soc": "Der Preisplan lädt höchstens bis zu diesem SoC.",
           "price_plan_min_spread": "Netzladung wird nur geplant, wenn der erwartete Preisvorteil nach Verlusten mindestens so groß ist.",
@@ -605,6 +608,7 @@
           "hard_soc_limit": "Hard-SoC-Limit aktiv",
           "fast_floor": "Schnelllade-Boden",
           "grid_charge": "Netzladung (günstiger Slot)",
+          "grid_hold": "Netzladung-Ziel erreicht (Entladung gesperrt)",
           "idle": "Bereitschaft"
         }
       },

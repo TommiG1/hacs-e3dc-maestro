@@ -118,6 +118,7 @@
           "low_slot_grid_charge_enabled": "Active grid charging in low slot",
           "low_slot_target_soc": "Grid charge target in low slot (% SoC)",
           "low_slot_forecast_based": "Forecast-based grid charge amount",
+          "low_slot_hold_discharge": "Block discharge in low slot after target",
           "price_plan_enabled": "Price plan (shadow mode)",
           "price_plan_max_soc": "Price plan: max target SoC (%)",
           "price_plan_min_spread": "Price plan: minimum price spread (€/kWh)",
@@ -440,6 +441,7 @@
           "low_slot_grid_charge_enabled": "Active grid charging in low slot",
           "low_slot_target_soc": "Grid charge target in low slot (% SoC)",
           "low_slot_forecast_based": "Forecast-based grid charge amount",
+          "low_slot_hold_discharge": "Block discharge in low slot after target",
           "price_plan_enabled": "Price plan (shadow mode)",
           "price_plan_max_soc": "Price plan: max target SoC (%)",
           "price_plan_min_spread": "Price plan: minimum price spread (€/kWh)",
@@ -454,6 +456,7 @@
           "low_slot_grid_charge_enabled": "Actively charges from the grid during a low slot until the target SoC is reached – regardless of the tariff mode. Useful for classic NT windows to bridge the time until PV coverage. Limited by the daily budget above.",
           "low_slot_target_soc": "Target SoC up to which the battery is charged from the grid during the low slot. With forecast-based amount, this value acts as the upper limit.",
           "low_slot_forecast_based": "Instead of a fixed target SoC, only as much is recharged as is needed according to tomorrow's PV/consumption forecast (requires the sensors for forecast tomorrow + consumption tomorrow). The target SoC above then acts as the upper limit. If forecast data is missing, the fixed target SoC applies.",
+          "low_slot_hold_discharge": "Once the grid-charge target is reached in the low slot, battery discharge is blocked and the house runs on cheap grid power. Prevents constantly discharging and recharging around the target SoC. PV surplus may still charge.",
           "price_plan_enabled": "Uses the price curve (price sensor with raw_today/raw_tomorrow or similar) to compute when grid charging and a discharge hold pay off. Display only for now (sensor \"Price plan\") – nothing is controlled. Prerequisites: price sensor (above), battery cost/cycles, feed-in tariff, PV forecast sensor and max grid charge/day. Guide: dashboard → Grid & Tariff → \"Help for the price plan\".",
           "price_plan_max_soc": "The price plan charges at most up to this SoC.",
           "price_plan_min_spread": "Grid charging is only planned if the expected price advantage after losses is at least this large.",
@@ -605,6 +608,7 @@
           "hard_soc_limit": "Hard SoC limit active",
           "fast_floor": "Fast charge floor",
           "grid_charge": "Grid charging (cheap slot)",
+          "grid_hold": "Grid-charge target reached (discharge held)",
           "idle": "Idle"
         }
       },

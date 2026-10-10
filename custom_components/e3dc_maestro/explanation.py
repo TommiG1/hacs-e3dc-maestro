@@ -106,6 +106,13 @@ def decision_explanation(coord) -> str:
             f"Netz auf {target}% geladen, um die Zeit bis zur PV-Deckung zu "
             "überbrücken. Begrenzt durch das Tagesbudget für Netzladung."
         )
+    elif phase == "grid_hold":
+        target = _f(dec.target_soc)
+        text = (
+            f"Günstiger Slot, Ziel {target}% erreicht: Die Entladung ist "
+            "gesperrt, das Haus läuft aus dem günstigen Netz. So wird der Akku "
+            "nicht entladen und kurz darauf wieder nachgeladen."
+        )
     elif phase == "force_discharge":
         pw = _f(getattr(p, "force_discharge_power_w", None))
         text = (

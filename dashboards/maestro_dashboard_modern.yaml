@@ -416,6 +416,7 @@ button_card_templates:
                 corridor:           ['#1565c0', '#1e88e5'],
                 spreading:          ['#00695c', '#26a69a'],
                 grid_charge:        ['#283593', '#5c6bc0'],
+                grid_hold:          ['#1a237e', '#3949ab'],
                 idle:               ['#37474f', '#546e7a'],
                 normal:             ['#1b5e20', '#2e7d32']
               };
@@ -545,7 +546,7 @@ button_card_templates:
             hard_soc_limit: 'battery-lock', fast_floor: 'battery-charging-high',
             corridor: 'battery-charging', spreading: 'chart-bell-curve',
             reserve_protection: 'shield-half-full', evcc_pause: 'ev-plug-type2',
-            ht_protection: 'clock-alert', grid_charge: 'transmission-tower-import',
+            ht_protection: 'clock-alert', grid_charge: 'transmission-tower-import', grid_hold: 'battery-lock',
             idle: 'pause-circle-outline', normal: 'auto-mode'
           };
           const name = low ? 'weather-cloudy-clock' : (iconmap[p] || 'state-machine');
@@ -563,7 +564,7 @@ button_card_templates:
             hard_soc_limit: 'Hard-SoC-Limit', fast_floor: 'Schnelllade-Boden',
             corridor: 'Lade-Korridor', spreading: 'Ladeverteilung',
             reserve_protection: 'Reserve-Schutz', ht_protection: 'HT-Schutz',
-            grid_charge: 'Netzladung (günstig)',
+            grid_charge: 'Netzladung (günstig)', grid_hold: 'Ziel erreicht (halten)',
             evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
           };
           return names[p] || p;
@@ -890,7 +891,7 @@ button_card_templates:
             fast_floor: 'battery-charging-high', corridor: 'battery-charging',
             spreading: 'chart-bell-curve', reserve_protection: 'shield-half-full',
             evcc_pause: 'ev-plug-type2', ht_protection: 'clock-alert',
-            grid_charge: 'transmission-tower-import', idle: 'pause-circle-outline',
+            grid_charge: 'transmission-tower-import', grid_hold: 'battery-lock', idle: 'pause-circle-outline',
             normal: 'auto-mode'
           };
           const p = entity.state;
@@ -921,7 +922,7 @@ button_card_templates:
             morning_discharge: 'Morgen-Vorentladung', hard_soc_limit: 'Hard-SoC-Limit',
             fast_floor: 'Schnelllade-Boden', corridor: 'Lade-Korridor',
             spreading: 'Ladeverteilung', reserve_protection: 'Reserve-Schutz',
-            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)',
+            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)', grid_hold: 'Ziel erreicht (halten)',
             evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
           };
           const p = entity.state;
@@ -971,7 +972,7 @@ button_card_templates:
             morning_discharge: 'Morgen-Vorentladung', hard_soc_limit: 'Hard-SoC-Limit',
             fast_floor: 'Schnelllade-Boden', corridor: 'Lade-Korridor',
             spreading: 'Ladeverteilung', reserve_protection: 'Reserve-Schutz',
-            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)',
+            ht_protection: 'HT-Schutz', grid_charge: 'Netzladung (günstig)', grid_hold: 'Ziel erreicht (halten)',
             evcc_pause: 'EVCC-Pause', idle: 'Leerlauf', normal: 'Normalbetrieb'
           };
           const hist = (entity.attributes && entity.attributes.history) || [];
@@ -1086,7 +1087,7 @@ views:
                   const max = states['number.e3dc_maestro_max_ladeleistung'];
                   const names = {
                     corridor: 'Korridor', spreading: 'Spreading', idle: 'Idle',
-                    pv_delay: 'PV-Delay', grid_charge: 'Netzladung',
+                    pv_delay: 'PV-Delay', grid_charge: 'Netzladung', grid_hold: 'Halten',
                     feed_in_limit: 'Einspeise', curtailment_guard: 'Abregel',
                     emergency: 'Notfall', hard_soc_limit: 'Hard-SoC',
                     force_discharge: 'Entladung', off: 'Aus'
@@ -1421,7 +1422,7 @@ views:
                     morning_discharge: 'Vorentladung', hard_soc_limit: 'Hard-SoC',
                     fast_floor: 'Schnellboden', corridor: 'Korridor',
                     spreading: 'Spreading', reserve_protection: 'Reserve',
-                    ht_protection: 'HT-Schutz', grid_charge: 'Netzladung',
+                    ht_protection: 'HT-Schutz', grid_charge: 'Netzladung', grid_hold: 'Halten',
                     evcc_pause: 'EVCC', idle: 'Idle', normal: 'Normal'
                   };
                   const p = (phase && ok(phase.state)) ? (names[phase.state] || phase.state) : '—';
@@ -2012,6 +2013,7 @@ views:
                 'reserve_protection': 'Reserve-Schutz',
                 'ht_protection': 'HT-Schutz',
                 'grid_charge': 'Netzladung (günstig)',
+                'grid_hold': 'Ziel erreicht (halten)',
                 'evcc_pause': 'EVCC-Pause',
                 'idle': 'Leerlauf',
                 'normal': 'Normalbetrieb'
@@ -2710,6 +2712,8 @@ views:
                 name: Netzlade-Ziel im low-Slot (% SoC)
               - entity: switch.e3dc_maestro_netzlade_menge_prognosebasiert
                 name: Netzlade-Menge prognosebasiert
+              - entity: switch.e3dc_maestro_entladung_im_low_slot_nach_ziel_sperren
+                name: Entladung nach Ziel sperren
               - type: button
                 name: "Hilfe Dynamischer Tarif"
                 icon: mdi:help-circle-outline
@@ -4013,6 +4017,7 @@ views:
               | 11 | **hard_soc_limit** | Harter Max-SoC-Deckel (Akku-Schonung) |
               | 12 | **fast_floor** | Schnelllade-Boden: voller PV-Überschuss bis Floor-SoC |
               | 13 | **grid_charge** | Aktive Netzladung im `low`-Slot bis Ziel-SoC (NT-Fenster) |
+              | 13b | **grid_hold** | Ziel im `low`-Slot erreicht: Entladung gesperrt, Haus läuft aus dem günstigen Netz |
               | 14 | **pv_delay** | Gute PV-Prognose → Korridor-Ladung verzögert |
               | 15 | **corridor** | Saisonaler Ladekorridor / Schwacher-PV-Tag-Überschuss |
               | 16 | **spreading** | Ladeverteilung über Restzeit bis Ladeende |

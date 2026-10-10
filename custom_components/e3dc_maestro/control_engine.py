@@ -102,6 +102,10 @@ class MaestroParams:
     # Prognosebasiert: nur so viel nachladen, wie laut morgiger Prognose nötig
     # (low_slot_target_soc wird dann zur Obergrenze).
     low_slot_forecast_based: bool = False
+    # Nach Erreichen des Netzlade-Ziels im low-Slot die Entladung sperren
+    # (Haus läuft aus dem günstigen Netz), statt den Akku zu entladen und
+    # kurz darauf wieder nachzuladen (Lade-/Entlade-Schwingen, Issue #15).
+    low_slot_hold_discharge: bool = True
     # Preisplan (Schattenmodus): Plan aus der Preiskurve berechnen und anzeigen.
     price_plan_enabled: bool = False
     price_plan_max_soc: float = 90.0
@@ -1179,6 +1183,7 @@ def _decide_core(
         PHASE_SPREADING,
         PHASE_FAST_FLOOR,
         PHASE_GRID_CHARGE,
+        PHASE_GRID_HOLD,
         POWER_MODE_CHARGE,
         POWER_MODE_DISCHARGE,
         POWER_MODE_IDLE,
@@ -1407,6 +1412,38 @@ def _decide_core(
                 power_mode=POWER_MODE_IDLE,
                 target_soc=target,
             )
+    # ── 6.4 Low-Slot-Halten: Netzlade-Ziel erreicht → Entladung sperren ───────────────
+    # Ohne diese Sperre entlädt das Haus den Akku unter das Ziel, die aktive
+    # Netzladung (§6.97) lädt kurz darauf wieder nach – Lade-/Entlade-Schwingen
+    # im Minutentakt (Issue #15). Solange der günstige Slot läuft und das Ziel
+    # erreicht ist, versorgt das Netz das Haus; der Akku bleibt auf Ziel-SoC.
+    # PV-Überschuss darf weiter laden, außer der harte Max-SoC-Deckel greift.
+    if (
+        params.low_slot_grid_charge_enabled
+        and params.low_slot_hold_discharge
+        and tariff_class == TARIFF_LOW
+        and not curtailment_guard_active
+    ):
+        _hold_target = low_slot_grid_charge_target(state, params)
+        if _hold_target > 0 and state.soc >= _hold_target:
+            _hold_cap = (
+                1
+                if params.hard_soc_limit_enabled and state.soc >= params.hard_soc_limit
+                else None
+            )
+            return MaestroDecision(
+                phase=PHASE_GRID_HOLD,
+                reason=(
+                    f"Günstiger Slot: Ziel {_hold_target:.0f}% erreicht "
+                    f"(SoC {state.soc:.0f}%) – Entladung gesperrt, "
+                    "Haus läuft aus dem günstigen Netz"
+                ),
+                power_mode=POWER_MODE_NORMAL,
+                charge_power_limit=_hold_cap,
+                discharge_power_limit=0.0,
+                target_soc=_hold_target,
+            )
+
     # ── 6.5 Morning Pre-Discharge ──────────────────────────────────────────────────────
     _md_decision = _morning_discharge_decision(
         state, params, now, target, current_price

@@ -11,6 +11,19 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.3.30] – Fix: Netzladung im low-Slot ohne künstliche Bremse (Issue #15) (2026-10-10)
+
+### Behoben
+- **Schnelllade-Boden / Morning-Cap / Astro-Wait blockierten die aktive
+  Netzladung im low-Slot**
+  ([#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15) Follow-up):
+  Unter dem Floor-SoC (oder mit Morning-Cap / Astro-Wait) fing Maestro die
+  Entscheidung vor `grid_charge` ab. Solange Netzlade-Ziel und Tagesbudget
+  offen sind, weichen diese Phasen jetzt. **Schonladung** und **Anlauf-Rampe**
+  greifen für `grid_charge` nicht mehr – volle Leistung im günstigen Fenster.
+
+---
+
 ## [0.3.29] – Fix: Lade-/Entlade-Schwingen im günstigen Slot (Issue #15) (2026-10-10)
 
 ### Behoben

@@ -37,11 +37,8 @@ from .const import (
     EWMA_JUMP_THRESHOLD_W,
     EWMA_TAU_S,
     PHASE_CURTAILMENT_GUARD,
-    PHASE_EMERGENCY,
     PHASE_FEED_IN_LIMIT,
-    PHASE_FORCE_DISCHARGE,
     PHASE_IDLE,
-    PHASE_MORNING_DISCHARGE,
     PHASE_OFF,
     STAT_BATTERY_THROUGHPUT_TODAY,
     STAT_BATTERY_WEAR_TODAY_EUR,
@@ -77,6 +74,7 @@ from .coordinator_helpers import (
     POWER_DEBOUNCE_W,
     _action_history_changed,
     _build_power_mode_data,
+    _FULL_POWER_PHASES,
     _effective_discharge_limit_w,
     energy_interval_hours as _energy_interval_hours,
     _ewma_update,
@@ -619,13 +617,9 @@ class E3DCMaestroCoordinator(
             self._last_applied_charge_power = 0
 
         # F0: Gentle-Charge – scale charge power for comfort phases
-        _GENTLE_SKIP = {
-            PHASE_OFF, PHASE_EMERGENCY, PHASE_FEED_IN_LIMIT,
-            PHASE_CURTAILMENT_GUARD, PHASE_MORNING_DISCHARGE, PHASE_FORCE_DISCHARGE,
-        }
         if (
             active.gentle_charge_enabled
-            and decision.phase not in _GENTLE_SKIP
+            and decision.phase not in _FULL_POWER_PHASES
             and decision.charge_power_limit is not None
         ):
             decision = dataclasses.replace(

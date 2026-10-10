@@ -11,6 +11,62 @@ einen eigenen Versionsabschnitt verschieben.
 
 ---
 
+## [0.4.0-beta.5] – Preisplan steuert + stabile Dashboard-Charts (2026-10-10)
+
+> **Beta mit echter Steuerung** (Inhalt von beta.4) **plus** stabiler Apex-Chart.
+> Standardmäßig ist die Preisplan-Steuerung **aus** – wer nichts einschaltet,
+> merkt keinen Unterschied außer dem Dashboard-Fix. Enthält außerdem den Fix
+> aus 0.3.29.
+
+### Behoben
+- **Apex-Chart im Dashboard:** Der Verlaufs-Chart (PV/Haus/Netz/Akku/SoC) nutzte
+  installationsabhängige Platzhalter-Entity-IDs (`sensor.e3dc_pv_power`,
+  `sensor.e3dc_house_power`, `sensor.e3dc_grid_power`,
+  `sensor.e3dc_battery_power`, `sensor.e3dc_soc`), die nach jedem
+  Dashboard-Update wieder auf "Entity not available" zurückfielen. Neue
+  stabile Maestro-Mirror-Sensoren (`sensor.e3dc_maestro_pv_power`,
+  `_house_power`, `_grid_power`, `_battery_power`, analog zum bestehenden
+  `sensor.e3dc_maestro_aktueller_soc`) spiegeln die in der Konfiguration
+  hinterlegten Quell-Sensoren — beide Dashboards (Classic und Modern)
+  funktionieren jetzt ohne manuelle Anpassung, installationsunabhängig.
+- Lade-/Entlade-Schwingen im günstigen Slot
+  ([#15](https://github.com/TommiG1/hacs-e3dc-maestro/issues/15)) – siehe
+  0.3.29 unten (neue Option „Entladung im low-Slot nach Ziel sperren“).
+
+### Neu
+- **Preisplan steuert den Akku** (neuer Schalter
+  `switch.e3dc_maestro_preisplan_steuert_akku`, auch im Dashboard Tab „Netz &
+  Tarif“ und in den Einstellungen unter Tarif & Kosten). Setzt „Preisplan
+  berechnen“ voraus (bisher „Preisplan (Schattenmodus)“, Entity-ID
+  `switch.e3dc_maestro_preisplan_schattenmodus` bleibt unverändert).
+  - **Netzladung jetzt:** Phase `grid_charge` (Grund „Preisplan: …“), maximale
+    Ladeleistung bis zum geplanten Ziel-SoC, begrenzt durch **Max.
+    Netzladung/Tag**, die **Ziel-SoC-Obergrenze** und einen aktiven
+    Max-SoC-Deckel.
+  - **Entladung halten:** neue Phase `grid_hold`. Die Entladung wird gesperrt,
+    das Haus läuft aus dem Netz, um Akku-Energie für teurere Slots zu sparen.
+    PV-Überschuss lädt weiter.
+  - **Vorrang:** Notfallladung, Einspeisebegrenzung, EVCC-Sperre und
+    Abregelschutz stehen vor dem Plan. Der Plan darf unter die Notstromreserve
+    laden, sperrt aber nie die Ladung.
+  - **Fail-safe:** Ist der Plan älter als 20 Minuten (Preis-Sensor ausgefallen,
+    keine Preise mehr), regelt Maestro wie gewohnt ohne Plan.
+  - Sensor `sensor.e3dc_maestro_preisplan`: Attribut `controlling` zeigt, ob der
+    Plan gerade steuern darf (`shadow_mode` = Gegenteil).
+- Neue Phase `grid_hold` in Dashboard (Classic + Modern), Phasen-Glossar und
+  Erklärungs-Sensor.
+- Stabile Power-Mirror-Sensoren für Dashboards (siehe oben unter Behoben).
+
+### Geändert
+- Hilfeseite „Preisplan“, README und Dashboard-Texte beschreiben jetzt
+  Einrichtung, Reihenfolge der Prioritäten und Fehlersuche für den steuernden
+  Betrieb.
+- Schalter „Preisplan berechnen“ (vorher „Preisplan (Schattenmodus)“).
+- Classic- und Modern-Dashboard: Apex-/Power-Karten nutzen die Maestro-Mirror-
+  Entity-IDs statt roher E3DC-Platzhalter.
+
+---
+
 ## [0.4.0-beta.4] – Preisplan steuert jetzt echt (dynamisches Laden) (2026-10-10)
 
 > **Beta mit echter Steuerung.** Anders als beta.1–3 kann der Preisplan den Akku

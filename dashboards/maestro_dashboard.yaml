@@ -601,31 +601,31 @@ views:
             borderColor: "#78909c"
         series:
           # Ist-Verlauf
-          - entity: sensor.e3dc_soc
+          - entity: sensor.e3dc_maestro_aktueller_soc
             name: SoC
             yaxis_id: soc
             color: "#e040fb"
             group_by: { func: avg, duration: 15min }
             extend_to: now
-          - entity: sensor.e3dc_pv_power
+          - entity: sensor.e3dc_maestro_pv_power
             name: PV
             yaxis_id: power
             color: "#ffeb3b"
             group_by: { func: avg, duration: 15min }
             extend_to: now
-          - entity: sensor.e3dc_house_power
+          - entity: sensor.e3dc_maestro_house_power
             name: Haus
             yaxis_id: power
             color: "#a1887f"
             group_by: { func: avg, duration: 15min }
             extend_to: now
-          - entity: sensor.e3dc_grid_power
+          - entity: sensor.e3dc_maestro_grid_power
             name: Netz
             yaxis_id: power
             color: "#42a5f5"
             group_by: { func: avg, duration: 15min }
             extend_to: now
-          - entity: sensor.e3dc_battery_power
+          - entity: sensor.e3dc_maestro_battery_power
             name: Akku
             yaxis_id: power
             color: "#66bb6a"

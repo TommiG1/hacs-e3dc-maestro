@@ -800,9 +800,8 @@ Or replace an existing dashboard via the raw configuration editor.
 ### Variant: Modern dashboard (manual)
 
 [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
-is an optional modern look (live energy flow, graphs). It is **not** offered
-automatically because five **installation-specific** raw E3DC entity IDs at the
-top of the file must be adjusted first.
+is an optional modern look (live energy flow, graphs). It is **not** registered
+as a community dashboard, so the manual YAML import below is required.
 
 **Additional custom cards (HACS → Frontend):**
 
@@ -815,11 +814,11 @@ top of the file must be adjusted first.
 
 > Help links need slug **`e3dc-maestro-modern`** → title **E3DC Maestro Modern**.
 
-**Before importing**, replace the placeholders
-(`sensor.e3dc_pv_power`, `sensor.e3dc_house_power`,
-`sensor.e3dc_grid_power`, `sensor.e3dc_battery_power`,
-`sensor.e3dc_soc`) with your real E3DC sensors, then import YAML as in the
-fallback.
+The dashboard relies exclusively on the stable Maestro mirror sensors
+(`sensor.e3dc_maestro_pv_power`, `sensor.e3dc_maestro_house_power`,
+`sensor.e3dc_maestro_grid_power`, `sensor.e3dc_maestro_battery_power`,
+`sensor.e3dc_maestro_aktueller_soc`) — no adjustment needed. Just import the
+YAML as in the fallback.
 
 ---
 

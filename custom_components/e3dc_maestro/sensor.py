@@ -28,6 +28,11 @@ from .sensor_device import device_info as _device_info
 @dataclass(frozen=True, kw_only=True)
 class MaestroSensorDescription(SensorEntityDescription):
     value_fn: Any = None
+    # Fixed object_id (without "sensor." prefix) for entities that dashboards
+    # depend on by entity_id. Set once on first registration, independent of
+    # the (translatable) display `name`, so the entity_id never changes across
+    # installations or language settings. See README: "Mirror-Sensoren".
+    stable_object_id: str | None = None
 
 
 SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
@@ -67,6 +72,66 @@ SENSOR_DESCRIPTIONS: tuple[MaestroSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda coord: (
             round(coord.data["state"].soc, 1)
+            if coord.data and "state" in coord.data
+            else None
+        ),
+    ),
+    # Stabile Mirror-Sensoren für die normalisierten Leistungswerte aus
+    # MaestroState. Installationsunabhängig: Dashboards (Apex-Chart) nutzen
+    # ausschließlich diese Entity-IDs statt der rohen E3DC-Sensoren, die je
+    # nach Anlage/Integration unterschiedlich heißen.
+    MaestroSensorDescription(
+        key="pv_power",
+        name="PV-Leistung",
+        icon="mdi:solar-power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        stable_object_id="e3dc_maestro_pv_power",
+        value_fn=lambda coord: (
+            round(coord.data["state"].pv_power, 1)
+            if coord.data and "state" in coord.data
+            else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="house_power",
+        name="Hausleistung",
+        icon="mdi:home-lightning-bolt",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        stable_object_id="e3dc_maestro_house_power",
+        value_fn=lambda coord: (
+            round(coord.data["state"].house_power, 1)
+            if coord.data and "state" in coord.data
+            else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="grid_power",
+        name="Netzleistung",
+        icon="mdi:transmission-tower",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        stable_object_id="e3dc_maestro_grid_power",
+        value_fn=lambda coord: (
+            round(coord.data["state"].grid_power, 1)
+            if coord.data and "state" in coord.data
+            else None
+        ),
+    ),
+    MaestroSensorDescription(
+        key="battery_power",
+        name="Akku-Leistung",
+        icon="mdi:home-battery",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        stable_object_id="e3dc_maestro_battery_power",
+        value_fn=lambda coord: (
+            round(coord.data["state"].battery_power, 1)
             if coord.data and "state" in coord.data
             else None
         ),
@@ -756,6 +821,11 @@ class MaestroSensor(CoordinatorEntity[E3DCMaestroCoordinator], SensorEntity):
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{description.key}"
         self._attr_device_info = _device_info(coordinator)
+        if description.stable_object_id:
+            # Fix the entity_id on first registration so dashboards can rely
+            # on it regardless of display-name translations or the device
+            # name. Does not rename an already-registered entity.
+            self.entity_id = f"sensor.{description.stable_object_id}"
         self._last_write_fp: Any = None
 
     @callback

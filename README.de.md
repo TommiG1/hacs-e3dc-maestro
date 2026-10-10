@@ -849,8 +849,8 @@ Oder in ein bestehendes Dashboard: Raw-Editor öffnen und YAML ersetzen.
 
 Zusätzlich steht [`dashboards/maestro_dashboard_modern.yaml`](dashboards/maestro_dashboard_modern.yaml)
 zur Verfügung (moderner Look, Live-Energiefluss). Es wird **nicht** automatisch
-angeboten, weil am Dateianfang fünf **installationsabhängige** E3DC-Roh-Entity-IDs
-angepasst werden müssen.
+angeboten, weil es als Community-Dashboard nicht registriert ist — der manuelle
+YAML-Import unten ist nötig.
 
 **Zusätzliche Custom Cards (HACS → Frontend):**
 
@@ -864,11 +864,11 @@ angepasst werden müssen.
 > **Wichtig:** Hilfe-Links brauchen den Slug **`e3dc-maestro-modern`** → Titel
 > **E3DC Maestro Modern**.
 
-**Vor dem Import** die Platzhalter
-(`sensor.e3dc_pv_power`, `sensor.e3dc_house_power`,
-`sensor.e3dc_grid_power`, `sensor.e3dc_battery_power`,
-`sensor.e3dc_soc`) an deine echten E3DC-Sensoren anpassen, dann YAML wie beim
-Fallback importieren.
+Das Dashboard nutzt ausschließlich die stabilen Maestro-Mirror-Sensoren
+(`sensor.e3dc_maestro_pv_power`, `sensor.e3dc_maestro_house_power`,
+`sensor.e3dc_maestro_grid_power`, `sensor.e3dc_maestro_battery_power`,
+`sensor.e3dc_maestro_aktueller_soc`) — keine Anpassung nötig. Einfach YAML wie
+beim Fallback importieren.
 
 ### Tab-Übersicht
 

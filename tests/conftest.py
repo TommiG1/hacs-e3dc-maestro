@@ -1,6 +1,8 @@
 """Stub out homeassistant and other HA-only packages so control_engine/const can be tested."""
 import sys
 import types
+from dataclasses import dataclass
+from typing import Any
 
 
 class _AutoModule(types.ModuleType):
@@ -85,20 +87,50 @@ sys.modules["homeassistant.const"].UnitOfPower = type(  # type: ignore[attr-defi
 sys.modules["homeassistant.const"].STATE_UNAVAILABLE = "unavailable"  # type: ignore[attr-defined]
 sys.modules["homeassistant.const"].STATE_UNKNOWN = "unknown"  # type: ignore[attr-defined]
 
-# sensor component stubs used by sensor.py imports in migration tests
+# sensor component stubs used by sensor.py imports in migration tests.
+# SensorEntityDescription must be a real (frozen, kw_only) dataclass with the
+# fields sensor.py actually sets, since MaestroSensorDescription subclasses it
+# via @dataclass(frozen=True, kw_only=True) — dataclass() only picks up fields
+# declared on dataclass bases, a plain object base would silently drop them
+# from the generated __init__ signature.
+@dataclass(frozen=True, kw_only=True)
+class _SensorEntityDescriptionStub:
+    key: str = ""
+    name: Any = None
+    icon: Any = None
+    device_class: Any = None
+    native_unit_of_measurement: Any = None
+    state_class: Any = None
+    options: Any = None
+    entity_category: Any = None
+
+
 _sensor_mod = sys.modules["homeassistant.components.sensor"]
-for _name in (
+# Note: _sensor_mod is an _AutoModule, whose __getattr__ auto-vivifies (and
+# caches) a dummy attribute on first access — so a `hasattr()` guard here
+# would already see the dummy and skip assignment. Always set explicitly.
+_sensor_mod.SensorEntityDescription = _SensorEntityDescriptionStub
+_sensor_mod.SensorDeviceClass = type(
     "SensorDeviceClass",
-    "SensorEntity",
-    "SensorEntityDescription",
+    (),
+    {
+        "ENUM": "enum",
+        "POWER": "power",
+        "BATTERY": "battery",
+        "ENERGY": "energy",
+        "MONETARY": "monetary",
+    },
+)
+_sensor_mod.SensorStateClass = type(
     "SensorStateClass",
-):
-    if not hasattr(_sensor_mod, _name):
-        setattr(
-            _sensor_mod,
-            _name,
-            type(_name, (), {"__init__": lambda self, *a, **k: None}),
-        )
+    (),
+    {
+        "MEASUREMENT": "measurement",
+        "TOTAL": "total",
+        "TOTAL_INCREASING": "total_increasing",
+    },
+)
+_sensor_mod.SensorEntity = type("SensorEntity", (), {"__init__": lambda self, *a, **k: None})
 
 # battery_sizing.py does `from homeassistant.util import dt as dt_util`, which
 # goes through the homeassistant.util module object, not sys.modules directly.

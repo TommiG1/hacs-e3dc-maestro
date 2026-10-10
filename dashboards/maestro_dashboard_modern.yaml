@@ -17,22 +17,20 @@
 #   stimmt der Slug automatisch.
 #
 # =============================================================================
-# ▼▼▼ EINMALIG ANPASSEN: E3DC-Roh-Entitäten ▼▼▼
+# E3DC-Leistungs- und SoC-Entitäten
 # -----------------------------------------------------------------------------
-# Die folgenden Entity-IDs verweisen auf die Live-Leistungs- und SoC-Sensoren
-# deiner E3DC-Anlage (z. B. aus der e3dc_rscp / e3dc-Integration).
-# Ersetze sie ggf. durch deine echten Sensor-Namen — sie werden in der
-# Power-Flow-Karte (Übersicht) und in der Live-Leistungs-Mini-Graph (Cockpit)
-# verwendet.
+# Dieses Dashboard nutzt ausschließlich die stabilen Maestro-Mirror-Sensoren
+# (installationsunabhängig, keine manuelle Anpassung nötig):
 #
-#   sensor.e3dc_fronius_summe_solar_power  # PV gesamt (E3DC+Fronius, W, ≥ 0)
-#   sensor.e3dc_power_consumption_house    # Hausverbrauch  (W, ≥ 0)
-#   sensor.e3dc_grid_power                 # Netz (W, + = Bezug, − = Einspeisung)
-#   sensor.e3dc_battery_power              # Akku (W, + = laden, − = entladen)
-#   sensor.e3dc_maestro_aktueller_soc # Akku-Ladestand (%) — Maestro-Sensor
+#   sensor.e3dc_maestro_pv_power       # PV gesamt (W, ≥ 0)
+#   sensor.e3dc_maestro_house_power    # Hausverbrauch (W, ≥ 0)
+#   sensor.e3dc_maestro_grid_power     # Netz (W, + = Bezug, − = Einspeisung)
+#   sensor.e3dc_maestro_battery_power  # Akku (W, + = laden, − = entladen)
+#   sensor.e3dc_maestro_aktueller_soc  # Akku-Ladestand (%)
 #
-# Falls deine Sensoren andere Namen haben, ersetze sie unten in den
-# Karten dieses Dashboards (Suche & Ersetzen über die ganze Datei).
+# Diese Sensoren spiegeln die in der Maestro-Konfiguration hinterlegten
+# E3DC-Quell-Sensoren und bleiben über Updates und unterschiedliche
+# Installationen hinweg stabil.
 # =============================================================================
 
 title: E3DC Maestro Modern
@@ -1145,7 +1143,7 @@ views:
               meta: |
                 [[[
                   const ok = (s) => s && !['unknown','unavailable','none',''].includes(s);
-                  const hp = states['sensor.e3dc_power_consumption_house'];
+                  const hp = states['sensor.e3dc_maestro_house_power'];
                   const res = states['sensor.e3dc_maestro_notstromreserve_aktuell'];
                   let line = 'Last —';
                   if (hp && ok(hp.state)) {
@@ -1187,18 +1185,18 @@ views:
           - type: custom:power-flow-card-plus
             entities:
               grid:
-                entity: sensor.e3dc_grid_power
+                entity: sensor.e3dc_maestro_grid_power
                 invert_state: false
                 color_icon: true
               solar:
-                entity: sensor.e3dc_fronius_summe_solar_power
+                entity: sensor.e3dc_maestro_pv_power
                 color_icon: true
               battery:
-                entity: sensor.e3dc_battery_power
+                entity: sensor.e3dc_maestro_battery_power
                 state_of_charge: sensor.e3dc_maestro_aktueller_soc
                 color_icon: true
               home:
-                entity: sensor.e3dc_power_consumption_house
+                entity: sensor.e3dc_maestro_house_power
                 # Sonst summiert die Karte Quellen (Netz+Akku-Ladung → 18 kW-Fata Morgana)
                 override_state: true
                 color_icon: true
@@ -1221,7 +1219,7 @@ views:
 
           - type: custom:button-card
             template: pv_tile
-            entity: sensor.e3dc_fronius_summe_solar_power
+            entity: sensor.e3dc_maestro_pv_power
             name: PV-Erzeugung
             icon: mdi:weather-sunny
             tap_action:
@@ -1229,7 +1227,7 @@ views:
 
           - type: custom:button-card
             template: house_tile
-            entity: sensor.e3dc_power_consumption_house
+            entity: sensor.e3dc_maestro_house_power
             name: Hausverbrauch
             icon: mdi:home-lightning-bolt
             tap_action:
@@ -1237,7 +1235,7 @@ views:
 
           - type: custom:button-card
             template: power_tile
-            entity: sensor.e3dc_grid_power
+            entity: sensor.e3dc_maestro_grid_power
             name: Netz
             icon: mdi:transmission-tower
             tap_action:
@@ -1245,7 +1243,7 @@ views:
 
           - type: custom:button-card
             template: power_tile
-            entity: sensor.e3dc_battery_power
+            entity: sensor.e3dc_maestro_battery_power
             name: Akku
             icon: mdi:battery
             tap_action:
@@ -1598,16 +1596,16 @@ views:
               legend: true
               fill: fade
             entities:
-              - entity: sensor.e3dc_fronius_summe_solar_power
+              - entity: sensor.e3dc_maestro_pv_power
                 name: PV
                 color: "#f9a825"
-              - entity: sensor.e3dc_power_consumption_house
+              - entity: sensor.e3dc_maestro_house_power
                 name: Haus
                 color: "#6d4c41"
-              - entity: sensor.e3dc_grid_power
+              - entity: sensor.e3dc_maestro_grid_power
                 name: Netz
                 color: "#1976d2"
-              - entity: sensor.e3dc_battery_power
+              - entity: sensor.e3dc_maestro_battery_power
                 name: Akku
                 color: "#2e7d32"
 
@@ -1713,25 +1711,25 @@ views:
                     color: "#e040fb"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_fronius_summe_solar_power
+                  - entity: sensor.e3dc_maestro_pv_power
                     name: PV
                     yaxis_id: power
                     color: "#ffeb3b"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_power_consumption_house
+                  - entity: sensor.e3dc_maestro_house_power
                     name: Haus
                     yaxis_id: power
                     color: "#a1887f"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_grid_power
+                  - entity: sensor.e3dc_maestro_grid_power
                     name: Netz
                     yaxis_id: power
                     color: "#42a5f5"
                     group_by: { func: avg, duration: 15min }
                     extend_to: now
-                  - entity: sensor.e3dc_battery_power
+                  - entity: sensor.e3dc_maestro_battery_power
                     name: Akku
                     yaxis_id: power
                     color: "#66bb6a"
@@ -2104,16 +2102,16 @@ views:
               fill: fade
               extrema: false
             entities:
-              - entity: sensor.e3dc_fronius_summe_solar_power
+              - entity: sensor.e3dc_maestro_pv_power
                 name: PV
                 color: "#f9a825"
-              - entity: sensor.e3dc_power_consumption_house
+              - entity: sensor.e3dc_maestro_house_power
                 name: Haus
                 color: "#6d4c41"
-              - entity: sensor.e3dc_grid_power
+              - entity: sensor.e3dc_maestro_grid_power
                 name: Netz
                 color: "#1976d2"
-              - entity: sensor.e3dc_battery_power
+              - entity: sensor.e3dc_maestro_battery_power
                 name: Akku
                 color: "#2e7d32"
 

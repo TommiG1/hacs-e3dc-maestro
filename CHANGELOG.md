@@ -9,6 +9,10 @@ einen eigenen Versionsabschnitt verschieben.
 
 ## [Unreleased]
 
+---
+
+## [0.4.0-beta.3] – Korridor-Pause & Akku-Vorrang ohne P10 (2026-10-10)
+
 ### Behoben
 - **Korridor-Pause schickte PV-Überschuss ins Netz statt in den Akku**
   ([#16](https://github.com/TommiG1/hacs-e3dc-maestro/issues/16)):
@@ -22,6 +26,11 @@ einen eigenen Versionsabschnitt verschieben.
   - Liefert der Prognose-Anbieter kein P10 (z. B. Forecast.Solar), wird die
     P50-Restprognose mit Abschlag (× 0,7) bewertet. Die Akku-Priorität wird
     dadurch nicht mehr bei knapp ausreichender Prognose freigegeben.
+
+### Geändert
+- Modern-Dashboard: Badge-Hinweis trennt Heute (Schwacher-PV-Tag / niedriger
+  SoC) und Morgen (Energiedefizit) klarer; Forecast-Max/Netzbezug sind keine
+  Badge-Trigger mehr.
 
 ---
 
